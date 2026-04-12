@@ -5,6 +5,38 @@
 
 {% block content %}
   <main class="container py-4">
+    <section class="card border-primary-subtle shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h5 mb-2">Interactive Tutorial Flow</h2>
+        <p class="text-body-secondary mb-2">
+          This page is both a dev harness and an end-user style walkthrough of the
+          runtime contract. Work from top to bottom to see state sync, stream updates,
+          cancellation, and lazy hydration in one pass.
+        </p>
+        <ol class="mb-0 small">
+          <li>
+            Use the <strong>Orders</strong> table to try sorting, filtering, tabs,
+            action menus, and querystring persistence.
+          </li>
+          <li>
+            Trigger <strong>SSE refresh / prepend / append</strong> updates from the top
+            action buttons.
+          </li>
+          <li>
+            Use <strong>Session Persistence Table</strong> to confirm state survives
+            reload via <code>sessionStorage</code>.
+          </li>
+          <li>
+            Use <strong>Request Cancellation Demo</strong> to verify stale responses are
+            ignored.
+          </li>
+          <li>
+            Scroll to the bottom to trigger <strong>Lazy Summary</strong> hydration.
+          </li>
+        </ol>
+      </div>
+    </section>
+
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
       <div>
         <h1 class="display-6 mb-1">Wrapper Dev App</h1>
@@ -37,20 +69,63 @@
       </div>
     </div>
 
+    <section class="alert alert-light border mb-3">
+      <h2 class="h6 mb-1">Step 1: Stateful Table Contract</h2>
+      <p class="mb-0 small text-body-secondary">
+        Try tabs, sort headers, autocomplete, SQL/regex assist, date range, and row
+        actions. URL query params are part of the state contract.
+      </p>
+    </section>
     {% include "partials/orders_table.html" %}
+
+    <section class="alert alert-light border mt-4 mb-3">
+      <h2 class="h6 mb-1">Step 2: SSE Prepend Stream</h2>
+      <p class="mb-0 small text-body-secondary">
+        New events are prepended. If this table is off-screen, stream events buffer and
+        flush on visibility.
+      </p>
+    </section>
     <div class="mt-4">
       {% include "partials/live_table.html" %}
     </div>
+
+    <section class="alert alert-light border mt-4 mb-3">
+      <h2 class="h6 mb-1">Step 3: SSE Append Stream</h2>
+      <p class="mb-0 small text-body-secondary">
+        New events are appended at the bottom with row cap enforcement.
+      </p>
+    </section>
     <div class="mt-4">
       {% include "partials/live_append_table.html" %}
     </div>
+
+    <section class="alert alert-light border mt-4 mb-3">
+      <h2 class="h6 mb-1">Step 4: Session Persistence</h2>
+      <p class="mb-0 small text-body-secondary">
+        Change page size, apply, then reload the page. The component restores state from
+        <code>sessionStorage</code>.
+      </p>
+    </section>
     <div class="mt-4">
       {% include "partials/session_table.html" %}
     </div>
+
+    <section class="alert alert-light border mt-4 mb-3">
+      <h2 class="h6 mb-1">Step 5: Request Cancellation</h2>
+      <p class="mb-0 small text-body-secondary">
+        Click Slow then Fast. The final rendered state should remain Fast.
+      </p>
+    </section>
     <div class="mt-4">
       {% include "partials/cancel_demo.html" %}
     </div>
     <div style="height: 1000px;"></div>
+    <section class="alert alert-light border mb-3">
+      <h2 class="h6 mb-1">Step 6: Lazy Hydration</h2>
+      <p class="mb-0 small text-body-secondary">
+        This component does not request content until it enters the viewport.
+      </p>
+    </section>
     <section id="lazy-summary"
              class="card p-3"
              data-jbs-component="lazy-summary"

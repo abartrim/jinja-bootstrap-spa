@@ -95,6 +95,15 @@ For manual visual inspection snapshots:
 
 This writes desktop/mobile screenshots to `tmp/visual/`.
 
+For a short guided walkthrough video:
+
+```bash
+.venv/bin/python scripts/record_example_walkthrough.py
+```
+
+This writes `tmp/demo/wrapper-walkthrough.webm` (playable in browsers and suitable
+for docs/tutorial sharing).
+
 ## Runtime Model
 
 Each interactive fragment is a server-rendered component root:
