@@ -82,6 +82,10 @@ export declare class JBSRuntime {
     private readonly streamStore;
     private readonly streamQueue;
     private readonly streamLastSeq;
+    private readonly streamSnapshots;
+    private readonly streamCacheScopes;
+    private readonly streamStats;
+    private readonly streamFragmentCache;
     private readonly componentEtags;
     private readonly requestAbortControllers;
     private readonly requestSeq;
@@ -132,6 +136,14 @@ export declare class JBSRuntime {
     private queueStreamPayload;
     private flushStreamQueue;
     private parseStreamRows;
+    private defaultStreamStats;
+    private bumpStreamStats;
+    private fragmentCacheFor;
+    private resolveFragmentTarget;
+    private applyFragmentOps;
+    private applyStreamMeta;
+    private finalizeStreamPatch;
+    private requestRefreshFromStream;
     private tableBody;
     private tableRowById;
     private parseStreamRowHtml;

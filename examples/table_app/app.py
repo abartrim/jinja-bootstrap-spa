@@ -649,10 +649,27 @@ def push_live_append_row() -> Any:
         "source": "sse",
     }
     APPEND_ROWS.append(row)
+    page_size = 5
+    page_count = max(1, (len(APPEND_ROWS) + page_size - 1) // page_size)
     _publish_append_event(
         {
+            "v": 2,
+            "seq": APPEND_PUSH_COUNTER,
             "target": "live-append-table",
-            "action": "refresh",
+            "ops": [
+                {
+                    "op": "upsert",
+                    "id": row["id"],
+                    "position": "append",
+                    "html": _render_live_row(row["id"], row["entry"], row["source"]),
+                }
+            ],
+            "meta": {
+                "total_rows": len(APPEND_ROWS),
+                "page_count": page_count,
+                "showing_rows": min(page_size, len(APPEND_ROWS)),
+                "subtitle": "SSE stream appends rows while table metadata stays in sync.",
+            },
         }
     )
     return {"ok": True, "entry": row["entry"]}

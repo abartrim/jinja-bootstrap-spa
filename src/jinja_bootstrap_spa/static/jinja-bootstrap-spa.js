@@ -215,6 +215,10 @@ export class JBSRuntime {
         this.streamStore = new Map();
         this.streamQueue = new Map();
         this.streamLastSeq = new Map();
+        this.streamSnapshots = new Map();
+        this.streamCacheScopes = new Map();
+        this.streamStats = new Map();
+        this.streamFragmentCache = new Map();
         this.componentEtags = new Map();
         this.requestAbortControllers = new Map();
         this.requestSeq = new Map();
@@ -1012,6 +1016,7 @@ export class JBSRuntime {
             existing.shift();
         }
         this.streamQueue.set(key, existing);
+        this.bumpStreamStats(component, key, { buffered: 1 });
         component.dispatchEvent(new CustomEvent("jbs:stream-buffered", {
             detail: { pending: existing.length, component, key },
             bubbles: true,
@@ -1038,6 +1043,196 @@ export class JBSRuntime {
             return [payload.row];
         }
         return [];
+    }
+    defaultStreamStats() {
+        return {
+            received: 0,
+            applied: 0,
+            deduped: 0,
+            buffered: 0,
+            fallbackRefresh: 0,
+            resync: 0,
+            seqGap: 0,
+        };
+    }
+    bumpStreamStats(component, key, delta) {
+        const current = this.streamStats.get(key) ?? this.defaultStreamStats();
+        const next = {
+            received: current.received + (delta.received ?? 0),
+            applied: current.applied + (delta.applied ?? 0),
+            deduped: current.deduped + (delta.deduped ?? 0),
+            buffered: current.buffered + (delta.buffered ?? 0),
+            fallbackRefresh: current.fallbackRefresh + (delta.fallbackRefresh ?? 0),
+            resync: current.resync + (delta.resync ?? 0),
+            seqGap: current.seqGap + (delta.seqGap ?? 0),
+        };
+        this.streamStats.set(key, next);
+        component.dispatchEvent(new CustomEvent("jbs:stream-stats", {
+            detail: { component, key, stats: { ...next } },
+            bubbles: true,
+        }));
+    }
+    fragmentCacheFor(key) {
+        const existing = this.streamFragmentCache.get(key);
+        if (existing) {
+            return existing;
+        }
+        const created = new Map();
+        this.streamFragmentCache.set(key, created);
+        return created;
+    }
+    resolveFragmentTarget(component, op) {
+        if (op.target) {
+            return component.querySelector(op.target);
+        }
+        if (op.id) {
+            const byData = component.querySelector(`[data-jbs-fragment-id="${op.id}"]`);
+            if (byData) {
+                return byData;
+            }
+            return component.querySelector(`#${op.id}`);
+        }
+        return null;
+    }
+    applyFragmentOps(component, key, payload) {
+        const ops = Array.isArray(payload.fragment_ops) ? payload.fragment_ops : [];
+        if (ops.length === 0) {
+            return false;
+        }
+        const cache = this.fragmentCacheFor(key);
+        let applied = false;
+        for (const op of ops) {
+            const mode = op.op;
+            const target = this.resolveFragmentTarget(component, op);
+            if (!mode || !target) {
+                return false;
+            }
+            let html = op.html;
+            if (!html && op.id) {
+                html = cache.get(op.id);
+            }
+            if (op.id && html) {
+                cache.set(op.id, html);
+            }
+            if (mode === "remove") {
+                target.remove();
+                applied = true;
+                continue;
+            }
+            if (!html) {
+                return false;
+            }
+            if (mode === "replace") {
+                const template = document.createElement("template");
+                template.innerHTML = html.trim();
+                const next = template.content.firstElementChild;
+                if (!(next instanceof HTMLElement)) {
+                    return false;
+                }
+                target.replaceWith(next);
+                applied = true;
+                continue;
+            }
+            if (mode === "append") {
+                target.insertAdjacentHTML("beforeend", html);
+                applied = true;
+                continue;
+            }
+            if (mode === "prepend") {
+                target.insertAdjacentHTML("afterbegin", html);
+                applied = true;
+                continue;
+            }
+            return false;
+        }
+        return applied;
+    }
+    applyStreamMeta(component, payload) {
+        const meta = payload.meta;
+        if (!meta) {
+            return;
+        }
+        const totalRows = typeof meta.total_rows === "number" && meta.total_rows >= 0
+            ? Math.floor(meta.total_rows)
+            : null;
+        const page = typeof meta.page === "number" && meta.page > 0
+            ? Math.floor(meta.page)
+            : null;
+        const pageCount = typeof meta.page_count === "number" && meta.page_count > 0
+            ? Math.floor(meta.page_count)
+            : null;
+        const showingRows = typeof meta.showing_rows === "number" && meta.showing_rows >= 0
+            ? Math.floor(meta.showing_rows)
+            : null;
+        const tableBody = this.tableBody(component);
+        const footerLabel = component.querySelector(".card-footer small.text-body-secondary");
+        if (footerLabel && totalRows !== null) {
+            const visibleRows = showingRows ?? tableBody?.rows.length ?? 0;
+            footerLabel.textContent = `Showing ${visibleRows} of ${totalRows} ${totalRows === 1 ? "result" : "results"}`;
+        }
+        const pagerLabel = component.querySelector(".card-footer .btn-group .btn.disabled");
+        const currentPageFromLabel = (() => {
+            if (!pagerLabel?.textContent) {
+                return null;
+            }
+            const match = pagerLabel.textContent.match(/Page\s+(\d+)\s+of\s+(\d+)/i);
+            if (!match) {
+                return null;
+            }
+            const parsed = Number(match[1]);
+            if (!Number.isFinite(parsed) || parsed <= 0) {
+                return null;
+            }
+            return Math.floor(parsed);
+        })();
+        const resolvedPage = page ?? currentPageFromLabel;
+        if (pagerLabel && resolvedPage !== null && pageCount !== null) {
+            pagerLabel.textContent = `Page ${resolvedPage} of ${pageCount}`;
+        }
+        if (resolvedPage !== null && pageCount !== null) {
+            const pageButtons = component.querySelectorAll(".card-footer .btn-group button[data-jbs-action='page']");
+            const previous = pageButtons[0];
+            const next = pageButtons[1];
+            if (previous instanceof HTMLButtonElement) {
+                previous.dataset.jbsPage = String(Math.max(1, resolvedPage - 1));
+                previous.disabled = resolvedPage <= 1;
+                previous.setAttribute("aria-disabled", previous.disabled ? "true" : "false");
+            }
+            if (next instanceof HTMLButtonElement) {
+                next.dataset.jbsPage = String(Math.min(pageCount, resolvedPage + 1));
+                next.disabled = resolvedPage >= pageCount;
+                next.setAttribute("aria-disabled", next.disabled ? "true" : "false");
+            }
+        }
+        if (typeof meta.subtitle === "string") {
+            const subtitle = component.querySelector(".card-header p.text-body-secondary");
+            if (subtitle) {
+                subtitle.textContent = meta.subtitle;
+            }
+        }
+    }
+    finalizeStreamPatch(component, key, payload, mode) {
+        const nextState = stripTransientState(applyStatePatch(this.getState(component), payload.patch ?? {}));
+        this.stateStore.set(key, nextState);
+        component.dataset.jbsState = JSON.stringify(nextState);
+        this.persistState(component, key, nextState);
+        this.applyStreamMeta(component, payload);
+        if (typeof payload.snapshot === "string") {
+            this.streamSnapshots.set(key, payload.snapshot);
+        }
+        this.bumpStreamStats(component, key, { applied: 1 });
+        component.dispatchEvent(new CustomEvent("jbs:after-stream-patch", {
+            detail: { component, key, payload, mode },
+            bubbles: true,
+        }));
+    }
+    async requestRefreshFromStream(component, key, payload, action) {
+        this.bumpStreamStats(component, key, { fallbackRefresh: 1 });
+        const nextState = applyStatePatch(this.getState(component), payload.patch ?? {});
+        await this.requestComponent(component, action, nextState, null);
+        if (typeof payload.snapshot === "string") {
+            this.streamSnapshots.set(key, payload.snapshot);
+        }
     }
     tableBody(component) {
         const tableBody = component.querySelector("tbody");
@@ -1227,39 +1422,64 @@ export class JBSRuntime {
         return true;
     }
     async applyStreamPayload(component, key, payload) {
+        this.bumpStreamStats(component, key, { received: 1 });
+        if (typeof payload.cache_scope === "string") {
+            const existingScope = this.streamCacheScopes.get(key);
+            if (existingScope && existingScope !== payload.cache_scope) {
+                this.streamFragmentCache.delete(key);
+                this.streamSnapshots.delete(key);
+                this.streamCacheScopes.set(key, payload.cache_scope);
+                this.bumpStreamStats(component, key, { resync: 1 });
+                await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
+                return;
+            }
+            this.streamCacheScopes.set(key, payload.cache_scope);
+        }
         if (typeof payload.seq === "number") {
             const lastSeq = this.streamLastSeq.get(key);
             if (lastSeq !== undefined && payload.seq <= lastSeq) {
+                this.bumpStreamStats(component, key, { deduped: 1 });
+                return;
+            }
+            if (lastSeq !== undefined && payload.seq > lastSeq + 1) {
+                this.streamLastSeq.set(key, payload.seq);
+                this.bumpStreamStats(component, key, { seqGap: 1, resync: 1 });
+                await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
                 return;
             }
             this.streamLastSeq.set(key, payload.seq);
         }
-        if (payload.v === 2 && this.applyStreamOps(component, payload)) {
-            const nextState = stripTransientState(applyStatePatch(this.getState(component), payload.patch ?? {}));
-            this.stateStore.set(key, nextState);
-            component.dataset.jbsState = JSON.stringify(nextState);
-            this.persistState(component, key, nextState);
-            component.dispatchEvent(new CustomEvent("jbs:after-stream-patch", {
-                detail: { component, key, payload, mode: "replace" },
-                bubbles: true,
-            }));
+        if (payload.resync === true) {
+            this.bumpStreamStats(component, key, { resync: 1 });
+            await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
             return;
+        }
+        if (payload.v === 2) {
+            const fragmentApplied = this.applyFragmentOps(component, key, payload);
+            if (fragmentApplied) {
+                this.finalizeStreamPatch(component, key, payload, JBS_STREAM_MODES.replace);
+                return;
+            }
+            if (Array.isArray(payload.fragment_ops) && payload.fragment_ops.length > 0) {
+                await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
+                return;
+            }
+            if (this.applyStreamOps(component, payload)) {
+                this.finalizeStreamPatch(component, key, payload, this.streamMode(component, payload));
+                return;
+            }
+            if (Array.isArray(payload.ops) && payload.ops.length > 0) {
+                await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
+                return;
+            }
         }
         const mode = this.streamMode(component, payload);
         const action = payload.action ?? JBS_ACTIONS.refresh;
         if (mode !== JBS_STREAM_MODES.replace && this.applyRowFragments(component, mode, payload)) {
-            const nextState = stripTransientState(applyStatePatch(this.getState(component), payload.patch ?? {}));
-            this.stateStore.set(key, nextState);
-            component.dataset.jbsState = JSON.stringify(nextState);
-            this.persistState(component, key, nextState);
-            component.dispatchEvent(new CustomEvent("jbs:after-stream-patch", {
-                detail: { component, key, payload, mode },
-                bubbles: true,
-            }));
+            this.finalizeStreamPatch(component, key, payload, mode);
             return;
         }
-        const nextState = applyStatePatch(this.getState(component), payload.patch ?? {});
-        await this.requestComponent(component, action, nextState, null);
+        await this.requestRefreshFromStream(component, key, payload, action);
     }
     connectStream(component, key) {
         const endpoint = component.dataset.jbsSse;
