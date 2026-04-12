@@ -47,3 +47,6 @@ static/build/
 .python-version
 .env
 .env.*
+tmp/
+test-results/
+playwright-report/

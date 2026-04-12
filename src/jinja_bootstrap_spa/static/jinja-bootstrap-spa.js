@@ -85,6 +85,23 @@ function stripTransientState(state) {
     }
     return nextState;
 }
+function stableStateString(state) {
+    const normalized = Object.fromEntries(Object.entries(state)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, value]) => {
+        if (Array.isArray(value)) {
+            return [key, [...value].map((item) => String(item))];
+        }
+        if (value === null) {
+            return [key, null];
+        }
+        return [key, String(value)];
+    }));
+    return JSON.stringify(normalized);
+}
+function statesEqual(left, right) {
+    return stableStateString(left) === stableStateString(right);
+}
 function appendStateParams(url, state) {
     for (const [key, value] of Object.entries(state)) {
         url.searchParams.delete(key);
@@ -621,12 +638,16 @@ export class JBSRuntime {
             return;
         }
         const key = this.componentKey(component);
+        const serverState = stripTransientState(parseState(component.dataset.jbsState ?? null));
         const state = this.hydratedState(component, key);
         component.dataset.jbsState = JSON.stringify(state);
         component.dataset.jbsHydrated = "true";
         this.stateStore.set(key, state);
         this.connectStream(component, key);
-        this.flushStreamQueue(component, key);
+        void this.flushStreamQueue(component, key);
+        if (!statesEqual(serverState, state)) {
+            void this.requestComponent(component, JBS_ACTIONS.refresh, state, null, { persist: false });
+        }
     }
     observeLazyComponent(component) {
         if (!this.lazyObserver) {

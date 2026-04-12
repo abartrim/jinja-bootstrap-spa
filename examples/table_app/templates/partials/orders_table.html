@@ -68,6 +68,13 @@
         validate_endpoint="/api/sql-validate"
       )
     }}
+    {{
+      ui.regex_filter_input(
+        name="regex",
+        value=table_state.regex or "",
+        validate_endpoint="/api/validate-regex"
+      )
+    }}
     <button class="btn btn-sm btn-primary align-self-start" type="submit">Apply</button>
   </form>
 {% endset %}
@@ -102,7 +109,7 @@
       ui.filter_accordion(
         "orders-filters",
         body=filter_body,
-        active_badge=(table_state.status or table_state.query or table_state.customer or table_state.sql)
+        active_badge=(table_state.status or table_state.query or table_state.customer or table_state.sql or table_state.regex)
       )
     }}
   </div>
@@ -126,7 +133,7 @@
     subtitle=subtitle,
     toolbar=toolbar,
     persist="querystring",
-    state_keys=["page", "page_size", "sort_by", "sort_dir", "query", "customer", "status", "from_ts", "to_ts", "sql"],
+    state_keys=["page", "page_size", "sort_by", "sort_dir", "query", "customer", "status", "from_ts", "to_ts", "sql", "regex"],
     sse_endpoint="/events/orders"
   )
 }}

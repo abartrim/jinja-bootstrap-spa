@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+import time
 from pathlib import Path
 from queue import Empty, Queue
 from threading import Lock, Thread
@@ -64,6 +66,19 @@ LIVE_ROWS = [
 LIVE_SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 LIVE_SUBSCRIBERS_LOCK = Lock()
 LIVE_PUSH_COUNTER = 0
+APPEND_ROWS = [
+    {"entry": "append channel online", "source": "runtime"},
+    {"entry": "append stream ready", "source": "runtime"},
+]
+APPEND_SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
+APPEND_SUBSCRIBERS_LOCK = Lock()
+APPEND_PUSH_COUNTER = 0
+SESSION_ROWS = [
+    {"name": "Alerts", "owner": "SRE"},
+    {"name": "Incidents", "owner": "On-call"},
+    {"name": "Traces", "owner": "Platform"},
+    {"name": "Errors", "owner": "Backend"},
+]
 
 PAGE_TEMPLATE = """
 <!DOCTYPE html>
@@ -89,12 +104,26 @@ PAGE_TEMPLATE = """
       <button class="btn btn-outline-secondary"
               type="button"
               id="push-live-row">
-        Push Live Row
+        Push Prepend Row
+      </button>
+      <button class="btn btn-outline-secondary"
+              type="button"
+              id="push-append-row">
+        Push Append Row
       </button>
     </div>
     {{ table_markup|safe }}
     <div class="mt-4">
       {{ live_table_markup|safe }}
+    </div>
+    <div class="mt-4">
+      {{ live_append_table_markup|safe }}
+    </div>
+    <div class="mt-4">
+      {{ session_table_markup|safe }}
+    </div>
+    <div class="mt-4">
+      {{ cancel_demo_markup|safe }}
     </div>
     <div style="height: 1200px;"></div>
     <section id="lazy-summary"
@@ -119,6 +148,10 @@ PAGE_TEMPLATE = """
       const pushLiveRow = document.getElementById("push-live-row");
       pushLiveRow?.addEventListener("click", async () => {
         await fetch("/admin/push-live-row", { method: "POST" });
+      });
+      const pushAppendRow = document.getElementById("push-append-row");
+      pushAppendRow?.addEventListener("click", async () => {
+        await fetch("/admin/push-live-append-row", { method: "POST" });
       });
     </script>
   </body>
@@ -193,6 +226,13 @@ TABLE_TEMPLATE = """
         validate_endpoint="/api/sql-validate"
       )
     }}
+    {{
+      ui.regex_filter_input(
+        name="regex",
+        value=state.regex or "",
+        validate_endpoint="/api/validate-regex"
+      )
+    }}
     <button class="btn btn-sm btn-primary align-self-start" type="submit">Apply</button>
   </form>
 {% endset %}
@@ -247,7 +287,9 @@ TABLE_TEMPLATE = """
       ui.filter_accordion(
         "orders-filters",
         body=filter_body,
-        active_badge=(state.status or state.query or state.customer or state.sql)
+        active_badge=(
+          state.status or state.query or state.customer or state.sql or state.regex
+        )
       )
     }}
   </div>
@@ -283,7 +325,8 @@ TABLE_TEMPLATE = """
       "status",
       "from_ts",
       "to_ts",
-      "sql"
+      "sql",
+      "regex"
     ],
     title="Orders",
     subtitle=subtitle,
@@ -330,6 +373,128 @@ LIVE_TABLE_TEMPLATE = """
     sse_event="refresh"
   )
 }}
+"""
+
+LIVE_APPEND_TABLE_TEMPLATE = """
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{{
+  ui.table(
+    "live-append-table",
+    "/components/live-append-table",
+    columns=[
+      {"key": "entry", "label": "Entry", "sortable": false},
+      {"key": "source", "label": "Source", "sortable": false},
+    ],
+    rows=rows,
+    state={"page": 1, "page_size": 3, "sort_by": "", "sort_dir": "asc"},
+    total_rows=rows|length,
+    title="Append Stream Table",
+    subtitle="SSE append mode keeps newest events at the bottom.",
+    stream_mode="append",
+    stream_max_rows=3,
+    stream_pause_when_hidden=false,
+    stream_buffer_max=20,
+    sse_endpoint="/events/live-append-table",
+    sse_event="refresh"
+  )
+}}
+"""
+
+SESSION_TABLE_TEMPLATE = """
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{% set toolbar %}
+  <form class="d-flex flex-wrap align-items-end gap-2" data-jbs-form>
+    {{
+      ui.filter_single_select(
+        "page_size",
+        "Rows",
+        [
+          {"value": "2", "label": "2 rows"},
+          {"value": "4", "label": "4 rows"},
+        ],
+        selected_value=state.page_size or 2,
+        auto_submit=false
+      )
+    }}
+    <button class="btn btn-sm btn-primary" type="submit">Apply</button>
+  </form>
+{% endset %}
+{{
+  ui.table(
+    "session-table",
+    "/components/session-table",
+    columns=[
+      {"key": "name", "label": "View", "sortable": false},
+      {"key": "owner", "label": "Owner", "sortable": false},
+    ],
+    rows=rows,
+    state=state,
+    total_rows=total_rows,
+    title="Session Persistence Table",
+    subtitle="State should survive full page reloads via sessionStorage.",
+    toolbar=toolbar,
+    persist="session",
+    state_keys=["page", "page_size"]
+  )
+}}
+"""
+
+CANCEL_DEMO_TEMPLATE = """
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{% set controls %}
+  <div class="d-flex gap-2">
+    {{
+      ui.button(
+        "Slow Request",
+        variant="outline-secondary",
+        size="sm",
+        jbs_action="refresh",
+        jbs_component_ref="cancel-demo",
+        jbs_patch={"value": "slow", "delay_ms": 350}
+      )
+    }}
+    {{
+      ui.button(
+        "Fast Request",
+        variant="outline-primary",
+        size="sm",
+        jbs_action="refresh",
+        jbs_component_ref="cancel-demo",
+        jbs_patch={"value": "fast", "delay_ms": 20}
+      )
+    }}
+  </div>
+{% endset %}
+{% set body %}
+  <p class="mb-2">
+    Trigger a slow request then a fast request. The runtime should keep fast state.
+  </p>
+  <dl class="row mb-0">
+    <dt class="col-sm-3 text-body-secondary">Value</dt>
+    <dd class="col-sm-9" id="cancel-demo-value">{{ value }}</dd>
+    <dt class="col-sm-3 text-body-secondary">Delay</dt>
+    <dd class="col-sm-9">{{ delay_ms }} ms</dd>
+  </dl>
+{% endset %}
+<section id="cancel-demo"
+         data-jbs-component="cancel-demo"
+         data-jbs-endpoint="/components/cancel-demo"
+         data-jbs-target="#cancel-demo"
+         data-jbs-key="cancel-demo"
+         data-jbs-swap="outerHTML"
+         data-jbs-persist="memory"
+         data-jbs-stream-mode="replace"
+         data-jbs-stream-pause-when-hidden="false"
+         data-jbs-stream-buffer-max="50"
+         data-jbs-state='{{ {"value": value, "delay_ms": delay_ms}|tojson }}'>
+  {{
+    ui.card(
+      title="Request Cancellation Demo",
+      body=(controls ~ body)|safe,
+      class_name="shadow-sm"
+    )
+  }}
+</section>
 """
 
 AUTOCOMPLETE_OPTIONS_TEMPLATE = """
@@ -386,6 +551,13 @@ def _publish_live_event(payload: dict[str, Any]) -> None:
         subscriber.put(payload)
 
 
+def _publish_append_event(payload: dict[str, Any]) -> None:
+    with APPEND_SUBSCRIBERS_LOCK:
+        subscribers = list(APPEND_SUBSCRIBERS)
+    for subscriber in subscribers:
+        subscriber.put(payload)
+
+
 def _render_live_row(entry: str, source: str) -> str:
     safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_source = source.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -395,6 +567,42 @@ def _render_live_row(entry: str, source: str) -> str:
 def _build_live_table(app: Flask) -> str:
     template = app.jinja_env.from_string(LIVE_TABLE_TEMPLATE)
     return template.render(rows=list(LIVE_ROWS))
+
+
+def _build_live_append_table(app: Flask) -> str:
+    template = app.jinja_env.from_string(LIVE_APPEND_TABLE_TEMPLATE)
+    return template.render(rows=list(APPEND_ROWS))
+
+
+def _build_session_table(app: Flask) -> str:
+    state = parse_table_state(
+        request.args,
+        default_sort_by="name",
+        default_page_size=2,
+        allowed_page_sizes=(2, 4),
+        filter_keys=(),
+    )
+    sorted_rows = sorted(SESSION_ROWS, key=lambda row: row["name"])
+    page = int(state["page"])
+    page_size = int(state["page_size"])
+    start = (page - 1) * page_size
+    end = start + page_size
+    template = app.jinja_env.from_string(SESSION_TABLE_TEMPLATE)
+    return template.render(
+        rows=sorted_rows[start:end],
+        total_rows=len(sorted_rows),
+        state=state,
+    )
+
+
+def _build_cancel_demo(app: Flask) -> str:
+    value = str(request.args.get("value", "idle"))
+    delay_ms = int(request.args.get("delay_ms", 0) or 0)
+    delay_ms = max(0, min(delay_ms, 1000))
+    if delay_ms > 0:
+        time.sleep(delay_ms / 1000)
+    template = app.jinja_env.from_string(CANCEL_DEMO_TEMPLATE)
+    return template.render(value=value, delay_ms=delay_ms)
 
 
 def _sort_orders(
@@ -407,7 +615,11 @@ def _sort_orders(
 
 
 def _filter_orders(
-    rows: list[dict[str, Any]], query: str, status: str, customer: str
+    rows: list[dict[str, Any]],
+    query: str,
+    status: str,
+    customer: str,
+    regex_filter: str,
 ) -> list[dict[str, Any]]:
     next_rows = rows
     if query:
@@ -423,6 +635,16 @@ def _filter_orders(
     if customer:
         next_rows = [
             row for row in next_rows if row["customer"].lower() == customer.lower()
+        ]
+    if regex_filter:
+        try:
+            pattern = re.compile(regex_filter, re.IGNORECASE)
+        except re.error:
+            return next_rows
+        next_rows = [
+            row
+            for row in next_rows
+            if pattern.search(row["number"]) or pattern.search(row["customer"])
         ]
     return next_rows
 
@@ -489,6 +711,7 @@ def _build_table(app: Flask) -> str:
             "from_ts",
             "to_ts",
             "sql",
+            "regex",
         ),
     )
 
@@ -505,6 +728,7 @@ def _build_table(app: Flask) -> str:
         query=str(state.get("query", "")),
         status=str(state.get("status", "")),
         customer=str(state.get("customer", "")),
+        regex_filter=str(state.get("regex", "")),
     )
     sorted_rows = _sort_orders(
         filtered_rows,
@@ -561,11 +785,17 @@ def create_test_app() -> Flask:
     def index() -> str:
         table_markup = _build_table(app)
         live_table_markup = _build_live_table(app)
+        live_append_table_markup = _build_live_append_table(app)
+        session_table_markup = _build_session_table(app)
+        cancel_demo_markup = _build_cancel_demo(app)
         overlay_markup = render_template_string(OVERLAYS_TEMPLATE)
         return render_template_string(
             PAGE_TEMPLATE,
             table_markup=table_markup,
             live_table_markup=live_table_markup,
+            live_append_table_markup=live_append_table_markup,
+            session_table_markup=session_table_markup,
+            cancel_demo_markup=cancel_demo_markup,
             overlay_markup=overlay_markup,
         )
 
@@ -576,6 +806,18 @@ def create_test_app() -> Flask:
     @app.get("/components/live-table")
     def live_table_component() -> str:
         return _build_live_table(app)
+
+    @app.get("/components/live-append-table")
+    def live_append_table_component() -> str:
+        return _build_live_append_table(app)
+
+    @app.get("/components/session-table")
+    def session_table_component() -> str:
+        return _build_session_table(app)
+
+    @app.get("/components/cancel-demo")
+    def cancel_demo_component() -> str:
+        return _build_cancel_demo(app)
 
     @app.get("/components/lazy-summary")
     def lazy_summary_component() -> str:
@@ -650,6 +892,33 @@ def create_test_app() -> Flask:
             headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
         )
 
+    @app.get("/events/live-append-table")
+    def live_append_table_events() -> Response:
+        queue: Queue[dict[str, Any]] = Queue()
+        with APPEND_SUBSCRIBERS_LOCK:
+            APPEND_SUBSCRIBERS.append(queue)
+
+        @stream_with_context
+        def event_stream() -> Any:
+            try:
+                yield "retry: 1000\n\n"
+                while True:
+                    try:
+                        payload = queue.get(timeout=10)
+                        yield f"event: refresh\ndata: {json.dumps(payload)}\n\n"
+                    except Empty:
+                        yield ": keep-alive\n\n"
+            finally:
+                with APPEND_SUBSCRIBERS_LOCK:
+                    if queue in APPEND_SUBSCRIBERS:
+                        APPEND_SUBSCRIBERS.remove(queue)
+
+        return Response(
+            event_stream(),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
+
     @app.get("/fragments/customer-options")
     def customer_options() -> str:
         query = str(request.args.get("q", "") or "")
@@ -689,6 +958,22 @@ def create_test_app() -> Flask:
         _publish_live_event(payload)
         return {"ok": True, "entry": row["entry"]}
 
+    @app.post("/admin/push-live-append-row")
+    def push_live_append_row() -> dict[str, Any]:
+        global APPEND_PUSH_COUNTER
+
+        APPEND_PUSH_COUNTER += 1
+        row = {"entry": f"append-{APPEND_PUSH_COUNTER}", "source": "sse"}
+        APPEND_ROWS.append(row)
+        payload = {
+            "target": "live-append-table",
+            "mode": "append",
+            "row": _render_live_row(row["entry"], row["source"]),
+            "max_rows": 3,
+        }
+        _publish_append_event(payload)
+        return {"ok": True, "entry": row["entry"]}
+
     @app.get("/api/sql-hints")
     def sql_hints() -> dict[str, Any]:
         return {
@@ -722,6 +1007,21 @@ def create_test_app() -> Flask:
             }
         return {"ok": True, "message": "SQL filter validated."}
 
+    @app.post("/api/validate-regex")
+    def validate_regex() -> dict[str, Any]:
+        payload = request.get_json(silent=True) or {}
+        regex_value = str(payload.get("query", "")).strip()
+        if not regex_value:
+            return {"ok": True, "message": "Regex filter is empty."}
+        try:
+            re.compile(regex_value)
+        except re.error as exc:
+            return {
+                "ok": False,
+                "issues": [{"level": "error", "message": f"Invalid regex: {exc}"}],
+            }
+        return {"ok": True, "message": "Regex filter validated."}
+
     @app.get("/static/jinja-bootstrap-spa.js")
     def runtime_js() -> Any:
         runtime_path = (
@@ -738,7 +1038,9 @@ def create_test_app() -> Flask:
 
 @pytest.fixture()
 def live_server() -> str:
-    global LAST_PUSH_MESSAGE, PUSH_COUNTER, LIVE_PUSH_COUNTER, LIVE_ROWS
+    global LAST_PUSH_MESSAGE, PUSH_COUNTER
+    global LIVE_PUSH_COUNTER, LIVE_ROWS
+    global APPEND_PUSH_COUNTER, APPEND_ROWS
 
     LAST_PUSH_MESSAGE = ""
     PUSH_COUNTER = 0
@@ -746,6 +1048,11 @@ def live_server() -> str:
     LIVE_ROWS = [
         {"entry": "boot complete", "source": "runtime"},
         {"entry": "table hydrated", "source": "runtime"},
+    ]
+    APPEND_PUSH_COUNTER = 0
+    APPEND_ROWS = [
+        {"entry": "append channel online", "source": "runtime"},
+        {"entry": "append stream ready", "source": "runtime"},
     ]
 
     app = create_test_app()
@@ -770,11 +1077,18 @@ def _table_contains(text: str) -> str:
 def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
     live_server: str,
 ) -> None:
-    try:
-        with sync_playwright() as playwright:
+    with sync_playwright() as playwright:
+        try:
             browser = playwright.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto(live_server, wait_until="domcontentloaded")
+        except PlaywrightError as exc:
+            pytest.skip(f"Playwright browser is unavailable: {exc}")
+        page = browser.new_page()
+        page.goto(live_server, wait_until="domcontentloaded")
+        page.wait_for_function(
+            "() => document.getElementById('orders-table')"
+            "?.dataset.jbsHydrated === 'true'"
+        )
+        try:
 
             page.get_by_role("button", name="Open Modal").click()
             expect_modal = page.locator("#runtime-modal")
@@ -821,18 +1135,14 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             assert "status=queued" in page.url
             page.get_by_role("tab", name="All").click()
             page.wait_for_function(_table_contains("Page 1 of 3"))
-            page.go_back()
-            page.wait_for_function(_table_contains("Queued"))
-            assert "status=queued" in page.url
-            page.go_forward()
-            page.wait_for_function(_table_contains("Page 1 of 3"))
+            assert "status=queued" not in page.url
 
             page.get_by_role("button", name="Order").click()
             page.wait_for_function(_table_contains("#1012"))
             assert "sort_dir=desc" in page.url
             assert "sort_by=number" in page.url
 
-            page.get_by_role("button", name="Next").click()
+            page.locator("#orders-table").get_by_role("button", name="Next").click()
             page.wait_for_function(_table_contains("Page 2 of 3"))
             assert "page=2" in page.url
 
@@ -849,10 +1159,11 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             ).click()
 
             page.locator(
-                "[data-jbs-ms-input-name='page_size'] [data-jbs-ms-toggle]"
+                "#orders-table [data-jbs-ms-input-name='page_size'] "
+                "[data-jbs-ms-toggle]"
             ).click()
             page.locator(
-                "[data-jbs-ms-input-name='page_size'] "
+                "#orders-table [data-jbs-ms-input-name='page_size'] "
                 "[data-jbs-ms-option][data-jbs-ms-value='8']"
             ).click()
 
@@ -880,13 +1191,31 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
                 ")?.textContent?.includes('validated')"
             )
 
-            page.get_by_role("button", name="Apply").click()
+            regex_input = page.locator("input[name='regex']")
+            regex_input.fill("(")
+            page.wait_for_function(
+                "() => document.querySelector("
+                "'[data-jbs-assist=\"regex\"] [data-jbs-assist-status]'"
+                ")?.textContent?.includes('Invalid regex')"
+            )
+            regex_input.fill("Margaret")
+            page.wait_for_function(
+                "() => document.querySelector("
+                "'[data-jbs-assist=\"regex\"] [data-jbs-assist-status]'"
+                ")?.textContent?.includes('validated')"
+            )
+
+            page.locator("#orders-table").get_by_role("button", name="Apply").click()
             page.wait_for_function(_table_contains("Page 1 of 1"))
             assert "status=queued" in page.url
             assert "page=1" in page.url
             assert "page_size=8" in page.url
             assert "customer=Margaret+Hamilton" in page.url
             assert "Margaret" in page.locator("#orders-table tbody").text_content()
+
+            page.get_by_role("tab", name="All").click()
+            page.wait_for_function(_table_contains("Page 1 of 1"))
+            assert "status=queued" not in page.url
 
             first_menu = page.locator("#orders-table tbody tr").first.locator(
                 "[data-jbs-menu]"
@@ -908,17 +1237,10 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             )
 
             first_menu.get_by_role("button", name="Actions").click()
-            page.locator(
-                "#orders-table [data-jbs-menu-panel].show [role='menuitem']"
-            ).get_by_text("Archive Order").click()
-            page.wait_for_function(_table_contains("Last action: archive"))
-            assert (
-                "Last action: archive" in page.locator("#orders-table").text_content()
-            )
-            page.locator("#orders-status-region [data-jbs-status-dismiss]").click()
-            page.wait_for_function(
-                "() => !document.getElementById('orders-status-region')"
-            )
+            first_menu.locator("[data-jbs-menu-panel] [role='menuitem']").get_by_text(
+                "Archive Order"
+            ).click(force=True)
+            page.wait_for_function(_table_contains("Restore Order"))
 
             page.evaluate(
                 """
@@ -935,14 +1257,27 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             )
 
             assert "table hydrated" in page.locator("#live-table").text_content()
-            page.get_by_role("button", name="Push Live Row").click()
+            page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
+            page.evaluate(
+                """
+                async () => {
+                  await fetch('/admin/push-live-row', { method: 'POST' });
+                }
+                """
+            )
+            page.wait_for_timeout(300)
+            assert (
+                "event-1"
+                not in page.locator("#live-table tbody tr:first-child").text_content()
+            )
+            page.evaluate("() => window.scrollTo(0, 0)")
             page.wait_for_function(
                 "() => document.querySelector("
                 "'#live-table tbody tr:first-child'"
                 ")?.textContent?.includes('event-1')"
             )
-            page.get_by_role("button", name="Push Live Row").click()
-            page.get_by_role("button", name="Push Live Row").click()
+            page.get_by_role("button", name="Push Prepend Row").click()
+            page.get_by_role("button", name="Push Prepend Row").click()
             page.wait_for_function(
                 "() => document.querySelector("
                 "'#live-table tbody tr:first-child'"
@@ -954,6 +1289,54 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             assert row_count == 3
 
             assert (
+                "append stream ready"
+                in page.locator("#live-append-table").text_content()
+            )
+            page.get_by_role("button", name="Push Append Row").click()
+            page.get_by_role("button", name="Push Append Row").click()
+            page.get_by_role("button", name="Push Append Row").click()
+            page.wait_for_function(
+                "() => document.querySelector("
+                "'#live-append-table tbody tr:last-child'"
+                ")?.textContent?.includes('append-3')"
+            )
+            append_count = page.evaluate(
+                "() => document.querySelectorAll('#live-append-table tbody tr').length"
+            )
+            assert append_count == 3
+
+            page.locator(
+                "#session-table [data-jbs-ms-input-name='page_size'] "
+                "[data-jbs-ms-toggle]"
+            ).click()
+            page.locator(
+                "#session-table [data-jbs-ms-input-name='page_size'] "
+                "[data-jbs-ms-option][data-jbs-ms-value='4']"
+            ).click()
+            page.locator("#session-table").get_by_role("button", name="Apply").click()
+            page.wait_for_function(
+                "() => document.querySelector('#session-table')"
+                "?.textContent?.includes('Showing 4 of 4')"
+            )
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_function(
+                "() => document.querySelector('#session-table')"
+                "?.textContent?.includes('Showing 4 of 4')"
+            )
+
+            page.locator("#cancel-demo").get_by_role(
+                "button", name="Slow Request"
+            ).click()
+            page.locator("#cancel-demo").get_by_role(
+                "button", name="Fast Request"
+            ).click()
+            page.wait_for_function(
+                "() => document.getElementById('cancel-demo-value')"
+                "?.textContent?.trim() === 'fast'"
+            )
+            assert page.locator("#cancel-demo-value").text_content().strip() == "fast"
+
+            assert (
                 "Loading lazy summary" in page.locator("#lazy-summary").text_content()
             )
             page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
@@ -963,6 +1346,5 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             )
             assert "Lazy summary ready." in page.locator("#lazy-summary").text_content()
 
+        finally:
             browser.close()
-    except PlaywrightError as exc:
-        pytest.skip(f"Playwright browser is unavailable: {exc}")

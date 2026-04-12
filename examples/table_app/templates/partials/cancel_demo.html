@@ -1,0 +1,60 @@
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{% set value = value|default("idle") %}
+{% set delay_ms = delay_ms|default(0) %}
+
+{% set controls %}
+  <div class="d-flex gap-2">
+    {{
+      ui.button(
+        "Slow Request",
+        variant="outline-secondary",
+        size="sm",
+        jbs_action="refresh",
+        jbs_component_ref="cancel-demo",
+        jbs_patch={"value": "slow", "delay_ms": 350}
+      )
+    }}
+    {{
+      ui.button(
+        "Fast Request",
+        variant="outline-primary",
+        size="sm",
+        jbs_action="refresh",
+        jbs_component_ref="cancel-demo",
+        jbs_patch={"value": "fast", "delay_ms": 20}
+      )
+    }}
+  </div>
+{% endset %}
+
+{% set body %}
+  <p class="mb-2">
+    Trigger a slow request then a fast request. The runtime should keep the fast result.
+  </p>
+  <dl class="row mb-0">
+    <dt class="col-sm-3 text-body-secondary">Value</dt>
+    <dd class="col-sm-9" id="cancel-demo-value">{{ value }}</dd>
+    <dt class="col-sm-3 text-body-secondary">Delay</dt>
+    <dd class="col-sm-9">{{ delay_ms }} ms</dd>
+  </dl>
+{% endset %}
+
+<section id="cancel-demo"
+         data-jbs-component="cancel-demo"
+         data-jbs-endpoint="/components/cancel-demo"
+         data-jbs-target="#cancel-demo"
+         data-jbs-key="cancel-demo"
+         data-jbs-swap="outerHTML"
+         data-jbs-persist="memory"
+         data-jbs-stream-mode="replace"
+         data-jbs-stream-pause-when-hidden="false"
+         data-jbs-stream-buffer-max="50"
+         data-jbs-state='{{ {"value": value, "delay_ms": delay_ms}|tojson }}'>
+  {{
+    ui.card(
+      title="Request Cancellation Demo",
+      body=(controls ~ body)|safe,
+      class_name="shadow-sm"
+    )
+  }}
+</section>

@@ -245,8 +245,7 @@ BOOTSTRAP_MACROS = """
     {%- set dialog_classes = dialog_classes ~ " " ~ class_name -%}
   {%- endif -%}
   <div id="{{ overlay_id }}"
-       class="jbs-overlay position-fixed top-0 start-0 w-100 h-100 z-3
-              d-flex align-items-center justify-content-center p-3"
+       class="jbs-overlay position-fixed top-0 start-0 w-100 h-100 z-3"
        data-jbs-overlay="modal"
        role="dialog"
        aria-modal="true"
@@ -255,30 +254,33 @@ BOOTSTRAP_MACROS = """
        {%- if attrs %} {{ attrs|safe }}{% endif -%}>
     <div class="position-absolute top-0 start-0 w-100 h-100 bg-dark
                 bg-opacity-50"></div>
-    <div class="position-relative {{ dialog_classes }}"
-         data-jbs-overlay-panel
-         tabindex="-1">
-      <div class="card-header bg-body d-flex align-items-center
-                  justify-content-between gap-3">
-        <div>
-          {%- if title %}
-            <h2 class="h5 mb-0">{{ title }}</h2>
-          {%- endif %}
+    <div class="position-relative w-100 h-100 d-flex align-items-center
+                justify-content-center p-3">
+      <div class="position-relative {{ dialog_classes }}"
+           data-jbs-overlay-panel
+           tabindex="-1">
+        <div class="card-header bg-body d-flex align-items-center
+                    justify-content-between gap-3">
+          <div>
+            {%- if title %}
+              <h2 class="h5 mb-0">{{ title }}</h2>
+            {%- endif %}
+          </div>
+          <button type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  data-jbs-overlay-close>
+            {{ close_label }}
+          </button>
         </div>
-        <button type="button"
-                class="btn btn-sm btn-outline-secondary"
-                data-jbs-overlay-close>
-          {{ close_label }}
-        </button>
-      </div>
-      <div class="card-body">
-        {{ body|safe }}
-      </div>
-      {%- if footer %}
-        <div class="card-footer bg-body">
-          {{ footer|safe }}
+        <div class="card-body">
+          {{ body|safe }}
         </div>
-      {%- endif %}
+        {%- if footer %}
+          <div class="card-footer bg-body">
+            {{ footer|safe }}
+          </div>
+        {%- endif %}
+      </div>
     </div>
   </div>
 {%- endmacro -%}
@@ -295,8 +297,7 @@ BOOTSTRAP_MACROS = """
     {%- set panel_classes = panel_classes ~ " " ~ class_name -%}
   {%- endif -%}
   <div id="{{ overlay_id }}"
-       class="jbs-overlay position-fixed top-0 start-0 w-100 h-100 z-3
-              d-flex {{ justify_class }}"
+       class="jbs-overlay position-fixed top-0 start-0 w-100 h-100 z-3"
        data-jbs-overlay="drawer"
        role="dialog"
        aria-modal="true"
@@ -305,32 +306,34 @@ BOOTSTRAP_MACROS = """
        {%- if attrs %} {{ attrs|safe }}{% endif -%}>
     <div class="position-absolute top-0 start-0 w-100 h-100 bg-dark
                 bg-opacity-50"></div>
-    <aside class="position-relative {{ panel_classes }}"
-           data-jbs-overlay-panel
-           tabindex="-1"
-           style="max-width: {{ width }};">
-      <div class="border-bottom px-4 py-3 d-flex align-items-center
-                  justify-content-between gap-3">
-        <div>
-          {%- if title %}
-            <h2 class="h5 mb-0">{{ title }}</h2>
-          {%- endif %}
+    <div class="position-relative w-100 h-100 d-flex {{ justify_class }}">
+      <aside class="position-relative {{ panel_classes }}"
+             data-jbs-overlay-panel
+             tabindex="-1"
+             style="max-width: {{ width }};">
+        <div class="border-bottom px-4 py-3 d-flex align-items-center
+                    justify-content-between gap-3">
+          <div>
+            {%- if title %}
+              <h2 class="h5 mb-0">{{ title }}</h2>
+            {%- endif %}
+          </div>
+          <button type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  data-jbs-overlay-close>
+            {{ close_label }}
+          </button>
         </div>
-        <button type="button"
-                class="btn btn-sm btn-outline-secondary"
-                data-jbs-overlay-close>
-          {{ close_label }}
-        </button>
-      </div>
-      <div class="flex-grow-1 overflow-auto px-4 py-3">
-        {{ body|safe }}
-      </div>
-      {%- if footer %}
-        <div class="border-top px-4 py-3 bg-body">
-          {{ footer|safe }}
+        <div class="flex-grow-1 overflow-auto px-4 py-3">
+          {{ body|safe }}
         </div>
-      {%- endif %}
-    </aside>
+        {%- if footer %}
+          <div class="border-top px-4 py-3 bg-body">
+            {{ footer|safe }}
+          </div>
+        {%- endif %}
+      </aside>
+    </div>
   </div>
 {%- endmacro -%}
 

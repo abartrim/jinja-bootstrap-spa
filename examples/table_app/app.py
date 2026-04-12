@@ -7,6 +7,8 @@ manually instead of relying only on tests.
 from __future__ import annotations
 
 import json
+import re
+import time
 from pathlib import Path
 from queue import Empty, Queue
 from threading import Lock
@@ -41,6 +43,21 @@ LIVE_PUSH_COUNTER = 0
 LIVE_ROWS = [
     {"entry": "boot complete", "source": "runtime"},
     {"entry": "table hydrated", "source": "runtime"},
+]
+APPEND_SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
+APPEND_SUBSCRIBERS_LOCK = Lock()
+APPEND_PUSH_COUNTER = 0
+APPEND_ROWS = [
+    {"entry": "append channel online", "source": "runtime"},
+    {"entry": "append stream ready", "source": "runtime"},
+]
+SESSION_ROWS = [
+    {"name": "Alerts", "owner": "SRE"},
+    {"name": "Incidents", "owner": "On-call"},
+    {"name": "Traces", "owner": "Platform"},
+    {"name": "Errors", "owner": "Backend"},
+    {"name": "Web Traffic", "owner": "Growth"},
+    {"name": "AI Calls", "owner": "Infra"},
 ]
 
 
@@ -124,6 +141,13 @@ def _publish_live_event(payload: dict[str, Any]) -> None:
         subscriber.put(payload)
 
 
+def _publish_append_event(payload: dict[str, Any]) -> None:
+    with APPEND_SUBSCRIBERS_LOCK:
+        subscribers = list(APPEND_SUBSCRIBERS)
+    for subscriber in subscribers:
+        subscriber.put(payload)
+
+
 def _render_live_row(entry: str, source: str) -> str:
     safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_source = source.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -174,7 +198,11 @@ def _apply_row_action(row_id: str, intent: str) -> str | None:
 
 
 def _filter_orders(
-    rows: list[dict[str, Any]], query: str, status: str, customer: str
+    rows: list[dict[str, Any]],
+    query: str,
+    status: str,
+    customer: str,
+    regex_filter: str,
 ) -> list[dict[str, Any]]:
     filtered = rows
     if query:
@@ -190,6 +218,16 @@ def _filter_orders(
     if customer:
         filtered = [
             row for row in filtered if row["customer"].lower() == customer.lower()
+        ]
+    if regex_filter:
+        try:
+            pattern = re.compile(regex_filter, re.IGNORECASE)
+        except re.error:
+            return filtered
+        filtered = [
+            row
+            for row in filtered
+            if pattern.search(row["number"]) or pattern.search(row["customer"])
         ]
     return filtered
 
@@ -234,6 +272,7 @@ def build_orders_context() -> dict[str, Any]:
             "from_ts",
             "to_ts",
             "sql",
+            "regex",
         ),
     )
 
@@ -250,6 +289,7 @@ def build_orders_context() -> dict[str, Any]:
         query=str(state.get("query", "")),
         status=str(state.get("status", "")),
         customer=str(state.get("customer", "")),
+        regex_filter=str(state.get("regex", "")),
     )
     sorted_rows = _sort_orders(
         filtered_rows,
@@ -299,15 +339,39 @@ def build_orders_context() -> dict[str, Any]:
         "runtime_url": url_for("runtime_js"),
         "push_url": url_for("simulate_push"),
         "live_push_url": url_for("push_live_row"),
+        "append_push_url": url_for("push_live_append_row"),
         "live_rows": list(LIVE_ROWS),
+        "append_rows": list(APPEND_ROWS),
         "status_summary": _status_summary(filtered_rows),
         "status_notice": status_notice,
     }
 
 
+def build_session_context() -> dict[str, Any]:
+    state = parse_table_state(
+        request.args,
+        default_sort_by="name",
+        default_page_size=2,
+        allowed_page_sizes=(2, 4),
+        filter_keys=(),
+    )
+    rows_sorted = sorted(SESSION_ROWS, key=lambda row: row["name"])
+    page = int(state["page"])
+    page_size = int(state["page_size"])
+    start = (page - 1) * page_size
+    end = start + page_size
+    return {
+        "session_rows": rows_sorted[start:end],
+        "session_total_rows": len(rows_sorted),
+        "session_state": state,
+    }
+
+
 @app.get("/")
 def index() -> str:
-    return render_template("index.html", **build_orders_context())
+    context = build_orders_context()
+    context.update(build_session_context())
+    return render_template("index.html", **context)
 
 
 @app.get("/components/orders")
@@ -317,7 +381,33 @@ def orders_component() -> str:
 
 @app.get("/components/live-table")
 def live_table_component() -> str:
-    return render_template("partials/live_table.html", **build_orders_context())
+    context = build_orders_context()
+    context.update(build_session_context())
+    return render_template("partials/live_table.html", **context)
+
+
+@app.get("/components/live-append-table")
+def live_append_table_component() -> str:
+    context = build_orders_context()
+    context.update(build_session_context())
+    return render_template("partials/live_append_table.html", **context)
+
+
+@app.get("/components/session-table")
+def session_table_component() -> str:
+    context = build_orders_context()
+    context.update(build_session_context())
+    return render_template("partials/session_table.html", **context)
+
+
+@app.get("/components/cancel-demo")
+def cancel_demo_component() -> str:
+    value = str(request.args.get("value", "idle"))
+    delay_ms = int(request.args.get("delay_ms", 0) or 0)
+    delay_ms = max(0, min(delay_ms, 1000))
+    if delay_ms:
+        time.sleep(delay_ms / 1000)
+    return render_template("partials/cancel_demo.html", value=value, delay_ms=delay_ms)
 
 
 @app.get("/components/lazy-summary")
@@ -418,6 +508,38 @@ def live_table_events() -> Response:
     )
 
 
+@app.get("/events/live-append-table")
+def live_append_table_events() -> Response:
+    queue: Queue[dict[str, Any]] = Queue()
+    with APPEND_SUBSCRIBERS_LOCK:
+        APPEND_SUBSCRIBERS.append(queue)
+
+    @stream_with_context
+    def event_stream() -> Any:
+        try:
+            yield "retry: 3000\n\n"
+            while True:
+                try:
+                    payload = queue.get(timeout=15)
+                    yield ("event: refresh\n" f"data: {json.dumps(payload)}\n\n")
+                except Empty:
+                    yield ": keep-alive\n\n"
+        finally:
+            with APPEND_SUBSCRIBERS_LOCK:
+                if queue in APPEND_SUBSCRIBERS:
+                    APPEND_SUBSCRIBERS.remove(queue)
+
+    return Response(
+        event_stream(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @app.post("/admin/simulate-update")
 def simulate_push() -> Any:
     global PUSH_COUNTER, LAST_PUSH_MESSAGE
@@ -450,6 +572,24 @@ def push_live_row() -> Any:
     return {"ok": True, "entry": row["entry"]}
 
 
+@app.post("/admin/push-live-append-row")
+def push_live_append_row() -> Any:
+    global APPEND_PUSH_COUNTER
+
+    APPEND_PUSH_COUNTER += 1
+    row = {"entry": f"append-{APPEND_PUSH_COUNTER}", "source": "sse"}
+    APPEND_ROWS.append(row)
+    _publish_append_event(
+        {
+            "target": "live-append-table",
+            "mode": "append",
+            "row": _render_live_row(row["entry"], row["source"]),
+            "max_rows": 5,
+        }
+    )
+    return {"ok": True, "entry": row["entry"]}
+
+
 @app.get("/api/sql-hints")
 def sql_hints() -> Any:
     return {"hints": ["service", "status", "duration_ms", "AND", "OR", "ILIKE"]}
@@ -474,6 +614,22 @@ def sql_validate() -> Any:
             ],
         }
     return {"ok": True, "message": "SQL filter validated."}
+
+
+@app.post("/api/validate-regex")
+def validate_regex() -> Any:
+    payload = request.get_json(silent=True) or {}
+    regex_value = str(payload.get("query", "")).strip()
+    if not regex_value:
+        return {"ok": True, "message": "Regex filter is empty."}
+    try:
+        re.compile(regex_value)
+    except re.error as exc:
+        return {
+            "ok": False,
+            "issues": [{"level": "error", "message": f"Invalid regex: {exc}"}],
+        }
+    return {"ok": True, "message": "Regex filter validated."}
 
 
 if __name__ == "__main__":

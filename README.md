@@ -52,6 +52,11 @@ pytest
 The browser-level tests use Playwright's Python bindings and expect Chromium to
 be installed through `python -m playwright install chromium`.
 
+Two Playwright suites are included:
+
+- `tests/test_browser_runtime.py`: runtime contract tests against an in-test Flask app.
+- `tests/test_example_wrapper_app.py`: smoke/regression tests against the real wrapper app.
+
 ## Wrapper Dev App
 
 A standalone Flask wrapper app lives in
@@ -71,9 +76,24 @@ The dev app includes:
 
 - an SSE-backed orders table with stateful filters
 - a prepend-stream live table (row-level SSE patches)
+- an append-stream live table (row-level SSE patches)
+- a session-persisted table (`sessionStorage`)
+- a stale-request cancellation demo
 - a lazy-hydrated component loaded on first viewport entry
 
-Use `Simulate SSE Update` and `Push Live Row` to exercise both stream modes.
+Use `Simulate SSE Update`, `Push Prepend Row`, and `Push Append Row` to exercise
+all stream modes.
+
+The feature-to-example coverage map lives in
+[docs/feature_coverage.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/feature_coverage.md).
+
+For manual visual inspection snapshots:
+
+```bash
+.venv/bin/python scripts/capture_example_visuals.py
+```
+
+This writes desktop/mobile screenshots to `tmp/visual/`.
 
 ## Runtime Model
 

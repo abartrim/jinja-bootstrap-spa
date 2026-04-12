@@ -12,21 +12,27 @@
           Manual playground for the table runtime contract.
         </p>
       </div>
-      <div class="d-flex gap-2">
-        {{ ui.button("About Runtime", variant="outline-secondary", attrs='data-jbs-overlay-open="runtime-modal"') }}
-        {{ ui.button("Workbench", variant="outline-secondary", attrs='data-jbs-overlay-open="orders-drawer"') }}
-        {{ ui.button("Refresh Table", variant="outline-primary", jbs_action="refresh", jbs_component_ref="orders-table") }}
+      <div class="d-flex flex-wrap justify-content-end gap-2">
+        {{ ui.button("About Runtime", variant="outline-secondary", size="sm", attrs='data-jbs-overlay-open="runtime-modal"') }}
+        {{ ui.button("Workbench", variant="outline-secondary", size="sm", attrs='data-jbs-overlay-open="orders-drawer"') }}
+        {{ ui.button("Refresh Table", variant="outline-primary", size="sm", jbs_action="refresh", jbs_component_ref="orders-table") }}
         <button
-          class="btn btn-primary"
+          class="btn btn-sm btn-primary"
           id="simulate-sse-push"
           type="button">
           Simulate SSE Update
         </button>
         <button
-          class="btn btn-outline-secondary"
+          class="btn btn-sm btn-outline-secondary"
           id="push-live-row"
           type="button">
-          Push Live Row
+          Push Prepend Row
+        </button>
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          id="push-live-append-row"
+          type="button">
+          Push Append Row
         </button>
       </div>
     </div>
@@ -34,6 +40,15 @@
     {% include "partials/orders_table.html" %}
     <div class="mt-4">
       {% include "partials/live_table.html" %}
+    </div>
+    <div class="mt-4">
+      {% include "partials/live_append_table.html" %}
+    </div>
+    <div class="mt-4">
+      {% include "partials/session_table.html" %}
+    </div>
+    <div class="mt-4">
+      {% include "partials/cancel_demo.html" %}
     </div>
     <div style="height: 1000px;"></div>
     <section id="lazy-summary"
@@ -66,6 +81,11 @@
     const pushLiveRow = document.getElementById("push-live-row");
     pushLiveRow?.addEventListener("click", async () => {
       await fetch("{{ live_push_url }}", { method: "POST" });
+    });
+
+    const pushAppendRow = document.getElementById("push-live-append-row");
+    pushAppendRow?.addEventListener("click", async () => {
+      await fetch("{{ append_push_url }}", { method: "POST" });
     });
   </script>
 {% endblock %}
