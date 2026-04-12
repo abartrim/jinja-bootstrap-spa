@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jinja-bootstrap-spa"
+version = "0.1.0"
+description = "Composable Jinja2 + Bootstrap 5 UI primitives with lightweight SPA-style updates."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+  {name = "Aaron Bartrim"},
+]
+dependencies = [
+  "Jinja2>=3.1,<4",
+  "Flask>=3.0,<4",
+]
+keywords = ["jinja2", "bootstrap", "htmx", "turbo", "spa", "ui"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Framework :: Flask",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.optional-dependencies]
+dev = [
+  "flake8>=7.0,<8",
+  "mypy>=1.10,<2",
+  "pytest>=8.0,<9",
+  "pytest-cov>=5.0,<6",
+]
+
+[project.urls]
+Homepage = "https://github.com/abartrim/jinja-bootstrap-spa"
+Issues = "https://github.com/abartrim/jinja-bootstrap-spa/issues"
+Repository = "https://github.com/abartrim/jinja-bootstrap-spa"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+jinja_bootstrap_spa = ["templates/*.html", "py.typed"]
