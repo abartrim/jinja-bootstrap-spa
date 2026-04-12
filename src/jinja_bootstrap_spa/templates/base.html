@@ -10,6 +10,42 @@
           rel="stylesheet"
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
           crossorigin="anonymous">
+    <style>
+      @keyframes jbsSwapPulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.45);
+          background-color: rgba(13, 110, 253, 0.08);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(13, 110, 253, 0);
+          background-color: transparent;
+        }
+      }
+
+      @keyframes jbsRowPulse {
+        0% {
+          background-color: rgba(25, 135, 84, 0.22);
+        }
+        100% {
+          background-color: transparent;
+        }
+      }
+
+      .jbs-swap-pulse {
+        animation: jbsSwapPulse 1.2s ease-out;
+      }
+
+      .jbs-stream-row-pulse {
+        animation: jbsRowPulse 1.2s ease-out;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .jbs-swap-pulse,
+        .jbs-stream-row-pulse {
+          animation: none;
+        }
+      }
+    </style>
     {% block head_extra %}{% endblock %}
   </head>
   <body>

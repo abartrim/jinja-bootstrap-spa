@@ -9,6 +9,9 @@ const DEFAULT_SQL_HINTS = [
 ];
 const DEFAULT_TABLE_STATE_KEYS = ["page", "page_size", "sort_by", "sort_dir", "query"];
 const TRANSIENT_STATE_KEYS = new Set(["row_id", "intent"]);
+const JBS_SWAP_PULSE_CLASS = "jbs-swap-pulse";
+const JBS_STREAM_ROW_PULSE_CLASS = "jbs-stream-row-pulse";
+const JBS_PULSE_MS = 1200;
 export const JBS_HEADERS = {
     accept: "text/html",
     marker: "X-JBS-Request",
@@ -101,6 +104,15 @@ function stableStateString(state) {
 }
 function statesEqual(left, right) {
     return stableStateString(left) === stableStateString(right);
+}
+function pulseElement(element, className, durationMs = JBS_PULSE_MS) {
+    element.classList.remove(className);
+    // Force reflow so rapid successive updates retrigger animation.
+    void element.offsetWidth;
+    element.classList.add(className);
+    window.setTimeout(() => {
+        element.classList.remove(className);
+    }, durationMs);
 }
 function appendStateParams(url, state) {
     for (const [key, value] of Object.entries(state)) {
@@ -813,6 +825,11 @@ export class JBSRuntime {
                 else {
                     tableBody.deleteRow(0);
                 }
+            }
+        }
+        for (const row of nextRows) {
+            if (row.isConnected) {
+                pulseElement(row, JBS_STREAM_ROW_PULSE_CLASS);
             }
         }
         return true;
@@ -1629,6 +1646,7 @@ export class JBSRuntime {
         this.closeAllDateRangePickers();
         this.closeAllAssistPanels();
         this.hydrate(next.parentNode ?? document);
+        pulseElement(next, JBS_SWAP_PULSE_CLASS);
         next.dispatchEvent(new CustomEvent("jbs:after-swap"));
     }
 }

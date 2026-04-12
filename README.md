@@ -102,7 +102,12 @@ For a short guided walkthrough video:
 ```
 
 This writes `tmp/demo/wrapper-walkthrough.webm` (playable in browsers and suitable
-for docs/tutorial sharing).
+for docs/tutorial sharing). The recorder includes on-screen captions (intro,
+feature-by-feature narration, and summary) and supports pacing controls:
+
+```bash
+.venv/bin/python scripts/record_example_walkthrough.py --pace 2.2
+```
 
 ## Runtime Model
 
