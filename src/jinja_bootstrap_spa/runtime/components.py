@@ -49,6 +49,10 @@ def component_attrs(
     state_keys: Sequence[str] | None = None,
     sse_endpoint: str | None = None,
     sse_event: str = JBS_SSE_EVENT_REFRESH,
+    stream_mode: str = "replace",
+    stream_max_rows: int | None = None,
+    stream_pause_when_hidden: bool = False,
+    stream_buffer_max: int = 100,
     lazy: bool = False,
 ) -> dict[str, str]:
     """Build attributes for a server-rendered component root element."""
@@ -75,6 +79,13 @@ def component_attrs(
     if sse_endpoint is not None:
         attrs["data-jbs-sse"] = sse_endpoint
         attrs["data-jbs-sse-event"] = sse_event
+    attrs["data-jbs-stream-mode"] = stream_mode
+    if stream_max_rows is not None:
+        attrs["data-jbs-stream-max-rows"] = str(stream_max_rows)
+    attrs["data-jbs-stream-pause-when-hidden"] = (
+        "true" if stream_pause_when_hidden else "false"
+    )
+    attrs["data-jbs-stream-buffer-max"] = str(stream_buffer_max)
     return attrs
 
 
@@ -120,6 +131,11 @@ def table_attrs(
     state_keys: Sequence[str] = TABLE_STATE_KEYS,
     sse_endpoint: str | None = None,
     sse_event: str = JBS_SSE_EVENT_REFRESH,
+    stream_mode: str = "replace",
+    stream_max_rows: int | None = None,
+    stream_pause_when_hidden: bool = False,
+    stream_buffer_max: int = 100,
+    lazy: bool = False,
 ) -> dict[str, str]:
     """Build the attribute set for the opinionated table component root."""
 
@@ -133,6 +149,11 @@ def table_attrs(
         state_keys=state_keys,
         sse_endpoint=sse_endpoint,
         sse_event=sse_event,
+        stream_mode=stream_mode,
+        stream_max_rows=stream_max_rows,
+        stream_pause_when_hidden=stream_pause_when_hidden,
+        stream_buffer_max=stream_buffer_max,
+        lazy=lazy,
     )
 
 

@@ -2,6 +2,7 @@ export type JBSScalar = string | number | boolean | null;
 export type JBSValue = JBSScalar | JBSScalar[];
 export type JBSState = Record<string, JBSValue>;
 export type JBSPersistStrategy = "memory" | "querystring" | "session";
+export type JBSStreamMode = "replace" | "append" | "prepend";
 export interface JBSRuntimeOptions {
     fetchImpl?: typeof fetch;
 }
@@ -40,13 +41,27 @@ export declare const JBS_PERSISTENCE: {
 export declare const JBS_STREAM_EVENTS: {
     readonly refresh: "refresh";
 };
+export declare const JBS_STREAM_MODES: {
+    readonly replace: "replace";
+    readonly append: "append";
+    readonly prepend: "prepend";
+};
 export declare class JBSRuntime {
     private readonly fetchImpl;
     private readonly stateStore;
     private readonly streamStore;
+    private readonly streamQueue;
+    private readonly requestAbortControllers;
+    private readonly requestSeq;
     private readonly autocompleteTimers;
     private readonly autocompleteRequests;
+    private readonly autocompleteControllers;
+    private readonly assistTimers;
+    private readonly assistSeq;
+    private readonly assistControllers;
+    private readonly assistHints;
     private readonly overlayReturnFocus;
+    private lazyObserver;
     private initialized;
     constructor(options?: JBSRuntimeOptions);
     init(): void;
@@ -55,9 +70,21 @@ export declare class JBSRuntime {
     refresh(componentOrId: string | HTMLElement, patch?: JBSState): Promise<void>;
     private resolveComponent;
     private componentKey;
+    private hydrateComponent;
+    private observeLazyComponent;
+    private activateLazyComponent;
     private hydratedState;
     private persistStrategy;
     private persistState;
+    private streamMode;
+    private streamBufferMax;
+    private streamMaxRows;
+    private shouldPauseStream;
+    private queueStreamPayload;
+    private flushStreamQueue;
+    private parseStreamRows;
+    private applyRowFragments;
+    private applyStreamPayload;
     private connectStream;
     private findComponent;
     private menuElements;
@@ -78,14 +105,49 @@ export declare class JBSRuntime {
     private openOverlay;
     private closeOverlay;
     private closeTopmostOverlay;
+    private multiSelectElements;
+    private hydrateMultiSelects;
+    private selectedMultiSelectOptions;
+    private syncMultiSelect;
+    private openMultiSelect;
+    private closeMultiSelect;
+    private closeAllMultiSelects;
+    private maybeSubmitMultiSelect;
+    private disclosureElements;
+    private hydrateDisclosures;
+    private toggleDisclosure;
+    private dateRangeElements;
+    private hydrateDateRangePickers;
+    private openDateRangePicker;
+    private closeDateRangePicker;
+    private closeAllDateRangePickers;
+    private maybeSubmitDateRange;
+    private applyDateRangePreset;
+    private applyDateRangeCustom;
+    private clearDateRange;
+    private assistElements;
+    private assistKey;
+    private openAssistPanel;
+    private closeAssistPanel;
+    private closeAllAssistPanels;
+    private setAssistStatus;
+    private renderAssistOptions;
+    private insertAssistOption;
+    private buildAssistOptions;
+    private loadAssistHints;
+    private validateAssist;
     private requestAutocompleteOptions;
-    private handleClick;
-    private handleInput;
-    private handleKeydown;
-    private handleSubmit;
     private buildPatchFromTrigger;
     private requestComponent;
     private swapComponent;
+    private handleClick;
+    private handleInput;
+    private handleFocusIn;
+    private handleKeydown;
+    private handleSubmit;
+    private handlePopState;
+    private handleVisibilityChange;
+    private handleScroll;
 }
 declare global {
     interface Window {

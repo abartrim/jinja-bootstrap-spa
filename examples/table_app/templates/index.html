@@ -22,10 +22,35 @@
           type="button">
           Simulate SSE Update
         </button>
+        <button
+          class="btn btn-outline-secondary"
+          id="push-live-row"
+          type="button">
+          Push Live Row
+        </button>
       </div>
     </div>
 
     {% include "partials/orders_table.html" %}
+    <div class="mt-4">
+      {% include "partials/live_table.html" %}
+    </div>
+    <div style="height: 1000px;"></div>
+    <section id="lazy-summary"
+             class="card p-3"
+             data-jbs-component="lazy-summary"
+             data-jbs-endpoint="/components/lazy-summary"
+             data-jbs-target="#lazy-summary"
+             data-jbs-key="lazy-summary"
+             data-jbs-persist="memory"
+             data-jbs-stream-mode="replace"
+             data-jbs-stream-pause-when-hidden="false"
+             data-jbs-stream-buffer-max="50"
+             data-jbs-state="{}"
+             data-jbs-lazy="true"
+             data-jbs-lazy-fetch="true">
+      Loading lazy summary…
+    </section>
     {% include "partials/overlays.html" %}
   </main>
 {% endblock %}
@@ -36,6 +61,11 @@
     const pushButton = document.getElementById("simulate-sse-push");
     pushButton?.addEventListener("click", async () => {
       await fetch("{{ push_url }}", { method: "POST" });
+    });
+
+    const pushLiveRow = document.getElementById("push-live-row");
+    pushLiveRow?.addEventListener("click", async () => {
+      await fetch("{{ live_push_url }}", { method: "POST" });
     });
   </script>
 {% endblock %}

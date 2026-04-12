@@ -362,6 +362,314 @@ BOOTSTRAP_MACROS = """
   </div>
 {%- endmacro -%}
 
+{%- macro filter_accordion(
+      accordion_id, title="Filters", body="", icon_class="bi bi-funnel",
+      open=True, active_badge=False, header_suffix="", class_name="", attrs=""
+    ) -%}
+  {%- set panel_id = accordion_id ~ "-panel" -%}
+  {%- set trigger_id = accordion_id ~ "-trigger" -%}
+  {%- set wrapper_classes = "card border-secondary jbs-filter-accordion mb-3" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section id="{{ accordion_id }}"
+           class="{{ wrapper_classes }}"
+           data-jbs-disclosure
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <header class="card-header py-2">
+      <button type="button"
+              id="{{ trigger_id }}"
+              class="btn btn-link p-0 text-decoration-none d-flex align-items-center
+                     gap-2 text-body fw-semibold w-100"
+              data-jbs-disclosure-trigger
+              aria-expanded="{{ 'true' if open else 'false' }}"
+              aria-controls="{{ panel_id }}">
+        <i class="{{ icon_class }}" aria-hidden="true"></i>
+        <span>{{ title }}</span>
+        {%- if active_badge %}
+          <span class="badge text-bg-primary ms-1">Active</span>
+        {%- endif %}
+        {%- if header_suffix %}
+          <span class="ms-auto">{{ header_suffix|safe }}</span>
+        {%- endif %}
+      </button>
+    </header>
+    <div id="{{ panel_id }}"
+         class="card-body"
+         data-jbs-disclosure-panel
+         role="region"
+         aria-labelledby="{{ trigger_id }}"
+         {%- if not open %} hidden{% endif -%}>
+      {{ body|safe }}
+    </div>
+  </section>
+{%- endmacro -%}
+
+{%- macro filter_multi_select(name, label, options, selected_values=None,
+                              placeholder=None, single_select=False,
+                              auto_submit=True, input_name=None,
+                              class_name="", attrs="") -%}
+  {%- set input_name = input_name or name -%}
+  {%- set selected_values = selected_values or [] -%}
+  {%- set selected_values = selected_values | map('string') | list -%}
+  {%- set count = selected_values|length -%}
+  {%- set placeholder = placeholder or ("All " ~ label|lower) -%}
+  {%- set button_text = (
+        selected_values[0]
+        if single_select and count == 1
+        else (count ~ " selected" if count > 0 else placeholder)
+      ) -%}
+  {%- set wrapper_classes = "jbs-multi-select position-relative" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <div class="{{ wrapper_classes }}"
+       data-jbs-multi-select
+       data-jbs-ms-single="{{ 'true' if single_select else 'false' }}"
+       data-jbs-ms-auto-submit="{{ 'true' if auto_submit else 'false' }}"
+       data-jbs-ms-input-name="{{ input_name }}"
+       data-jbs-ms-placeholder="{{ placeholder }}"
+       {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <label class="form-label small text-body-secondary">{{ label }}</label>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button"
+              class="form-select form-select-sm text-start"
+              data-jbs-ms-toggle
+              aria-expanded="false">
+        <span data-jbs-ms-label>{{ button_text }}</span>
+      </button>
+      <button type="button"
+              class="btn btn-sm btn-outline-secondary"
+              data-jbs-ms-clear
+              title="Clear {{ label|lower }}"
+              {%- if count == 0 %} hidden{% endif -%}>
+        <i class="bi bi-x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="dropdown-menu w-100 shadow-sm mt-1"
+         data-jbs-ms-menu
+         role="listbox"
+         hidden>
+      {%- for option in options %}
+        {%- set option_value = (
+              option.value if option.value is defined
+              else (option["value"] if option is mapping else option)
+            ) -%}
+        {%- set option_label = (
+              option.label if option.label is defined
+              else (
+                option["label"]
+                if option is mapping and "label" in option
+                else option_value
+              )
+            ) -%}
+        {%- set option_value_str = option_value|string -%}
+        {%- set is_selected = option_value_str in selected_values -%}
+        <button type="button"
+                class="dropdown-item d-flex align-items-center gap-2
+                       {% if is_selected %} active{% endif %}"
+                data-jbs-ms-option
+                data-jbs-ms-value="{{ option_value_str }}"
+                aria-pressed="{{ 'true' if is_selected else 'false' }}">
+          <i class="bi bi-check2{% if not is_selected %} invisible{% endif %}"
+             data-jbs-ms-check
+             aria-hidden="true"></i>
+          <span>{{ option_label }}</span>
+        </button>
+      {%- endfor %}
+    </div>
+    <div data-jbs-ms-hidden>
+      {%- for value in selected_values %}
+        <input type="hidden" name="{{ input_name }}" value="{{ value }}">
+      {%- endfor %}
+    </div>
+  </div>
+{%- endmacro -%}
+
+{%- macro filter_single_select(name, label, options, selected_value="",
+                               placeholder=None, auto_submit=True,
+                               input_name=None, class_name="", attrs="") -%}
+  {%- set selected_values = [selected_value] if selected_value else [] -%}
+  {{ filter_multi_select(
+    name=name,
+    label=label,
+    options=options,
+    selected_values=selected_values,
+    placeholder=placeholder,
+    single_select=True,
+    auto_submit=auto_submit,
+    input_name=input_name,
+    class_name=class_name,
+    attrs=attrs
+  ) }}
+{%- endmacro -%}
+
+{%- macro date_range_picker(from_name="from_ts", to_name="to_ts",
+                            from_value="", to_value="", label="Date range",
+                            button_label="Range",
+                            auto_submit=True, class_name="", attrs="",
+                            presets=None) -%}
+  {%- set presets = presets or [
+        {"label": "15m", "minutes": 15},
+        {"label": "1h", "minutes": 60},
+        {"label": "6h", "minutes": 360},
+        {"label": "24h", "minutes": 1440},
+        {"label": "7d", "minutes": 10080},
+      ] -%}
+  {%- set wrapper_classes = "jbs-date-range position-relative" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <div class="{{ wrapper_classes }}"
+       data-jbs-date-range
+       data-jbs-drp-auto-submit="{{ 'true' if auto_submit else 'false' }}"
+       {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <label class="form-label small text-body-secondary">{{ label }}</label>
+    <div class="input-group input-group-sm">
+      <input type="text"
+             class="form-control"
+             name="{{ from_name }}"
+             value="{{ from_value }}"
+             placeholder="From"
+             data-jbs-drp-from>
+      <input type="text"
+             class="form-control"
+             name="{{ to_name }}"
+             value="{{ to_value }}"
+             placeholder="To"
+             data-jbs-drp-to>
+      <button type="button"
+              class="btn btn-outline-secondary"
+              data-jbs-drp-toggle
+              aria-expanded="false">
+        <i class="bi bi-calendar3 me-1" aria-hidden="true"></i>
+        {{ button_label }}
+      </button>
+    </div>
+    <div class="dropdown-menu shadow-sm p-3 mt-1"
+         data-jbs-drp-panel
+         hidden>
+      <div class="d-flex flex-wrap gap-1 mb-3">
+        {%- for preset in presets %}
+          <button type="button"
+                  class="btn btn-outline-secondary btn-sm"
+                  data-jbs-drp-preset
+                  data-jbs-minutes="{{ preset.minutes }}">
+            {{ preset.label }}
+          </button>
+        {%- endfor %}
+      </div>
+      <div class="vstack gap-2">
+        <div>
+          <label class="form-label small text-body-secondary mb-1">From</label>
+          <input type="datetime-local"
+                 class="form-control form-control-sm"
+                 data-jbs-drp-custom-from>
+        </div>
+        <div>
+          <label class="form-label small text-body-secondary mb-1">To</label>
+          <input type="datetime-local"
+                 class="form-control form-control-sm"
+                 data-jbs-drp-custom-to>
+        </div>
+      </div>
+      <div class="d-flex gap-2 mt-3">
+        <button type="button"
+                class="btn btn-primary btn-sm flex-grow-1"
+                data-jbs-drp-apply>
+          Apply
+        </button>
+        <button type="button"
+                class="btn btn-outline-secondary btn-sm"
+                data-jbs-drp-clear>
+          Clear
+        </button>
+      </div>
+    </div>
+  </div>
+{%- endmacro -%}
+
+{%- macro regex_filter_input(name="q", value="", input_id=None, dropdown_id=None,
+                             placeholder="Regex filter (&&, !, \\\\&&)",
+                             validate_endpoint=None, hint_text=None,
+                             class_name="", attrs="") -%}
+  {%- set input_id = input_id or (name ~ "-regex-input") -%}
+  {%- set dropdown_id = dropdown_id or (name ~ "-regex-dropdown") -%}
+  {%- set assist_classes = "jbs-assist position-relative" -%}
+  {%- if class_name -%}
+    {%- set assist_classes = assist_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <div class="{{ assist_classes }}"
+       data-jbs-assist="regex"
+       data-jbs-assist-value-key="query"
+       {%- if validate_endpoint %}
+         data-jbs-assist-validate-endpoint="{{ validate_endpoint }}"
+       {% endif -%}
+       {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <input type="text"
+           id="{{ input_id }}"
+           name="{{ name }}"
+           value="{{ value }}"
+           class="form-control form-control-sm font-monospace"
+           placeholder="{{ placeholder }}"
+           autocomplete="off"
+           data-jbs-assist-input
+           aria-autocomplete="list"
+           aria-expanded="false"
+           aria-controls="{{ dropdown_id }}">
+    <ul id="{{ dropdown_id }}"
+        class="dropdown-menu w-100 shadow-sm mt-1"
+        role="listbox"
+        data-jbs-assist-panel
+        hidden></ul>
+    <div class="form-text small" data-jbs-assist-status>
+      {{ hint_text or "Use && for AND, ! for negate, \\\\&& for literal &&." }}
+    </div>
+  </div>
+{%- endmacro -%}
+
+{%- macro sql_filter_input(name="sql", value="", input_id=None, dropdown_id=None,
+                           placeholder="SQL WHERE expression",
+                           hints_endpoint=None, validate_endpoint=None,
+                           hint_text=None, class_name="", attrs="") -%}
+  {%- set input_id = input_id or (name ~ "-sql-input") -%}
+  {%- set dropdown_id = dropdown_id or (name ~ "-sql-dropdown") -%}
+  {%- set assist_classes = "jbs-assist position-relative" -%}
+  {%- if class_name -%}
+    {%- set assist_classes = assist_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <div class="{{ assist_classes }}"
+       data-jbs-assist="sql"
+       data-jbs-assist-value-key="sql"
+       {%- if hints_endpoint %}
+         data-jbs-assist-hints-endpoint="{{ hints_endpoint }}"
+       {% endif -%}
+       {%- if validate_endpoint %}
+         data-jbs-assist-validate-endpoint="{{ validate_endpoint }}"
+       {% endif -%}
+       {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <input type="text"
+           id="{{ input_id }}"
+           name="{{ name }}"
+           value="{{ value }}"
+           class="form-control form-control-sm font-monospace"
+           placeholder="{{ placeholder }}"
+           autocomplete="off"
+           data-jbs-assist-input
+           aria-autocomplete="list"
+           aria-expanded="false"
+           aria-controls="{{ dropdown_id }}">
+    <ul id="{{ dropdown_id }}"
+        class="dropdown-menu w-100 shadow-sm mt-1"
+        role="listbox"
+        data-jbs-assist-panel
+        hidden></ul>
+    <div class="form-text small" data-jbs-assist-status>
+      {{ hint_text or "Use field hints and SQL operators to build safe filters." }}
+    </div>
+  </div>
+{%- endmacro -%}
+
 {%- macro form_input(name, label=None, value="", input_type="text", placeholder=None,
                      variant=None, help_text=None, invalid_text=None,
                      valid=False, required=False, class_name="", id=None,
@@ -595,6 +903,9 @@ BOOTSTRAP_MACROS = """
                  total_rows=None, title=None, subtitle=None, toolbar=None,
                  empty_message="No rows found.", persist="memory",
                  state_keys=None, sse_endpoint=None, sse_event="refresh",
+                 stream_mode="replace", stream_max_rows=None,
+                 stream_pause_when_hidden=False, stream_buffer_max=100,
+                 lazy=False,
                  class_name="", attrs="") -%}
   {%- set state = state or {} -%}
   {%- set state_keys = (
@@ -606,6 +917,7 @@ BOOTSTRAP_MACROS = """
   {%- set current_sort_by = state.sort_by or "" -%}
   {%- set current_sort_dir = state.sort_dir or "asc" -%}
   {%- set page_count = ((total_rows - 1) // page_size) + 1 if total_rows > 0 else 1 -%}
+  {%- set pause_stream = 'true' if stream_pause_when_hidden else 'false' -%}
   <section id="{{ component_id }}"
            class="card shadow-sm{% if class_name %} {{ class_name }}{% endif %}"
            data-jbs-component="table"
@@ -617,6 +929,13 @@ BOOTSTRAP_MACROS = """
            data-jbs-state-keys="{{ state_keys|join(',') }}"
            {%- if sse_endpoint %} data-jbs-sse="{{ sse_endpoint }}"{% endif -%}
            {%- if sse_endpoint %} data-jbs-sse-event="{{ sse_event }}"{% endif -%}
+           data-jbs-stream-mode="{{ stream_mode }}"
+           {%- if stream_max_rows is not none %}
+             data-jbs-stream-max-rows="{{ stream_max_rows }}"
+           {% endif -%}
+           data-jbs-stream-pause-when-hidden="{{ pause_stream }}"
+           data-jbs-stream-buffer-max="{{ stream_buffer_max }}"
+           {%- if lazy %} data-jbs-lazy="true"{% endif -%}
            data-jbs-state='{{ state|tojson }}'
            {%- if attrs %} {{ attrs|safe }}{% endif -%}>
     {%- if title or subtitle or toolbar %}

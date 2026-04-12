@@ -35,6 +35,13 @@ SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 SUBSCRIBERS_LOCK = Lock()
 PUSH_COUNTER = 0
 LAST_PUSH_MESSAGE = ""
+LIVE_SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
+LIVE_SUBSCRIBERS_LOCK = Lock()
+LIVE_PUSH_COUNTER = 0
+LIVE_ROWS = [
+    {"entry": "boot complete", "source": "runtime"},
+    {"entry": "table hydrated", "source": "runtime"},
+]
 
 
 def _seed_orders() -> list[dict[str, Any]]:
@@ -108,6 +115,19 @@ def _publish_orders_event(message: str, patch: dict[str, Any] | None = None) -> 
     for subscriber in subscribers:
         subscriber.put(payload)
     app.logger.info("Published SSE update: %s", message)
+
+
+def _publish_live_event(payload: dict[str, Any]) -> None:
+    with LIVE_SUBSCRIBERS_LOCK:
+        subscribers = list(LIVE_SUBSCRIBERS)
+    for subscriber in subscribers:
+        subscriber.put(payload)
+
+
+def _render_live_row(entry: str, source: str) -> str:
+    safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    safe_source = source.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return f"<tr><td>{safe_entry}</td><td>{safe_source}</td></tr>"
 
 
 def _action_menu(order: dict[str, Any]) -> str:
@@ -206,7 +226,15 @@ def build_orders_context() -> dict[str, Any]:
         default_sort_by="number",
         default_page_size=10,
         allowed_page_sizes=(5, 10, 20, 50),
-        filter_keys=("status", "customer", "row_id", "intent"),
+        filter_keys=(
+            "status",
+            "customer",
+            "row_id",
+            "intent",
+            "from_ts",
+            "to_ts",
+            "sql",
+        ),
     )
 
     action_message = None
@@ -270,6 +298,8 @@ def build_orders_context() -> dict[str, Any]:
         "subtitle": subtitle,
         "runtime_url": url_for("runtime_js"),
         "push_url": url_for("simulate_push"),
+        "live_push_url": url_for("push_live_row"),
+        "live_rows": list(LIVE_ROWS),
         "status_summary": _status_summary(filtered_rows),
         "status_notice": status_notice,
     }
@@ -283,6 +313,31 @@ def index() -> str:
 @app.get("/components/orders")
 def orders_component() -> str:
     return render_template("partials/orders_table.html", **build_orders_context())
+
+
+@app.get("/components/live-table")
+def live_table_component() -> str:
+    return render_template("partials/live_table.html", **build_orders_context())
+
+
+@app.get("/components/lazy-summary")
+def lazy_summary_component() -> str:
+    return (
+        '<section id="lazy-summary" '
+        'class="card p-3 border-success-subtle" '
+        'data-jbs-component="lazy-summary" '
+        'data-jbs-endpoint="/components/lazy-summary" '
+        'data-jbs-target="#lazy-summary" '
+        'data-jbs-key="lazy-summary" '
+        'data-jbs-persist="memory" '
+        'data-jbs-stream-mode="replace" '
+        'data-jbs-stream-pause-when-hidden="false" '
+        'data-jbs-stream-buffer-max="50" '
+        "data-jbs-state='{}'>"
+        '<strong class="text-success">Lazy summary ready.</strong> '
+        '<span class="text-body-secondary">Loaded on first viewport entry.</span>'
+        "</section>"
+    )
 
 
 @app.get("/fragments/customer-options")
@@ -331,6 +386,38 @@ def orders_events() -> Response:
     )
 
 
+@app.get("/events/live-table")
+def live_table_events() -> Response:
+    queue: Queue[dict[str, Any]] = Queue()
+    with LIVE_SUBSCRIBERS_LOCK:
+        LIVE_SUBSCRIBERS.append(queue)
+
+    @stream_with_context
+    def event_stream() -> Any:
+        try:
+            yield "retry: 3000\n\n"
+            while True:
+                try:
+                    payload = queue.get(timeout=15)
+                    yield ("event: refresh\n" f"data: {json.dumps(payload)}\n\n")
+                except Empty:
+                    yield ": keep-alive\n\n"
+        finally:
+            with LIVE_SUBSCRIBERS_LOCK:
+                if queue in LIVE_SUBSCRIBERS:
+                    LIVE_SUBSCRIBERS.remove(queue)
+
+    return Response(
+        event_stream(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @app.post("/admin/simulate-update")
 def simulate_push() -> Any:
     global PUSH_COUNTER, LAST_PUSH_MESSAGE
@@ -343,6 +430,50 @@ def simulate_push() -> Any:
     )
     _publish_orders_event(LAST_PUSH_MESSAGE)
     return {"ok": True, "message": LAST_PUSH_MESSAGE}
+
+
+@app.post("/admin/push-live-row")
+def push_live_row() -> Any:
+    global LIVE_PUSH_COUNTER
+
+    LIVE_PUSH_COUNTER += 1
+    row = {"entry": f"event-{LIVE_PUSH_COUNTER}", "source": "sse"}
+    LIVE_ROWS.insert(0, row)
+    _publish_live_event(
+        {
+            "target": "live-table",
+            "mode": "prepend",
+            "row": _render_live_row(row["entry"], row["source"]),
+            "max_rows": 5,
+        }
+    )
+    return {"ok": True, "entry": row["entry"]}
+
+
+@app.get("/api/sql-hints")
+def sql_hints() -> Any:
+    return {"hints": ["service", "status", "duration_ms", "AND", "OR", "ILIKE"]}
+
+
+@app.post("/api/sql-validate")
+def sql_validate() -> Any:
+    payload = request.get_json(silent=True) or {}
+    sql = str(payload.get("sql", "")).strip()
+    if not sql:
+        return {"ok": True, "message": "SQL filter is empty."}
+    if "drop " in sql.lower():
+        return {
+            "ok": False,
+            "issues": [{"level": "error", "message": "Forbidden keyword."}],
+        }
+    if sql.endswith(("AND", "OR")):
+        return {
+            "ok": False,
+            "issues": [
+                {"level": "warning", "message": "Expression ends with an operator."}
+            ],
+        }
+    return {"ok": True, "message": "SQL filter validated."}
 
 
 if __name__ == "__main__":

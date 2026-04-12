@@ -1,0 +1,22 @@
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+
+{{
+  ui.table(
+    "live-table",
+    "/components/live-table",
+    columns=[
+      {"key": "entry", "label": "Entry", "sortable": false},
+      {"key": "source", "label": "Source", "sortable": false},
+    ],
+    rows=live_rows,
+    state={"page": 1, "page_size": 5, "sort_by": "", "sort_dir": "asc"},
+    total_rows=live_rows|length,
+    title="Live Stream Table",
+    subtitle="Prepend mode applies SSE row payloads without full fragment refresh.",
+    sse_endpoint="/events/live-table",
+    stream_mode="prepend",
+    stream_max_rows=5,
+    stream_pause_when_hidden=true,
+    stream_buffer_max=50
+  )
+}}

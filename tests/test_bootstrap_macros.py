@@ -230,6 +230,114 @@ def test_status_region_macro_renders_dismissible_notice() -> None:
     assert "Order #1005 moved to open." in rendered
 
 
+def test_filter_accordion_macro_renders_disclosure_contract() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.filter_accordion(
+            "orders-filters",
+            title="Filters",
+            body="<form></form>",
+            active_badge=true
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="orders-filters"' in rendered
+    assert "data-jbs-disclosure" in rendered
+    assert "data-jbs-disclosure-trigger" in rendered
+    assert "data-jbs-disclosure-panel" in rendered
+    assert "Active" in rendered
+
+
+def test_multi_select_filter_macros_render_runtime_contract() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.filter_multi_select(
+            "service",
+            "Service",
+            [
+              {"value": "api", "label": "API"},
+              {"value": "worker", "label": "Worker"},
+            ],
+            selected_values=["api"],
+            auto_submit=true
+          )
+        }}
+        {{
+          ui.filter_single_select(
+            "status",
+            "Status",
+            [
+              {"value": "open", "label": "Open"},
+              {"value": "queued", "label": "Queued"},
+            ],
+            selected_value="open"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert "data-jbs-multi-select" in rendered
+    assert 'data-jbs-ms-input-name="service"' in rendered
+    assert "data-jbs-ms-toggle" in rendered
+    assert "data-jbs-ms-menu" in rendered
+    assert "data-jbs-ms-option" in rendered
+    assert 'name="service"' in rendered
+    assert 'data-jbs-ms-single="true"' in rendered
+    assert 'name="status"' in rendered
+
+
+def test_date_range_and_assist_macros_render_runtime_contract() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.date_range_picker(
+            from_value="2026-04-12 09:00",
+            to_value="2026-04-12 10:00"
+          )
+        }}
+        {{
+          ui.regex_filter_input(
+            value="error && !healthcheck",
+            validate_endpoint="/api/validate-regex"
+          )
+        }}
+        {{
+          ui.sql_filter_input(
+            value="service = 'api'",
+            hints_endpoint="/api/sql-hints",
+            validate_endpoint="/api/sql-validate"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert "data-jbs-date-range" in rendered
+    assert "data-jbs-drp-toggle" in rendered
+    assert "data-jbs-drp-preset" in rendered
+    assert "data-jbs-drp-custom-from" in rendered
+    assert 'data-jbs-assist="regex"' in rendered
+    assert 'data-jbs-assist-validate-endpoint="/api/validate-regex"' in rendered
+    assert 'data-jbs-assist="sql"' in rendered
+    assert 'data-jbs-assist-hints-endpoint="/api/sql-hints"' in rendered
+    assert 'data-jbs-assist-validate-endpoint="/api/sql-validate"' in rendered
+
+
 def test_action_menu_macro_renders_runtime_friendly_dropdown_markup() -> None:
     environment = build_environment()
     template = environment.from_string(
@@ -304,6 +412,9 @@ def test_table_macro_renders_component_contract() -> None:
     )
     assert 'data-jbs-sse="/events/orders"' in rendered
     assert 'data-jbs-sse-event="refresh"' in rendered
+    assert 'data-jbs-stream-mode="replace"' in rendered
+    assert 'data-jbs-stream-pause-when-hidden="false"' in rendered
+    assert 'data-jbs-stream-buffer-max="100"' in rendered
     assert 'data-jbs-sort-key="number"' in rendered
     assert "Page 1 of 2" in rendered
     assert "Showing 1 of 40 results" in rendered
@@ -319,6 +430,11 @@ def test_runtime_helpers_serialize_component_and_action_attrs() -> None:
             persist="session",
             state_keys=("page", "page_size", "sort_by"),
             sse_endpoint="/events/orders",
+            stream_mode="append",
+            stream_max_rows=50,
+            stream_pause_when_hidden=True,
+            stream_buffer_max=200,
+            lazy=True,
         )
     )
     action_html = attrs_to_html(
@@ -335,6 +451,11 @@ def test_runtime_helpers_serialize_component_and_action_attrs() -> None:
     assert 'data-jbs-persist="session"' in str(component_html)
     assert 'data-jbs-state-keys="page,page_size,sort_by"' in str(component_html)
     assert 'data-jbs-sse="/events/orders"' in str(component_html)
+    assert 'data-jbs-stream-mode="append"' in str(component_html)
+    assert 'data-jbs-stream-max-rows="50"' in str(component_html)
+    assert 'data-jbs-stream-pause-when-hidden="true"' in str(component_html)
+    assert 'data-jbs-stream-buffer-max="200"' in str(component_html)
+    assert 'data-jbs-lazy="true"' in str(component_html)
     assert (
         'data-jbs-state="{&#34;page&#34;:2,&#34;sort_by&#34;:&#34;created_at&#34;}"'
         in str(component_html)

@@ -22,6 +22,9 @@ JBS_PERSIST_MEMORY = "memory"
 JBS_PERSIST_QUERYSTRING = "querystring"
 JBS_PERSIST_SESSION = "session"
 JBS_SSE_EVENT_REFRESH = "refresh"
+JBS_STREAM_MODE_REPLACE = "replace"
+JBS_STREAM_MODE_APPEND = "append"
+JBS_STREAM_MODE_PREPEND = "prepend"
 
 TABLE_COMPONENT = "table"
 TABLE_STATE_KEYS = ("page", "page_size", "sort_by", "sort_dir", "query")

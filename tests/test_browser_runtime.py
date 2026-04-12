@@ -57,6 +57,13 @@ LAST_PUSH_MESSAGE = ""
 PUSH_COUNTER = 0
 SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 SUBSCRIBERS_LOCK = Lock()
+LIVE_ROWS = [
+    {"entry": "boot complete", "source": "runtime"},
+    {"entry": "table hydrated", "source": "runtime"},
+]
+LIVE_SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
+LIVE_SUBSCRIBERS_LOCK = Lock()
+LIVE_PUSH_COUNTER = 0
 
 PAGE_TEMPLATE = """
 <!DOCTYPE html>
@@ -79,17 +86,173 @@ PAGE_TEMPLATE = """
               data-jbs-overlay-open="orders-drawer">
         Open Drawer
       </button>
+      <button class="btn btn-outline-secondary"
+              type="button"
+              id="push-live-row">
+        Push Live Row
+      </button>
     </div>
     {{ table_markup|safe }}
+    <div class="mt-4">
+      {{ live_table_markup|safe }}
+    </div>
+    <div style="height: 1200px;"></div>
+    <section id="lazy-summary"
+             class="card p-3"
+             data-jbs-component="lazy-summary"
+             data-jbs-endpoint="/components/lazy-summary"
+             data-jbs-target="#lazy-summary"
+             data-jbs-key="lazy-summary"
+             data-jbs-persist="memory"
+             data-jbs-stream-mode="replace"
+             data-jbs-stream-pause-when-hidden="false"
+             data-jbs-stream-buffer-max="50"
+             data-jbs-state="{}"
+             data-jbs-lazy="true"
+             data-jbs-lazy-fetch="true">
+      Loading lazy summary…
+    </section>
     {{ overlay_markup|safe }}
     </main>
     <script type="module" src="/static/jinja-bootstrap-spa.js"></script>
+    <script type="module">
+      const pushLiveRow = document.getElementById("push-live-row");
+      pushLiveRow?.addEventListener("click", async () => {
+        await fetch("/admin/push-live-row", { method: "POST" });
+      });
+    </script>
   </body>
 </html>
 """
 
 TABLE_TEMPLATE = """
 {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{% set selected_statuses = [state.status] if state.status else [] %}
+{% set filter_body %}
+  <form class="vstack gap-3" data-jbs-form>
+    <div class="d-flex flex-wrap align-items-end gap-2">
+      {{
+        ui.form_input(
+          "query",
+          value=state.query or "",
+          placeholder="Search orders",
+          class_name="form-control-sm mb-0"
+        )
+      }}
+      {{
+        ui.autocomplete(
+          "customer",
+          "/fragments/customer-options",
+          value=state.customer or "",
+          display_value=state.customer or "",
+          placeholder="Filter customer",
+          class_name="mb-0",
+          input_class="form-control-sm"
+        )
+      }}
+      {{
+        ui.filter_multi_select(
+          "status",
+          "Status",
+          [
+            {"value": "queued", "label": "Queued"},
+            {"value": "open", "label": "Open"},
+            {"value": "archived", "label": "Archived"},
+          ],
+          selected_values=selected_statuses,
+          class_name="mb-0"
+        )
+      }}
+      {{
+        ui.filter_single_select(
+          "page_size",
+          "Page Size",
+          [
+            {"value": "4", "label": "4 rows"},
+            {"value": "8", "label": "8 rows"},
+          ],
+          selected_value=state.page_size or 4,
+          class_name="mb-0"
+        )
+      }}
+      {{
+        ui.date_range_picker(
+          from_name="from_ts",
+          to_name="to_ts",
+          from_value=state.from_ts or "",
+          to_value=state.to_ts or "",
+          class_name="mb-0"
+        )
+      }}
+    </div>
+    {{
+      ui.sql_filter_input(
+        name="sql",
+        value=state.sql or "",
+        hints_endpoint="/api/sql-hints",
+        validate_endpoint="/api/sql-validate"
+      )
+    }}
+    <button class="btn btn-sm btn-primary align-self-start" type="submit">Apply</button>
+  </form>
+{% endset %}
+
+{% set toolbar %}
+  <div class="vstack gap-3">
+    {% if status_notice %}
+      {{
+        ui.status_region(
+          "orders-status-region",
+          title=status_notice.title,
+          message=status_notice.message,
+          variant=status_notice.variant,
+          class_name="mb-0"
+        )
+      }}
+    {% endif %}
+    {{
+      ui.tabs(
+        "orders-status-tabs",
+        [
+          {
+            "label": "All",
+            "value": "__all__",
+            "jbs_action": "filter",
+            "jbs_patch": {"status": none, "page": 1}
+          },
+          {
+            "label": "Queued",
+            "value": "queued",
+            "jbs_action": "filter",
+            "jbs_patch": {"status": "queued", "page": 1}
+          },
+          {
+            "label": "Open",
+            "value": "open",
+            "jbs_action": "filter",
+            "jbs_patch": {"status": "open", "page": 1}
+          },
+          {
+            "label": "Archived",
+            "value": "archived",
+            "jbs_action": "filter",
+            "jbs_patch": {"status": "archived", "page": 1}
+          },
+        ],
+        active=state.status or "__all__",
+        class_name="small"
+      )
+    }}
+    {{
+      ui.filter_accordion(
+        "orders-filters",
+        body=filter_body,
+        active_badge=(state.status or state.query or state.customer or state.sql)
+      )
+    }}
+  </div>
+{% endset %}
+
 {{
   ui.table(
     "orders-table",
@@ -117,103 +280,14 @@ TABLE_TEMPLATE = """
       "sort_dir",
       "query",
       "customer",
-      "status"
+      "status",
+      "from_ts",
+      "to_ts",
+      "sql"
     ],
     title="Orders",
     subtitle=subtitle,
-    toolbar='
-      <div class="vstack gap-3">
-        '
-        ~ (
-          ui.status_region(
-            "orders-status-region",
-            title=status_notice.title,
-            message=status_notice.message,
-            variant=status_notice.variant,
-            class_name="mb-0"
-          )
-          if status_notice
-          else ""
-        )
-        ~ '
-        '
-        ~ ui.tabs(
-          "orders-status-tabs",
-          [
-            {
-              "label": "All",
-              "value": "__all__",
-              "jbs_action": "filter",
-              "jbs_patch": {"status": none, "page": 1}
-            },
-            {
-              "label": "Queued",
-              "value": "queued",
-              "jbs_action": "filter",
-              "jbs_patch": {"status": "queued", "page": 1}
-            },
-            {
-              "label": "Open",
-              "value": "open",
-              "jbs_action": "filter",
-              "jbs_patch": {"status": "open", "page": 1}
-            },
-            {
-              "label": "Archived",
-              "value": "archived",
-              "jbs_action": "filter",
-              "jbs_patch": {"status": "archived", "page": 1}
-            },
-          ],
-          active=state.status or "__all__",
-          class_name="small"
-        )
-        ~ '
-        <form class="d-flex flex-wrap align-items-end gap-2" data-jbs-form>
-          '
-          ~ ui.form_input(
-            "query",
-            value=state.query or "",
-            placeholder="Search orders",
-            class_name="form-control-sm mb-0"
-          )
-          ~ '
-          ~ ui.autocomplete(
-            "customer",
-            "/fragments/customer-options",
-            value=state.customer or "",
-            display_value=state.customer or "",
-            placeholder="Filter customer",
-            class_name="mb-0",
-            input_class="form-control-sm"
-          )
-          ~ '
-          ~ ui.form_select(
-            "status",
-            [
-              {"value": "queued", "label": "Queued"},
-              {"value": "open", "label": "Open"},
-              {"value": "archived", "label": "Archived"},
-            ],
-            value=state.status or "",
-            placeholder="All",
-            class_name="form-select-sm mb-0"
-          )
-          ~ '
-          ~ ui.form_select(
-            "page_size",
-            [
-              {"value": "4", "label": "4 rows"},
-              {"value": "8", "label": "8 rows"},
-            ],
-            value=state.page_size or 4,
-            class_name="form-select-sm mb-0"
-          )
-          ~ '
-          <button class="btn btn-sm btn-primary" type="submit">Apply</button>
-        </form>
-      </div>
-    ',
+    toolbar=toolbar,
     sse_endpoint="/events/orders"
   )
 }}
@@ -229,6 +303,31 @@ ACTION_MENU_TEMPLATE = """
     variant="outline-secondary",
     size="sm",
     align="end"
+  )
+}}
+"""
+
+LIVE_TABLE_TEMPLATE = """
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{{
+  ui.table(
+    "live-table",
+    "/components/live-table",
+    columns=[
+      {"key": "entry", "label": "Entry", "sortable": false},
+      {"key": "source", "label": "Source", "sortable": false},
+    ],
+    rows=rows,
+    state={"page": 1, "page_size": 3, "sort_by": "", "sort_dir": "asc"},
+    total_rows=rows|length,
+    title="Live Stream Table",
+    subtitle="SSE prepend mode keeps newest events on top.",
+    stream_mode="prepend",
+    stream_max_rows=3,
+    stream_pause_when_hidden=true,
+    stream_buffer_max=20,
+    sse_endpoint="/events/live-table",
+    sse_event="refresh"
   )
 }}
 """
@@ -278,6 +377,24 @@ def _publish_orders_event(message: str, patch: dict[str, Any] | None = None) -> 
         subscribers = list(SUBSCRIBERS)
     for subscriber in subscribers:
         subscriber.put(payload)
+
+
+def _publish_live_event(payload: dict[str, Any]) -> None:
+    with LIVE_SUBSCRIBERS_LOCK:
+        subscribers = list(LIVE_SUBSCRIBERS)
+    for subscriber in subscribers:
+        subscriber.put(payload)
+
+
+def _render_live_row(entry: str, source: str) -> str:
+    safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    safe_source = source.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return f"<tr><td>{safe_entry}</td><td>{safe_source}</td></tr>"
+
+
+def _build_live_table(app: Flask) -> str:
+    template = app.jinja_env.from_string(LIVE_TABLE_TEMPLATE)
+    return template.render(rows=list(LIVE_ROWS))
 
 
 def _sort_orders(
@@ -364,7 +481,15 @@ def _build_table(app: Flask) -> str:
         default_sort_by="number",
         default_page_size=4,
         allowed_page_sizes=(4, 8),
-        filter_keys=("status", "customer", "row_id", "intent"),
+        filter_keys=(
+            "status",
+            "customer",
+            "row_id",
+            "intent",
+            "from_ts",
+            "to_ts",
+            "sql",
+        ),
     )
 
     action_message = None
@@ -435,14 +560,41 @@ def create_test_app() -> Flask:
     @app.get("/")
     def index() -> str:
         table_markup = _build_table(app)
+        live_table_markup = _build_live_table(app)
         overlay_markup = render_template_string(OVERLAYS_TEMPLATE)
         return render_template_string(
-            PAGE_TEMPLATE, table_markup=table_markup, overlay_markup=overlay_markup
+            PAGE_TEMPLATE,
+            table_markup=table_markup,
+            live_table_markup=live_table_markup,
+            overlay_markup=overlay_markup,
         )
 
     @app.get("/components/orders")
     def orders_component() -> str:
         return _build_table(app)
+
+    @app.get("/components/live-table")
+    def live_table_component() -> str:
+        return _build_live_table(app)
+
+    @app.get("/components/lazy-summary")
+    def lazy_summary_component() -> str:
+        return (
+            '<section id="lazy-summary" '
+            'class="card p-3 border-success-subtle" '
+            'data-jbs-component="lazy-summary" '
+            'data-jbs-endpoint="/components/lazy-summary" '
+            'data-jbs-target="#lazy-summary" '
+            'data-jbs-key="lazy-summary" '
+            'data-jbs-persist="memory" '
+            'data-jbs-stream-mode="replace" '
+            'data-jbs-stream-pause-when-hidden="false" '
+            'data-jbs-stream-buffer-max="50" '
+            "data-jbs-state='{}'>"
+            '<strong class="text-success">Lazy summary ready.</strong> '
+            '<span class="text-body-secondary">Loaded on first viewport entry.</span>'
+            "</section>"
+        )
 
     @app.get("/events/orders")
     def orders_events() -> Response:
@@ -471,6 +623,33 @@ def create_test_app() -> Flask:
             headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
         )
 
+    @app.get("/events/live-table")
+    def live_table_events() -> Response:
+        queue: Queue[dict[str, Any]] = Queue()
+        with LIVE_SUBSCRIBERS_LOCK:
+            LIVE_SUBSCRIBERS.append(queue)
+
+        @stream_with_context
+        def event_stream() -> Any:
+            try:
+                yield "retry: 1000\n\n"
+                while True:
+                    try:
+                        payload = queue.get(timeout=10)
+                        yield f"event: refresh\ndata: {json.dumps(payload)}\n\n"
+                    except Empty:
+                        yield ": keep-alive\n\n"
+            finally:
+                with LIVE_SUBSCRIBERS_LOCK:
+                    if queue in LIVE_SUBSCRIBERS:
+                        LIVE_SUBSCRIBERS.remove(queue)
+
+        return Response(
+            event_stream(),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
+
     @app.get("/fragments/customer-options")
     def customer_options() -> str:
         query = str(request.args.get("q", "") or "")
@@ -491,6 +670,58 @@ def create_test_app() -> Flask:
         _publish_orders_event(LAST_PUSH_MESSAGE)
         return {"ok": True, "message": LAST_PUSH_MESSAGE}
 
+    @app.post("/admin/push-live-row")
+    def push_live_row() -> dict[str, Any]:
+        global LIVE_PUSH_COUNTER
+
+        LIVE_PUSH_COUNTER += 1
+        row = {
+            "entry": f"event-{LIVE_PUSH_COUNTER}",
+            "source": "sse",
+        }
+        LIVE_ROWS.insert(0, row)
+        payload = {
+            "target": "live-table",
+            "mode": "prepend",
+            "row": _render_live_row(row["entry"], row["source"]),
+            "max_rows": 3,
+        }
+        _publish_live_event(payload)
+        return {"ok": True, "entry": row["entry"]}
+
+    @app.get("/api/sql-hints")
+    def sql_hints() -> dict[str, Any]:
+        return {
+            "hints": [
+                "service",
+                "status",
+                "duration_ms",
+                "AND",
+                "OR",
+                "ILIKE",
+            ]
+        }
+
+    @app.post("/api/sql-validate")
+    def sql_validate() -> dict[str, Any]:
+        payload = request.get_json(silent=True) or {}
+        sql = str(payload.get("sql", "")).strip()
+        if not sql:
+            return {"ok": True, "message": "SQL filter is empty."}
+        if "drop " in sql.lower():
+            return {
+                "ok": False,
+                "issues": [{"level": "error", "message": "Forbidden keyword."}],
+            }
+        if sql.endswith(("AND", "OR")):
+            return {
+                "ok": False,
+                "issues": [
+                    {"level": "warning", "message": "Expression ends with an operator."}
+                ],
+            }
+        return {"ok": True, "message": "SQL filter validated."}
+
     @app.get("/static/jinja-bootstrap-spa.js")
     def runtime_js() -> Any:
         runtime_path = (
@@ -507,6 +738,16 @@ def create_test_app() -> Flask:
 
 @pytest.fixture()
 def live_server() -> str:
+    global LAST_PUSH_MESSAGE, PUSH_COUNTER, LIVE_PUSH_COUNTER, LIVE_ROWS
+
+    LAST_PUSH_MESSAGE = ""
+    PUSH_COUNTER = 0
+    LIVE_PUSH_COUNTER = 0
+    LIVE_ROWS = [
+        {"entry": "boot complete", "source": "runtime"},
+        {"entry": "table hydrated", "source": "runtime"},
+    ]
+
     app = create_test_app()
     server = make_server("127.0.0.1", 0, app, threaded=True)
     thread = Thread(target=server.serve_forever)
@@ -562,10 +803,28 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
                 "#1001" in page.locator("#orders-table tbody tr").first.text_content()
             )
 
+            page.locator("#orders-filters [data-jbs-disclosure-trigger]").click()
+            page.wait_for_function(
+                "() => !!document.querySelector("
+                "'#orders-filters [data-jbs-disclosure-panel]'"
+                ")?.hidden"
+            )
+            page.locator("#orders-filters [data-jbs-disclosure-trigger]").click()
+            page.wait_for_function(
+                "() => !document.querySelector("
+                "'#orders-filters [data-jbs-disclosure-panel]'"
+                ")?.hidden"
+            )
+
             page.get_by_role("tab", name="Queued").click()
             page.wait_for_function(_table_contains("Queued"))
             assert "status=queued" in page.url
             page.get_by_role("tab", name="All").click()
+            page.wait_for_function(_table_contains("Page 1 of 3"))
+            page.go_back()
+            page.wait_for_function(_table_contains("Queued"))
+            assert "status=queued" in page.url
+            page.go_forward()
             page.wait_for_function(_table_contains("Page 1 of 3"))
 
             page.get_by_role("button", name="Order").click()
@@ -580,8 +839,47 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             page.locator("[data-jbs-autocomplete-input]").fill("Marg")
             page.wait_for_selector("[data-jbs-autocomplete-option]")
             page.get_by_role("option", name="Margaret Hamilton").click()
-            page.locator("select[name='status']").select_option("queued")
-            page.locator("select[name='page_size']").select_option("8")
+
+            page.locator(
+                "[data-jbs-ms-input-name='status'] [data-jbs-ms-toggle]"
+            ).click()
+            page.locator(
+                "[data-jbs-ms-input-name='status'] "
+                "[data-jbs-ms-option][data-jbs-ms-value='queued']"
+            ).click()
+
+            page.locator(
+                "[data-jbs-ms-input-name='page_size'] [data-jbs-ms-toggle]"
+            ).click()
+            page.locator(
+                "[data-jbs-ms-input-name='page_size'] "
+                "[data-jbs-ms-option][data-jbs-ms-value='8']"
+            ).click()
+
+            page.locator("[data-jbs-date-range] [data-jbs-drp-toggle]").click()
+            page.locator(
+                "[data-jbs-date-range] [data-jbs-drp-preset][data-jbs-minutes='60']"
+            ).click()
+            assert page.locator(
+                "[data-jbs-date-range] [data-jbs-drp-from]"
+            ).input_value()
+
+            sql_input = page.locator("input[name='sql']")
+            sql_input.click()
+            page.wait_for_selector("[data-jbs-assist-option='service']")
+            sql_input.fill("status = 'queued' AND")
+            page.wait_for_function(
+                "() => document.querySelector("
+                "'[data-jbs-assist=\"sql\"] [data-jbs-assist-status]'"
+                ")?.textContent?.includes('operator')"
+            )
+            sql_input.fill("status = 'queued'")
+            page.wait_for_function(
+                "() => document.querySelector("
+                "'[data-jbs-assist=\"sql\"] [data-jbs-assist-status]'"
+                ")?.textContent?.includes('validated')"
+            )
+
             page.get_by_role("button", name="Apply").click()
             page.wait_for_function(_table_contains("Page 1 of 1"))
             assert "status=queued" in page.url
@@ -635,6 +933,35 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             page.wait_for_function(
                 "() => !document.getElementById('orders-status-region')"
             )
+
+            assert "table hydrated" in page.locator("#live-table").text_content()
+            page.get_by_role("button", name="Push Live Row").click()
+            page.wait_for_function(
+                "() => document.querySelector("
+                "'#live-table tbody tr:first-child'"
+                ")?.textContent?.includes('event-1')"
+            )
+            page.get_by_role("button", name="Push Live Row").click()
+            page.get_by_role("button", name="Push Live Row").click()
+            page.wait_for_function(
+                "() => document.querySelector("
+                "'#live-table tbody tr:first-child'"
+                ")?.textContent?.includes('event-3')"
+            )
+            row_count = page.evaluate(
+                "() => document.querySelectorAll('#live-table tbody tr').length"
+            )
+            assert row_count == 3
+
+            assert (
+                "Loading lazy summary" in page.locator("#lazy-summary").text_content()
+            )
+            page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_function(
+                "() => document.getElementById('lazy-summary')"
+                "?.textContent?.includes('Lazy summary ready.')"
+            )
+            assert "Lazy summary ready." in page.locator("#lazy-summary").text_content()
 
             browser.close()
     except PlaywrightError as exc:

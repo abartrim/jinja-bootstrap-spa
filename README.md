@@ -67,8 +67,13 @@ npm run build:js
 
 Then open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
-The dev app includes an SSE-backed orders table and row action menus. Click
-`Simulate SSE Update` to watch the table refresh in place without a full reload.
+The dev app includes:
+
+- an SSE-backed orders table with stateful filters
+- a prepend-stream live table (row-level SSE patches)
+- a lazy-hydrated component loaded on first viewport entry
+
+Use `Simulate SSE Update` and `Push Live Row` to exercise both stream modes.
 
 ## Runtime Model
 
@@ -79,6 +84,8 @@ Each interactive fragment is a server-rendered component root:
 - `data-jbs-target`
 - `data-jbs-state`
 - `data-jbs-key`
+- `data-jbs-stream-mode`
+- `data-jbs-lazy`
 
 Interactive controls inside the component emit actions such as:
 
@@ -87,9 +94,9 @@ Interactive controls inside the component emit actions such as:
 - `data-jbs-action="page"`
 - `data-jbs-patch='{"status":"open"}'`
 
-The browser runtime sends the component state to the endpoint, expects an HTML
-fragment back, and replaces the component root in one swap. That keeps the server
-as the source of truth while still enabling SPA-like interactions.
+The browser runtime sends component state to the endpoint and, by default,
+replaces the component root in one swap. For stream-heavy tables it can also
+apply row-level append/prepend patches from SSE payloads.
 
 ## Table Contract
 
@@ -142,6 +149,32 @@ that root should remain the same logical component:
 
 The runtime will reject a swapped fragment if the component type changes, and it
 expects the root identity to stay stable across requests.
+
+### Stream shape
+
+When using SSE (`data-jbs-sse`), table components support three stream modes:
+
+- `replace`: fetch and replace the whole fragment (default)
+- `prepend`: prepend incoming row payloads into `<tbody>`
+- `append`: append incoming row payloads into `<tbody>`
+
+Use these attributes on the component root:
+
+- `data-jbs-stream-mode="replace|prepend|append"`
+- `data-jbs-stream-max-rows="N"` (optional row cap for append/prepend)
+- `data-jbs-stream-pause-when-hidden="true|false"` (buffer when off-screen)
+- `data-jbs-stream-buffer-max="N"` (max buffered stream events)
+
+For append/prepend payloads, send SSE data with `row` or `rows` HTML:
+
+```json
+{
+  "target": "live-table",
+  "mode": "prepend",
+  "row": "<tr><td>event-42</td><td>sse</td></tr>",
+  "max_rows": 50
+}
+```
 
 ### Filter forms
 
@@ -290,42 +323,20 @@ Build a filter form with the packaged primitives:
 ```jinja
 {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
 
-<form class="d-flex flex-wrap align-items-end gap-2" data-jbs-form>
-  {{
-    ui.form_input(
-      "query",
-      value=table_state.query or "",
-      placeholder="Search orders",
-      class_name="form-control-sm mb-0"
-    )
-  }}
-  {{
-    ui.form_select(
-      "status",
-      [
-        {"value": "queued", "label": "Queued"},
-        {"value": "open", "label": "Open"},
-        {"value": "archived", "label": "Archived"},
-      ],
-      value=table_state.status or "",
-      placeholder="All statuses",
-      class_name="form-select-sm mb-0"
-    )
-  }}
-  {{
-    ui.form_select(
-      "page_size",
-      [
-        {"value": "10", "label": "10 rows"},
-        {"value": "25", "label": "25 rows"},
-        {"value": "50", "label": "50 rows"},
-      ],
-      value=table_state.page_size or 10,
-      class_name="form-select-sm mb-0"
-    )
-  }}
-  <button class="btn btn-sm btn-primary" type="submit">Apply</button>
-</form>
+{% set filter_body %}
+  <form class="vstack gap-3" data-jbs-form>
+    <div class="d-flex flex-wrap align-items-end gap-2">
+      {{ ui.form_input("query", value=table_state.query or "", placeholder="Search orders", class_name="form-control-sm mb-0") }}
+      {{ ui.filter_multi_select("status", "Status", [{"value":"queued","label":"Queued"},{"value":"open","label":"Open"},{"value":"archived","label":"Archived"}], selected_values=[table_state.status] if table_state.status else []) }}
+      {{ ui.filter_single_select("page_size", "Page Size", [{"value":"10","label":"10 rows"},{"value":"25","label":"25 rows"},{"value":"50","label":"50 rows"}], selected_value=table_state.page_size or 10) }}
+      {{ ui.date_range_picker(from_name="from_ts", to_name="to_ts", from_value=table_state.from_ts or "", to_value=table_state.to_ts or "") }}
+    </div>
+    {{ ui.sql_filter_input(name="sql", value=table_state.sql or "", hints_endpoint="/api/sql-hints", validate_endpoint="/api/sql-validate") }}
+    <button class="btn btn-sm btn-primary align-self-start" type="submit">Apply</button>
+  </form>
+{% endset %}
+
+{{ ui.filter_accordion("orders-filters", body=filter_body, active_badge=true) }}
 ```
 
 A matching Flask endpoint returns the replacement fragment:
@@ -385,10 +396,15 @@ Load the generated runtime as an ES module in the browser:
 The initial runtime supports:
 
 - hydrating component state from `data-jbs-state`
+- lazy hydration via `data-jbs-lazy`
 - optional state persistence through query string or session storage
+- history back/forward re-sync for querystring-persisted components
 - click-driven refresh, sort, and page actions
 - form-driven state patches through `data-jbs-form`
 - row actions through `data-jbs-row-id` and `data-jbs-intent`
+- multi-select, disclosure, and date-range picker primitives
+- SQL/regex assist inputs with hint + validation endpoints
+- SSE stream modes (`replace`, `append`, `prepend`) with hidden-state buffering
 - HTML fragment fetching with `X-JBS-*` headers
 - root component replacement with lifecycle events
 
