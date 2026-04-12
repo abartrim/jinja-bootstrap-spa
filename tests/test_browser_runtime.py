@@ -1929,13 +1929,14 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
 
                         metrics_dir = Path(__file__).resolve().parents[1] / "tmp" / "metrics"
                         metrics_dir.mkdir(parents=True, exist_ok=True)
+                        generated_at = time.strftime("%Y-%m-%d %H:%M:%S")
                         metrics_file = metrics_dir / "stream_protocol_metrics.md"
                         metrics_file.write_text(
                             "\n".join(
                                 [
                                     "# Stream Protocol Metrics",
                                     "",
-                                    f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+                                    f"Generated: {generated_at}",
                                     "",
                                     "## Byte Size",
                                     "",
@@ -1958,6 +1959,21 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
                             + "\n",
                             encoding="utf-8",
                         )
+
+                        history_file = metrics_dir / "stream_protocol_metrics_history.csv"
+                        if not history_file.exists():
+                                history_file.write_text(
+                                        "timestamp,refresh_html_bytes,v2_payload_bytes,byte_savings_ratio,v2_median_ms,refresh_median_ms,v2_to_refresh_ratio\n",
+                                        encoding="utf-8",
+                                )
+                        with history_file.open("a", encoding="utf-8") as handle:
+                                handle.write(
+                                        (
+                                                f"{generated_at},{refresh_bytes},{v2_bytes},"
+                                                f"{savings_ratio:.6f},{v2_median:.4f},{refresh_median:.4f},"
+                                                f"{(v2_median / refresh_median):.6f}\n"
+                                        )
+                                )
 
                         assert refresh_bytes > v2_bytes, (
                                 f"Expected v2 payload to be smaller than refresh HTML, got v2={v2_bytes} "
