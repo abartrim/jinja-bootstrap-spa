@@ -84,6 +84,22 @@ SESSION_ROWS = [
     {"name": "Errors", "owner": "Backend"},
 ]
 
+
+def _reset_stream_state() -> None:
+    global LIVE_PUSH_COUNTER, LIVE_ROWS
+    global APPEND_PUSH_COUNTER, APPEND_ROWS
+
+    LIVE_PUSH_COUNTER = 0
+    LIVE_ROWS = [
+        {"id": "live-boot", "entry": "boot complete", "source": "runtime"},
+        {"id": "live-hydrated", "entry": "table hydrated", "source": "runtime"},
+    ]
+    APPEND_PUSH_COUNTER = 0
+    APPEND_ROWS = [
+        {"id": "append-boot", "entry": "append channel online", "source": "runtime"},
+        {"id": "append-ready", "entry": "append stream ready", "source": "runtime"},
+    ]
+
 PAGE_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -1028,6 +1044,69 @@ def create_test_app() -> Flask:
         _publish_append_event(payload)
         return {"ok": True, "entry": row["entry"]}
 
+    @app.post("/admin/reset-stream-state")
+    def reset_stream_state() -> dict[str, Any]:
+        _reset_stream_state()
+        return {"ok": True}
+
+    @app.post("/admin/publish-live-payload")
+    def publish_live_payload() -> tuple[dict[str, Any], int]:
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            return {"ok": False, "error": "Payload must be a JSON object."}, 400
+        _publish_live_event(payload)
+        return {"ok": True}
+
+    @app.post("/admin/publish-append-payload")
+    def publish_append_payload() -> tuple[dict[str, Any], int]:
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            return {"ok": False, "error": "Payload must be a JSON object."}, 400
+        _publish_append_event(payload)
+        return {"ok": True}
+
+    @app.post("/admin/set-live-rows")
+    def set_live_rows() -> tuple[dict[str, Any], int]:
+        global LIVE_ROWS
+
+        body = request.get_json(silent=True) or {}
+        rows = body.get("rows") if isinstance(body, dict) else None
+        if not isinstance(rows, list):
+            return {"ok": False, "error": "rows must be a list."}, 400
+
+        normalized_rows: list[dict[str, str]] = []
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                return {"ok": False, "error": f"rows[{index}] must be an object."}, 400
+            row_id = str(row.get("id", f"live-{index + 1}"))
+            entry = str(row.get("entry", ""))
+            source = str(row.get("source", "test"))
+            normalized_rows.append({"id": row_id, "entry": entry, "source": source})
+
+        LIVE_ROWS = normalized_rows
+        return {"ok": True, "rows": len(LIVE_ROWS)}
+
+    @app.post("/admin/set-append-rows")
+    def set_append_rows() -> tuple[dict[str, Any], int]:
+        global APPEND_ROWS
+
+        body = request.get_json(silent=True) or {}
+        rows = body.get("rows") if isinstance(body, dict) else None
+        if not isinstance(rows, list):
+            return {"ok": False, "error": "rows must be a list."}, 400
+
+        normalized_rows: list[dict[str, str]] = []
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                return {"ok": False, "error": f"rows[{index}] must be an object."}, 400
+            row_id = str(row.get("id", f"append-{index + 1}"))
+            entry = str(row.get("entry", ""))
+            source = str(row.get("source", "test"))
+            normalized_rows.append({"id": row_id, "entry": entry, "source": source})
+
+        APPEND_ROWS = normalized_rows
+        return {"ok": True, "rows": len(APPEND_ROWS)}
+
     @app.get("/api/sql-hints")
     def sql_hints() -> dict[str, Any]:
         return {
@@ -1093,21 +1172,10 @@ def create_test_app() -> Flask:
 @pytest.fixture()
 def live_server() -> str:
     global LAST_PUSH_MESSAGE, PUSH_COUNTER
-    global LIVE_PUSH_COUNTER, LIVE_ROWS
-    global APPEND_PUSH_COUNTER, APPEND_ROWS
 
     LAST_PUSH_MESSAGE = ""
     PUSH_COUNTER = 0
-    LIVE_PUSH_COUNTER = 0
-    LIVE_ROWS = [
-        {"id": "live-boot", "entry": "boot complete", "source": "runtime"},
-        {"id": "live-hydrated", "entry": "table hydrated", "source": "runtime"},
-    ]
-    APPEND_PUSH_COUNTER = 0
-    APPEND_ROWS = [
-        {"id": "append-boot", "entry": "append channel online", "source": "runtime"},
-        {"id": "append-ready", "entry": "append stream ready", "source": "runtime"},
-    ]
+    _reset_stream_state()
 
     app = create_test_app()
     server = make_server("127.0.0.1", 0, app, threaded=True)
@@ -1486,3 +1554,236 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
 
         finally:
             browser.close()
+
+
+def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
+        with sync_playwright() as playwright:
+                try:
+                        browser = playwright.chromium.launch(headless=True)
+                except PlaywrightError as exc:
+                        pytest.skip(f"Playwright browser is unavailable: {exc}")
+                page = browser.new_page()
+                console_errors, page_errors = capture_browser_errors(page)
+                page.goto(live_server, wait_until="domcontentloaded")
+                page.wait_for_function(
+                        "() => document.getElementById('live-table')?.dataset.jbsHydrated === 'true'"
+                )
+                try:
+                        page.evaluate(
+                                """
+                                async () => {
+                                    await fetch('/admin/reset-stream-state', { method: 'POST' });
+                                    await fetch('/admin/set-live-rows', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            rows: [
+                                                { id: 'live-a', entry: 'alpha-base', source: 'seed' },
+                                                { id: 'live-b', entry: 'beta-base', source: 'seed' }
+                                            ]
+                                        }),
+                                    });
+                                    await fetch('/admin/set-append-rows', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            rows: [
+                                                { id: 'append-a', entry: 'append-base-a', source: 'seed' },
+                                                { id: 'append-b', entry: 'append-base-b', source: 'seed' }
+                                            ]
+                                        }),
+                                    });
+                                    await window.JinjaBootstrapSpa.refresh('live-table');
+                                    await window.JinjaBootstrapSpa.refresh('live-append-table');
+                                }
+                                """
+                        )
+
+                        page.wait_for_function(
+                                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('alpha-base')"
+                        )
+
+                        page.evaluate(
+                                """
+                                async () => {
+                                    await fetch('/admin/publish-live-payload', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            v: 2,
+                                            seq: 10,
+                                            target: 'live-table',
+                                            ops: [
+                                                {
+                                                    op: 'upsert',
+                                                    id: 'live-new',
+                                                    position: 'prepend',
+                                                    html: '<tr data-jbs-row-id="live-new"><td>new-10</td><td>v2</td></tr>'
+                                                }
+                                            ]
+                                        }),
+                                    });
+                                }
+                                """
+                        )
+                        page.wait_for_function(
+                                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('new-10')"
+                        )
+
+                        page.evaluate(
+                                """
+                                async () => {
+                                    await fetch('/admin/publish-live-payload', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            v: 2,
+                                            seq: 10,
+                                            target: 'live-table',
+                                            ops: [
+                                                {
+                                                    op: 'upsert',
+                                                    id: 'live-new',
+                                                    position: 'prepend',
+                                                    html: '<tr data-jbs-row-id="live-new"><td>should-ignore</td><td>v2</td></tr>'
+                                                }
+                                            ]
+                                        }),
+                                    });
+                                }
+                                """
+                        )
+                        page.wait_for_timeout(150)
+                        assert "should-ignore" not in page.locator("#live-table tbody").text_content()
+
+                        page.evaluate(
+                                """
+                                async () => {
+                                    await fetch('/admin/publish-live-payload', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            v: 2,
+                                            seq: 9,
+                                            target: 'live-table',
+                                            ops: [
+                                                {
+                                                    op: 'upsert',
+                                                    id: 'live-stale',
+                                                    position: 'prepend',
+                                                    html: '<tr data-jbs-row-id="live-stale"><td>stale</td><td>v2</td></tr>'
+                                                }
+                                            ]
+                                        }),
+                                    });
+                                }
+                                """
+                        )
+                        page.wait_for_timeout(150)
+                        assert "stale" not in page.locator("#live-table tbody").text_content()
+
+                        page.evaluate(
+                                """
+                                async () => {
+                                    await fetch('/admin/publish-live-payload', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            v: 2,
+                                            seq: 11,
+                                            target: 'live-table',
+                                            ops: [{ op: 'delete', id: 'live-new' }]
+                                        }),
+                                    });
+                                }
+                                """
+                        )
+                        page.wait_for_timeout(150)
+                        assert "new-10" not in page.locator("#live-table tbody").text_content()
+
+                        page.evaluate(
+                                """
+                                async () => {
+                                    await fetch('/admin/publish-live-payload', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            mode: 'prepend',
+                                            target: 'live-table',
+                                            row: '<tr data-jbs-row-id="legacy-1"><td>legacy-row</td><td>legacy</td></tr>'
+                                        }),
+                                    });
+                                }
+                                """
+                        )
+                        page.wait_for_function(
+                                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('legacy-row')"
+                        )
+
+                        page.evaluate(
+                                """
+                                async () => {
+                                    await fetch('/admin/set-live-rows', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            rows: [
+                                                { id: 'live-r1', entry: 'refresh-a', source: 'srv' },
+                                                { id: 'live-r2', entry: 'refresh-b', source: 'srv' }
+                                            ]
+                                        }),
+                                    });
+                                    await fetch('/admin/publish-live-payload', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            v: 2,
+                                            seq: 12,
+                                            action: 'refresh',
+                                            target: 'live-table',
+                                            ops: [{ op: 'upsert' }]
+                                        }),
+                                    });
+                                }
+                                """
+                        )
+                        page.wait_for_function(
+                                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('refresh-a')"
+                        )
+
+                        page.evaluate(
+                                """
+                                async () => {
+                                    await fetch('/admin/set-append-rows', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            rows: [
+                                                { id: 'append-r1', entry: 'refresh-append-a', source: 'srv' },
+                                                { id: 'append-r2', entry: 'refresh-append-b', source: 'srv' },
+                                                { id: 'append-r3', entry: 'refresh-append-c', source: 'srv' },
+                                                { id: 'append-r4', entry: 'refresh-append-d', source: 'srv' }
+                                            ]
+                                        }),
+                                    });
+                                    await fetch('/admin/publish-append-payload', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            target: 'live-append-table',
+                                            action: 'refresh'
+                                        }),
+                                    });
+                                }
+                                """
+                        )
+                        page.wait_for_function(
+                                "() => document.querySelector('#live-append-table')?.textContent?.includes('Page 1 of 2')"
+                        )
+                        page.wait_for_function(
+                                "() => document.querySelector('#live-append-table tbody tr:last-child')?.textContent?.includes('refresh-append-c')"
+                        )
+
+                        assert_no_browser_errors(console_errors, page_errors)
+                finally:
+                        browser.close()
