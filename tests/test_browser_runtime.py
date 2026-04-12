@@ -7,6 +7,7 @@ import re
 import time
 from pathlib import Path
 from queue import Empty, Queue
+from statistics import median
 from threading import Lock, Thread
 from typing import Any
 
@@ -1784,6 +1785,160 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                 "() => document.querySelector('#live-append-table tbody tr:last-child')?.textContent?.includes('refresh-append-c')"
                         )
 
+                        assert_no_browser_errors(console_errors, page_errors)
+                finally:
+                        browser.close()
+
+
+def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
+        with sync_playwright() as playwright:
+                try:
+                        browser = playwright.chromium.launch(headless=True)
+                except PlaywrightError as exc:
+                        pytest.skip(f"Playwright browser is unavailable: {exc}")
+                page = browser.new_page()
+                console_errors, page_errors = capture_browser_errors(page)
+                page.goto(live_server, wait_until="domcontentloaded")
+                page.wait_for_function(
+                        "() => document.getElementById('live-table')?.dataset.jbsHydrated === 'true'"
+                )
+                try:
+                        metrics = page.evaluate(
+                                """
+                                async () => {
+                                    const encoder = new TextEncoder();
+                                    const baseRows = [
+                                        { id: 'live-metric-a', entry: 'metric-a', source: 'seed' },
+                                        { id: 'live-metric-b', entry: 'metric-b', source: 'seed' },
+                                        { id: 'live-metric-c', entry: 'metric-c', source: 'seed' },
+                                    ];
+
+                                    const postJson = async (url, body) => {
+                                        const response = await fetch(url, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(body),
+                                        });
+                                        if (!response.ok) {
+                                            throw new Error(`Request failed: ${url} -> ${response.status}`);
+                                        }
+                                    };
+
+                                    await fetch('/admin/reset-stream-state', { method: 'POST' });
+                                    await postJson('/admin/set-live-rows', { rows: baseRows });
+                                    await window.JinjaBootstrapSpa.refresh('live-table');
+
+                                    const refreshHtml = await fetch('/components/live-table?page=1&page_size=3').then((r) => r.text());
+                                    const refreshBytes = encoder.encode(refreshHtml).length;
+
+                                    const rowHtml = '<tr data-jbs-row-id="live-metric-new"><td>metric-new</td><td>v2</td></tr>';
+                                    const v2Payload = {
+                                        v: 2,
+                                        seq: 5000,
+                                        target: 'live-table',
+                                        ops: [
+                                            {
+                                                op: 'upsert',
+                                                id: 'live-metric-new',
+                                                position: 'prepend',
+                                                html: rowHtml,
+                                            },
+                                        ],
+                                    };
+                                    const v2Bytes = encoder.encode(JSON.stringify(v2Payload)).length;
+
+                                    const table = document.getElementById('live-table');
+                                    if (!(table instanceof HTMLElement)) {
+                                        throw new Error('live-table not found');
+                                    }
+
+                                    const v2Times = [];
+                                    for (let index = 0; index < 8; index += 1) {
+                                        const seq = 6000 + index;
+                                        const id = `live-v2-${index}`;
+                                        const html = `<tr data-jbs-row-id="${id}"><td>v2-${index}</td><td>metric</td></tr>`;
+                                        const start = performance.now();
+                                        const done = new Promise((resolve) => {
+                                            const handler = () => {
+                                                resolve(performance.now() - start);
+                                            };
+                                            table.addEventListener('jbs:after-stream-patch', handler, { once: true });
+                                        });
+                                        await postJson('/admin/publish-live-payload', {
+                                            v: 2,
+                                            seq,
+                                            target: 'live-table',
+                                            ops: [
+                                                {
+                                                    op: 'upsert',
+                                                    id,
+                                                    position: 'prepend',
+                                                    html,
+                                                },
+                                            ],
+                                        });
+                                        v2Times.push(await done);
+                                    }
+
+                                    const refreshTimes = [];
+                                    for (let index = 0; index < 8; index += 1) {
+                                        const entry = `refresh-metric-${index}`;
+                                        await postJson('/admin/set-live-rows', {
+                                            rows: [
+                                                { id: 'refresh-row', entry, source: 'srv' },
+                                                { id: 'refresh-row-b', entry: 'stable-b', source: 'srv' },
+                                                { id: 'refresh-row-c', entry: 'stable-c', source: 'srv' },
+                                            ],
+                                        });
+
+                                        const start = performance.now();
+                                        const done = new Promise((resolve) => {
+                                            const handler = (event) => {
+                                                const target = event.target;
+                                                if (!(target instanceof HTMLElement) || target.id !== 'live-table') {
+                                                    return;
+                                                }
+                                                document.removeEventListener('jbs:after-swap', handler, true);
+                                                resolve(performance.now() - start);
+                                            };
+                                            document.addEventListener('jbs:after-swap', handler, true);
+                                        });
+
+                                        await postJson('/admin/publish-live-payload', {
+                                            target: 'live-table',
+                                            action: 'refresh',
+                                        });
+                                        refreshTimes.push(await done);
+                                    }
+
+                                    return {
+                                        refreshBytes,
+                                        v2Bytes,
+                                        v2Times,
+                                        refreshTimes,
+                                    };
+                                }
+                                """
+                        )
+
+                        refresh_bytes = int(metrics["refreshBytes"])
+                        v2_bytes = int(metrics["v2Bytes"])
+                        v2_median = float(median(metrics["v2Times"]))
+                        refresh_median = float(median(metrics["refreshTimes"]))
+                        savings_ratio = 1 - (v2_bytes / refresh_bytes)
+
+                        assert refresh_bytes > v2_bytes, (
+                                f"Expected v2 payload to be smaller than refresh HTML, got v2={v2_bytes} "
+                                f"refresh={refresh_bytes}."
+                        )
+                        assert savings_ratio >= 0.4, (
+                                f"Expected at least 40% byte savings, got {savings_ratio:.1%} "
+                                f"(v2={v2_bytes}, refresh={refresh_bytes})."
+                        )
+                        assert v2_median <= refresh_median * 1.2, (
+                                f"Expected v2 median apply time to be no worse than 20% over refresh; "
+                                f"v2={v2_median:.2f}ms refresh={refresh_median:.2f}ms."
+                        )
                         assert_no_browser_errors(console_errors, page_errors)
                 finally:
                         browser.close()
