@@ -2,7 +2,9 @@ export type JBSScalar = string | number | boolean | null;
 export type JBSValue = JBSScalar | JBSScalar[];
 export type JBSState = Record<string, JBSValue>;
 export type JBSPersistStrategy = "memory" | "querystring" | "session";
+export type JBSUiPersistStrategy = "memory" | "session" | "local" | "none";
 export type JBSStreamMode = "replace" | "append" | "prepend";
+export type JBSPhase = "idle" | "loading" | "success" | "unchanged" | "error";
 export interface JBSRuntimeOptions {
     fetchImpl?: typeof fetch;
 }
@@ -20,11 +22,26 @@ export interface JBSStreamDetail {
     event: string;
     data: string;
 }
+export interface JBSRuntimeErrorDetail {
+    context: string;
+    error: unknown;
+    component: HTMLElement | null;
+}
+export interface JBSRequestFinishedDetail {
+    action: string;
+    component: HTMLElement;
+    endpoint: string;
+    outcome: Exclude<JBSPhase, "idle" | "loading">;
+    state: JBSState;
+    source: HTMLElement | HTMLFormElement | null;
+}
 export declare const JBS_HEADERS: {
     readonly accept: "text/html";
     readonly marker: "X-JBS-Request";
     readonly component: "X-JBS-Component";
     readonly action: "X-JBS-Action";
+    readonly ifNoneMatch: "If-None-Match";
+    readonly etag: "ETag";
 };
 export declare const JBS_ACTIONS: {
     readonly filter: "filter";
@@ -38,6 +55,12 @@ export declare const JBS_PERSISTENCE: {
     readonly querystring: "querystring";
     readonly session: "session";
 };
+export declare const JBS_UI_PERSISTENCE: {
+    readonly memory: "memory";
+    readonly session: "session";
+    readonly local: "local";
+    readonly none: "none";
+};
 export declare const JBS_STREAM_EVENTS: {
     readonly refresh: "refresh";
 };
@@ -46,11 +69,19 @@ export declare const JBS_STREAM_MODES: {
     readonly append: "append";
     readonly prepend: "prepend";
 };
+export declare const JBS_PHASES: {
+    readonly idle: "idle";
+    readonly loading: "loading";
+    readonly success: "success";
+    readonly unchanged: "unchanged";
+    readonly error: "error";
+};
 export declare class JBSRuntime {
     private readonly fetchImpl;
     private readonly stateStore;
     private readonly streamStore;
     private readonly streamQueue;
+    private readonly componentEtags;
     private readonly requestAbortControllers;
     private readonly requestSeq;
     private readonly autocompleteTimers;
@@ -60,16 +91,33 @@ export declare class JBSRuntime {
     private readonly assistSeq;
     private readonly assistControllers;
     private readonly assistHints;
+    private readonly disclosureStateStore;
     private readonly overlayReturnFocus;
     private lazyObserver;
     private initialized;
     constructor(options?: JBSRuntimeOptions);
+    private isAbortError;
+    private isNetworkLoadError;
+    private reportRuntimeError;
+    private runTask;
     init(): void;
     hydrate(root: ParentNode): void;
     getState(component: HTMLElement): JBSState;
     refresh(componentOrId: string | HTMLElement, patch?: JBSState): Promise<void>;
     private resolveComponent;
     private componentKey;
+    private requestDetail;
+    private setComponentPhase;
+    private finishRequest;
+    private uiPersistStrategy;
+    private uiStorage;
+    private serializeDisclosureState;
+    private parseDisclosureState;
+    private persistDisclosureState;
+    private loadDisclosureState;
+    private disclosureStateKey;
+    private captureDisclosureState;
+    private applyDisclosureState;
     private hydrateComponent;
     private observeLazyComponent;
     private activateLazyComponent;

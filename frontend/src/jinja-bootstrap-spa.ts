@@ -2,7 +2,9 @@ export type JBSScalar = string | number | boolean | null;
 export type JBSValue = JBSScalar | JBSScalar[];
 export type JBSState = Record<string, JBSValue>;
 export type JBSPersistStrategy = "memory" | "querystring" | "session";
+export type JBSUiPersistStrategy = "memory" | "session" | "local" | "none";
 export type JBSStreamMode = "replace" | "append" | "prepend";
+export type JBSPhase = "idle" | "loading" | "success" | "unchanged" | "error";
 
 export interface JBSRuntimeOptions {
   fetchImpl?: typeof fetch;
@@ -22,6 +24,21 @@ export interface JBSStreamDetail {
   endpoint: string;
   event: string;
   data: string;
+}
+
+export interface JBSRuntimeErrorDetail {
+  context: string;
+  error: unknown;
+  component: HTMLElement | null;
+}
+
+export interface JBSRequestFinishedDetail {
+  action: string;
+  component: HTMLElement;
+  endpoint: string;
+  outcome: Exclude<JBSPhase, "idle" | "loading">;
+  state: JBSState;
+  source: HTMLElement | HTMLFormElement | null;
 }
 
 interface JBSStreamPayload {
@@ -51,14 +68,18 @@ const DEFAULT_SQL_HINTS = [
 const DEFAULT_TABLE_STATE_KEYS = ["page", "page_size", "sort_by", "sort_dir", "query"];
 const TRANSIENT_STATE_KEYS = new Set(["row_id", "intent"]);
 const JBS_SWAP_PULSE_CLASS = "jbs-swap-pulse";
+const JBS_NOT_MODIFIED_PULSE_CLASS = "jbs-not-modified-pulse";
 const JBS_STREAM_ROW_PULSE_CLASS = "jbs-stream-row-pulse";
-const JBS_PULSE_MS = 1200;
+const JBS_PULSE_MS = 1800;
+const JBS_DEFAULT_LOADING_LABEL = "Loading...";
 
 export const JBS_HEADERS = {
   accept: "text/html",
   marker: "X-JBS-Request",
   component: "X-JBS-Component",
   action: "X-JBS-Action",
+  ifNoneMatch: "If-None-Match",
+  etag: "ETag",
 } as const;
 
 export const JBS_ACTIONS = {
@@ -75,6 +96,13 @@ export const JBS_PERSISTENCE = {
   session: "session",
 } as const;
 
+export const JBS_UI_PERSISTENCE = {
+  memory: "memory",
+  session: "session",
+  local: "local",
+  none: "none",
+} as const;
+
 export const JBS_STREAM_EVENTS = {
   refresh: "refresh",
 } as const;
@@ -83,6 +111,14 @@ export const JBS_STREAM_MODES = {
   replace: "replace",
   append: "append",
   prepend: "prepend",
+} as const;
+
+export const JBS_PHASES = {
+  idle: "idle",
+  loading: "loading",
+  success: "success",
+  unchanged: "unchanged",
+  error: "error",
 } as const;
 
 function cloneState(state: JBSState): JBSState {
@@ -229,6 +265,14 @@ function sessionStorageKey(component: HTMLElement, key: string): string {
   return `jbs:${component.dataset.jbsComponent ?? "component"}:${key}`;
 }
 
+function uiStorageKey(
+  component: HTMLElement,
+  key: string,
+  namespace: string,
+): string {
+  return `jbs-ui:${component.dataset.jbsComponent ?? "component"}:${key}:${namespace}`;
+}
+
 function toYmdHm(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, "0");
   return (
@@ -279,6 +323,7 @@ export class JBSRuntime {
   private readonly stateStore = new Map<string, JBSState>();
   private readonly streamStore = new Map<string, EventSource>();
   private readonly streamQueue = new Map<string, JBSStreamPayload[]>();
+  private readonly componentEtags = new Map<string, string>();
   private readonly requestAbortControllers = new Map<string, AbortController>();
   private readonly requestSeq = new Map<string, number>();
   private readonly autocompleteTimers = new Map<string, number>();
@@ -288,12 +333,75 @@ export class JBSRuntime {
   private readonly assistSeq = new Map<string, number>();
   private readonly assistControllers = new Map<string, AbortController>();
   private readonly assistHints = new Map<string, string[]>();
+  private readonly disclosureStateStore = new Map<string, Map<string, boolean>>();
   private readonly overlayReturnFocus = new Map<string, HTMLElement>();
   private lazyObserver: IntersectionObserver | null = null;
   private initialized = false;
 
   constructor(options: JBSRuntimeOptions = {}) {
     this.fetchImpl = options.fetchImpl ?? ((input, init) => window.fetch(input, init));
+  }
+
+  private isAbortError(error: unknown, signal?: AbortSignal): boolean {
+    if (signal?.aborted) {
+      return true;
+    }
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return true;
+    }
+    if (error instanceof Error && error.name === "AbortError") {
+      return true;
+    }
+    return false;
+  }
+
+  private isNetworkLoadError(error: unknown): boolean {
+    if (!(error instanceof TypeError)) {
+      return false;
+    }
+    const message = String(error.message || "").toLowerCase();
+    return (
+      message.includes("load failed") ||
+      message.includes("failed to fetch") ||
+      message.includes("networkerror")
+    );
+  }
+
+  private reportRuntimeError(
+    context: string,
+    error: unknown,
+    component: HTMLElement | null = null,
+  ): void {
+    if (this.isAbortError(error)) {
+      return;
+    }
+
+    const detail: JBSRuntimeErrorDetail = {
+      context,
+      error,
+      component,
+    };
+    component?.dispatchEvent(new CustomEvent("jbs:runtime-error", { detail }));
+    document.dispatchEvent(new CustomEvent("jbs:runtime-error", { detail }));
+    const suppressConsoleError =
+      (context === "hydrate component refresh" ||
+        context === "lazy component refresh" ||
+        context === "popstate refresh") &&
+      this.isNetworkLoadError(error);
+    if (suppressConsoleError) {
+      return;
+    }
+    console.error(`[jinja-bootstrap-spa] ${context}`, error);
+  }
+
+  private runTask(
+    task: Promise<void>,
+    context: string,
+    component: HTMLElement | null = null,
+  ): void {
+    void task.catch((error) => {
+      this.reportRuntimeError(context, error, component);
+    });
   }
 
   init(): void {
@@ -392,6 +500,217 @@ export class JBSRuntime {
     );
   }
 
+  private requestDetail(
+    action: string,
+    component: HTMLElement,
+    endpoint: string,
+    state: JBSState,
+    source: HTMLElement | HTMLFormElement | null,
+  ): JBSRequestDetail {
+    return {
+      action,
+      component,
+      endpoint,
+      state: cloneState(state),
+      source,
+    };
+  }
+
+  private setComponentPhase(component: HTMLElement, phase: JBSPhase): void {
+    component.dataset.jbsPhase = phase;
+    component.dataset.jbsLoading = phase === JBS_PHASES.loading ? "true" : "false";
+    component.setAttribute(
+      "aria-busy",
+      phase === JBS_PHASES.loading ? "true" : "false",
+    );
+    if (!component.dataset.jbsLoadingLabel) {
+      component.dataset.jbsLoadingLabel = JBS_DEFAULT_LOADING_LABEL;
+    }
+
+    component.classList.toggle("jbs-is-loading", phase === JBS_PHASES.loading);
+    component.classList.toggle("jbs-is-error", phase === JBS_PHASES.error);
+    component.classList.toggle("jbs-is-unchanged", phase === JBS_PHASES.unchanged);
+  }
+
+  private finishRequest(
+    component: HTMLElement,
+    detail: JBSRequestDetail,
+    outcome: Exclude<JBSPhase, "idle" | "loading">,
+  ): void {
+    this.setComponentPhase(component, outcome);
+    const finishedDetail: JBSRequestFinishedDetail = {
+      action: detail.action,
+      component,
+      endpoint: detail.endpoint,
+      outcome,
+      state: cloneState(detail.state),
+      source: detail.source,
+    };
+    component.dispatchEvent(
+      new CustomEvent("jbs:request-finished", {
+        detail: finishedDetail,
+        bubbles: true,
+      }),
+    );
+  }
+
+  private uiPersistStrategy(component: HTMLElement): JBSUiPersistStrategy {
+    const persist = component.dataset.jbsUiPersist;
+    if (
+      persist === JBS_UI_PERSISTENCE.memory ||
+      persist === JBS_UI_PERSISTENCE.session ||
+      persist === JBS_UI_PERSISTENCE.local ||
+      persist === JBS_UI_PERSISTENCE.none
+    ) {
+      return persist;
+    }
+    return JBS_UI_PERSISTENCE.session;
+  }
+
+  private uiStorage(component: HTMLElement): Storage | null {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const strategy = this.uiPersistStrategy(component);
+    if (strategy === JBS_UI_PERSISTENCE.session) {
+      return typeof sessionStorage === "undefined" ? null : sessionStorage;
+    }
+    if (strategy === JBS_UI_PERSISTENCE.local) {
+      return typeof localStorage === "undefined" ? null : localStorage;
+    }
+    return null;
+  }
+
+  private serializeDisclosureState(state: Map<string, boolean>): string {
+    return JSON.stringify(Object.fromEntries(state.entries()));
+  }
+
+  private parseDisclosureState(raw: string | null): Map<string, boolean> {
+    if (!raw) {
+      return new Map();
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const nextState = new Map<string, boolean>();
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof value === "boolean") {
+          nextState.set(key, value);
+        }
+      }
+      return nextState;
+    } catch {
+      return new Map();
+    }
+  }
+
+  private persistDisclosureState(
+    component: HTMLElement,
+    key: string,
+    state: Map<string, boolean>,
+  ): void {
+    const strategy = this.uiPersistStrategy(component);
+    if (strategy === JBS_UI_PERSISTENCE.memory) {
+      return;
+    }
+
+    const storage = this.uiStorage(component);
+    if (!storage) {
+      return;
+    }
+
+    const storageKey = uiStorageKey(component, key, "disclosure");
+    if (state.size === 0 || strategy === JBS_UI_PERSISTENCE.none) {
+      storage.removeItem(storageKey);
+      return;
+    }
+
+    storage.setItem(storageKey, this.serializeDisclosureState(state));
+  }
+
+  private loadDisclosureState(component: HTMLElement, key: string): Map<string, boolean> {
+    const saved = this.disclosureStateStore.get(key);
+    if (saved) {
+      return new Map(saved);
+    }
+
+    const storage = this.uiStorage(component);
+    if (!storage) {
+      return new Map();
+    }
+
+    const persisted = this.parseDisclosureState(
+      storage.getItem(uiStorageKey(component, key, "disclosure")),
+    );
+    if (persisted.size > 0) {
+      this.disclosureStateStore.set(key, persisted);
+    }
+    return persisted;
+  }
+
+  private disclosureStateKey(
+    wrapper: HTMLElement,
+    trigger: HTMLElement,
+    index: number,
+  ): string {
+    return (
+      wrapper.dataset.jbsDisclosureKey ||
+      wrapper.id ||
+      trigger.getAttribute("aria-controls") ||
+      `index:${index}`
+    );
+  }
+
+  private captureDisclosureState(component: HTMLElement): void {
+    const key = this.componentKey(component);
+    const wrappers = component.querySelectorAll<HTMLElement>("[data-jbs-disclosure]");
+    const nextState = new Map<string, boolean>();
+
+    let index = 0;
+    for (const wrapper of wrappers) {
+      const { trigger, panel } = this.disclosureElements(wrapper);
+      if (!trigger || !panel) {
+        continue;
+      }
+      const stateKey = this.disclosureStateKey(wrapper, trigger, index);
+      const expanded = trigger.getAttribute("aria-expanded") === "true" && !panel.hidden;
+      nextState.set(stateKey, expanded);
+      index += 1;
+    }
+
+    if (nextState.size === 0) {
+      this.disclosureStateStore.delete(key);
+      this.persistDisclosureState(component, key, nextState);
+      return;
+    }
+    this.disclosureStateStore.set(key, nextState);
+    this.persistDisclosureState(component, key, nextState);
+  }
+
+  private applyDisclosureState(component: HTMLElement, key: string): void {
+    const saved = this.loadDisclosureState(component, key);
+    if (saved.size === 0) {
+      return;
+    }
+
+    const wrappers = component.querySelectorAll<HTMLElement>("[data-jbs-disclosure]");
+    let index = 0;
+    for (const wrapper of wrappers) {
+      const { trigger, panel } = this.disclosureElements(wrapper);
+      if (!trigger || !panel) {
+        continue;
+      }
+      const stateKey = this.disclosureStateKey(wrapper, trigger, index);
+      const expanded = saved.get(stateKey);
+      if (expanded !== undefined) {
+        trigger.setAttribute("aria-expanded", expanded ? "true" : "false");
+        panel.hidden = !expanded;
+      }
+      index += 1;
+    }
+  }
+
   private hydrateComponent(component: HTMLElement, allowLazy: boolean): void {
     if (allowLazy && component.dataset.jbsLazy === "true" && component.dataset.jbsHydrated !== "true") {
       this.observeLazyComponent(component);
@@ -399,21 +718,33 @@ export class JBSRuntime {
     }
 
     const key = this.componentKey(component);
+    const existingEtag = component.dataset.jbsEtag;
+    if (existingEtag) {
+      this.componentEtags.set(key, existingEtag);
+    }
     const serverState = stripTransientState(parseState(component.dataset.jbsState ?? null));
     const state = this.hydratedState(component, key);
     component.dataset.jbsState = JSON.stringify(state);
     component.dataset.jbsHydrated = "true";
     this.stateStore.set(key, state);
+    if (!component.dataset.jbsPhase) {
+      this.setComponentPhase(component, JBS_PHASES.idle);
+    }
+    this.applyDisclosureState(component, key);
     this.connectStream(component, key);
-    void this.flushStreamQueue(component, key);
+    this.runTask(this.flushStreamQueue(component, key), "flush stream queue", component);
 
     if (!statesEqual(serverState, state)) {
-      void this.requestComponent(
+      this.runTask(
+        this.requestComponent(
+          component,
+          JBS_ACTIONS.refresh,
+          state,
+          null,
+          { persist: false },
+        ),
+        "hydrate component refresh",
         component,
-        JBS_ACTIONS.refresh,
-        state,
-        null,
-        { persist: false },
       );
     }
   }
@@ -438,12 +769,16 @@ export class JBSRuntime {
       return;
     }
 
-    void this.requestComponent(
+    this.runTask(
+      this.requestComponent(
+        component,
+        JBS_ACTIONS.refresh,
+        this.getState(component),
+        null,
+        { persist: false },
+      ),
+      "lazy component refresh",
       component,
-      JBS_ACTIONS.refresh,
-      this.getState(component),
-      null,
-      { persist: false },
     );
   }
 
@@ -550,6 +885,7 @@ export class JBSRuntime {
     component.dispatchEvent(
       new CustomEvent("jbs:stream-buffered", {
         detail: { pending: existing.length, component, key },
+        bubbles: true,
       }),
     );
   }
@@ -652,6 +988,7 @@ export class JBSRuntime {
       component.dispatchEvent(
         new CustomEvent("jbs:after-stream-patch", {
           detail: { component, key, payload, mode },
+          bubbles: true,
         }),
       );
       return;
@@ -679,7 +1016,7 @@ export class JBSRuntime {
 
     existing?.close();
     const stream = new EventSource(endpoint);
-    const onMessage = async (event: MessageEvent<string>) => {
+    const onMessage = async (event: MessageEvent<string>): Promise<void> => {
       const current = document.getElementById(component.id || key);
       if (!current) {
         return;
@@ -698,7 +1035,7 @@ export class JBSRuntime {
         event: eventName,
         data: event.data,
       };
-      current.dispatchEvent(new CustomEvent("jbs:stream-event", { detail }));
+      current.dispatchEvent(new CustomEvent("jbs:stream-event", { detail, bubbles: true }));
 
       if (this.shouldPauseStream(current)) {
         this.queueStreamPayload(current, key, payload);
@@ -710,14 +1047,14 @@ export class JBSRuntime {
 
     if (eventName === "message") {
       stream.onmessage = (event) => {
-        void onMessage(event);
+        this.runTask(onMessage(event), "stream event", component);
       };
     } else {
       stream.addEventListener(eventName, (event) => {
         if (!(event instanceof MessageEvent)) {
           return;
         }
-        void onMessage(event);
+        this.runTask(onMessage(event), "stream event", component);
       });
     }
 
@@ -1072,6 +1409,11 @@ export class JBSRuntime {
     const expanded = trigger.getAttribute("aria-expanded") === "true";
     trigger.setAttribute("aria-expanded", expanded ? "false" : "true");
     panel.hidden = expanded;
+
+    const component = wrapper.closest<HTMLElement>("[data-jbs-component][data-jbs-endpoint]");
+    if (component) {
+      this.captureDisclosureState(component);
+    }
   }
 
   private dateRangeElements(wrapper: Element): {
@@ -1404,7 +1746,7 @@ export class JBSRuntime {
         this.setAssistStatus(wrapper, "error", message);
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
+      if (this.isAbortError(error, controller.signal)) {
         return;
       }
       this.setAssistStatus(wrapper, "warning", "Validation unavailable.");
@@ -1435,25 +1777,32 @@ export class JBSRuntime {
 
     const requestUrl = new URL(endpoint, window.location.href);
     requestUrl.searchParams.set("q", query);
-    const response = await this.fetchImpl(requestUrl.toString(), {
-      headers: { Accept: JBS_HEADERS.accept },
-      signal: controller.signal,
-    });
+    try {
+      const response = await this.fetchImpl(requestUrl.toString(), {
+        headers: { Accept: JBS_HEADERS.accept },
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      throw new Error(`Autocomplete request failed with status ${response.status}.`);
-    }
+      if (!response.ok) {
+        throw new Error(`Autocomplete request failed with status ${response.status}.`);
+      }
 
-    if (this.autocompleteRequests.get(key) !== nextRequestId) {
-      return;
-    }
+      if (this.autocompleteRequests.get(key) !== nextRequestId) {
+        return;
+      }
 
-    panel.innerHTML = (await response.text()).trim();
-    if (panel.querySelector("[data-jbs-autocomplete-option]")) {
-      this.openAutocomplete(wrapper);
-      return;
+      panel.innerHTML = (await response.text()).trim();
+      if (panel.querySelector("[data-jbs-autocomplete-option]")) {
+        this.openAutocomplete(wrapper);
+        return;
+      }
+      this.closeAutocomplete(wrapper);
+    } catch (error) {
+      if (this.isAbortError(error, controller.signal)) {
+        return;
+      }
+      throw error;
     }
-    this.closeAutocomplete(wrapper);
   }
 
   private buildPatchFromTrigger(component: HTMLElement, trigger: HTMLElement, action: string): JBSState {
@@ -1496,6 +1845,7 @@ export class JBSRuntime {
     }
 
     const key = this.componentKey(component);
+    this.captureDisclosureState(component);
     const requestState = cloneState(nextState);
     const persistedState = stripTransientState(requestState);
     this.stateStore.set(key, persistedState);
@@ -1504,14 +1854,9 @@ export class JBSRuntime {
       this.persistState(component, key, persistedState);
     }
 
-    const detail: JBSRequestDetail = {
-      action,
-      component,
-      endpoint,
-      state: cloneState(requestState),
-      source,
-    };
-    component.dispatchEvent(new CustomEvent("jbs:before-request", { detail }));
+    const detail = this.requestDetail(action, component, endpoint, requestState, source);
+    this.setComponentPhase(component, JBS_PHASES.loading);
+    component.dispatchEvent(new CustomEvent("jbs:before-request", { detail, bubbles: true }));
 
     const requestUrl = new URL(endpoint, window.location.href);
     appendStateParams(requestUrl, requestState);
@@ -1521,15 +1866,20 @@ export class JBSRuntime {
     this.requestAbortControllers.set(key, controller);
     const seq = (this.requestSeq.get(key) ?? 0) + 1;
     this.requestSeq.set(key, seq);
+    const headers: Record<string, string> = {
+      Accept: JBS_HEADERS.accept,
+      [JBS_HEADERS.marker]: "true",
+      [JBS_HEADERS.component]: component.dataset.jbsComponent ?? "component",
+      [JBS_HEADERS.action]: action,
+    };
+    const existingEtag = this.componentEtags.get(key) ?? component.dataset.jbsEtag;
+    if (existingEtag) {
+      headers[JBS_HEADERS.ifNoneMatch] = existingEtag;
+    }
 
     try {
       const response = await this.fetchImpl(requestUrl.toString(), {
-        headers: {
-          Accept: JBS_HEADERS.accept,
-          [JBS_HEADERS.marker]: "true",
-          [JBS_HEADERS.component]: component.dataset.jbsComponent ?? "component",
-          [JBS_HEADERS.action]: action,
-        },
+        headers,
         signal: controller.signal,
       });
 
@@ -1537,22 +1887,43 @@ export class JBSRuntime {
         return;
       }
 
+      const responseEtag = response.headers.get(JBS_HEADERS.etag);
+      if (responseEtag) {
+        this.componentEtags.set(key, responseEtag);
+        component.dataset.jbsEtag = responseEtag;
+      }
+
+      if (response.status === 304) {
+        pulseElement(component, JBS_NOT_MODIFIED_PULSE_CLASS);
+        this.finishRequest(component, detail, JBS_PHASES.unchanged);
+        component.dispatchEvent(
+          new CustomEvent("jbs:not-modified", { detail, bubbles: true }),
+        );
+        return;
+      }
+
       if (!response.ok) {
-        component.dispatchEvent(new CustomEvent("jbs:request-error", { detail }));
         throw new Error(`Component request failed with status ${response.status}.`);
       }
 
       const html = await response.text();
-      this.swapComponent(component, html, key);
+      this.swapComponent(component, html, key, detail);
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
+      if (this.isAbortError(error, controller.signal)) {
         return;
       }
+      this.finishRequest(component, detail, JBS_PHASES.error);
+      component.dispatchEvent(new CustomEvent("jbs:request-error", { detail, bubbles: true }));
       throw error;
     }
   }
 
-  private swapComponent(current: HTMLElement, html: string, key: string): void {
+  private swapComponent(
+    current: HTMLElement,
+    html: string,
+    key: string,
+    detail: JBSRequestDetail,
+  ): void {
     const template = document.createElement("template");
     template.innerHTML = html.trim();
     const next = template.content.firstElementChild;
@@ -1571,254 +1942,270 @@ export class JBSRuntime {
     }
 
     next.id = next.id || current.id;
-    next.dataset.jbsKey = next.dataset.jbsKey ?? key;
-    next.dataset.jbsEndpoint = next.dataset.jbsEndpoint ?? current.dataset.jbsEndpoint;
-    next.dataset.jbsTarget = next.dataset.jbsTarget ?? current.dataset.jbsTarget;
-    next.dataset.jbsPersist = next.dataset.jbsPersist ?? current.dataset.jbsPersist;
-    next.dataset.jbsStateKeys = next.dataset.jbsStateKeys ?? current.dataset.jbsStateKeys;
-    next.dataset.jbsSse = next.dataset.jbsSse ?? current.dataset.jbsSse;
-    next.dataset.jbsSseEvent = next.dataset.jbsSseEvent ?? current.dataset.jbsSseEvent;
-    next.dataset.jbsState = next.dataset.jbsState ?? current.dataset.jbsState;
-    next.dataset.jbsStreamMode = next.dataset.jbsStreamMode ?? current.dataset.jbsStreamMode;
-    next.dataset.jbsStreamMaxRows = next.dataset.jbsStreamMaxRows ?? current.dataset.jbsStreamMaxRows;
-    next.dataset.jbsStreamPauseWhenHidden =
-      next.dataset.jbsStreamPauseWhenHidden ?? current.dataset.jbsStreamPauseWhenHidden;
-    next.dataset.jbsStreamBufferMax =
-      next.dataset.jbsStreamBufferMax ?? current.dataset.jbsStreamBufferMax;
-    next.dataset.jbsLazy = next.dataset.jbsLazy ?? current.dataset.jbsLazy;
+    const copyDatasetValue = (name: string, fallback: string | undefined): void => {
+      if (next.dataset[name] === undefined && fallback !== undefined) {
+        next.dataset[name] = fallback;
+      }
+    };
+    copyDatasetValue("jbsKey", key);
+    copyDatasetValue("jbsEndpoint", current.dataset.jbsEndpoint);
+    copyDatasetValue("jbsTarget", current.dataset.jbsTarget);
+    copyDatasetValue("jbsPersist", current.dataset.jbsPersist);
+    copyDatasetValue("jbsUiPersist", current.dataset.jbsUiPersist);
+    copyDatasetValue("jbsStateKeys", current.dataset.jbsStateKeys);
+    copyDatasetValue("jbsSse", current.dataset.jbsSse);
+    copyDatasetValue("jbsSseEvent", current.dataset.jbsSseEvent);
+    copyDatasetValue("jbsState", current.dataset.jbsState);
+    copyDatasetValue("jbsStreamMode", current.dataset.jbsStreamMode);
+    copyDatasetValue("jbsStreamMaxRows", current.dataset.jbsStreamMaxRows);
+    copyDatasetValue(
+      "jbsStreamPauseWhenHidden",
+      current.dataset.jbsStreamPauseWhenHidden,
+    );
+    copyDatasetValue("jbsStreamBufferMax", current.dataset.jbsStreamBufferMax);
+    copyDatasetValue("jbsEtag", current.dataset.jbsEtag);
+    copyDatasetValue("jbsLoadingLabel", current.dataset.jbsLoadingLabel);
 
     current.replaceWith(next);
+    this.setComponentPhase(next, JBS_PHASES.success);
     this.closeAllAutocompletes();
     this.closeAllMenus();
     this.closeAllMultiSelects();
     this.closeAllDateRangePickers();
     this.closeAllAssistPanels();
     this.hydrate(next.parentNode ?? document);
+    this.applyDisclosureState(next, key);
     pulseElement(next, JBS_SWAP_PULSE_CLASS);
-    next.dispatchEvent(new CustomEvent("jbs:after-swap"));
+    next.dispatchEvent(new CustomEvent("jbs:after-swap", { bubbles: true }));
+    this.finishRequest(next, detail, JBS_PHASES.success);
   }
 
   private handleClick = async (event: Event): Promise<void> => {
-    const target = event.target instanceof HTMLElement ? event.target : null;
-
-    const statusDismiss = target?.closest("[data-jbs-status-dismiss]");
-    if (statusDismiss) {
-      event.preventDefault();
-      statusDismiss.closest("[data-jbs-status-region]")?.remove();
-      return;
-    }
-
-    const overlayOpen = target?.closest<HTMLElement>("[data-jbs-overlay-open]");
-    if (overlayOpen) {
-      const overlayId = overlayOpen.dataset.jbsOverlayOpen;
-      const overlay = overlayId ? document.getElementById(overlayId) : null;
-      if (overlay) {
+    let activeComponent: HTMLElement | null = null;
+    try {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const statusDismiss = target?.closest("[data-jbs-status-dismiss]");
+      if (statusDismiss) {
         event.preventDefault();
-        this.openOverlay(overlay, overlayOpen);
+        statusDismiss.closest("[data-jbs-status-region]")?.remove();
+        return;
       }
-      return;
-    }
 
-    const overlayClose = target?.closest("[data-jbs-overlay-close]");
-    if (overlayClose) {
-      const overlay = overlayClose.closest<HTMLElement>("[data-jbs-overlay]");
-      if (overlay) {
-        event.preventDefault();
-        this.closeOverlay(overlay);
-      }
-      return;
-    }
-
-    if (target?.matches("[data-jbs-overlay]")) {
-      event.preventDefault();
-      this.closeOverlay(target);
-      return;
-    }
-
-    const disclosureTrigger = target?.closest("[data-jbs-disclosure-trigger]");
-    if (disclosureTrigger) {
-      const disclosure = disclosureTrigger.closest("[data-jbs-disclosure]");
-      if (disclosure) {
-        event.preventDefault();
-        this.toggleDisclosure(disclosure);
-      }
-      return;
-    }
-
-    const msToggle = target?.closest("[data-jbs-ms-toggle]");
-    if (msToggle) {
-      const wrapper = msToggle.closest("[data-jbs-multi-select]");
-      if (wrapper) {
-        event.preventDefault();
-        const menu = wrapper.querySelector<HTMLElement>("[data-jbs-ms-menu]");
-        if (menu?.hidden) {
-          this.openMultiSelect(wrapper);
-        } else {
-          this.closeMultiSelect(wrapper);
+      const overlayOpen = target?.closest<HTMLElement>("[data-jbs-overlay-open]");
+      if (overlayOpen) {
+        const overlayId = overlayOpen.dataset.jbsOverlayOpen;
+        const overlay = overlayId ? document.getElementById(overlayId) : null;
+        if (overlay) {
+          event.preventDefault();
+          this.openOverlay(overlay, overlayOpen);
         }
+        return;
       }
-      return;
-    }
 
-    const msOption = target?.closest<HTMLElement>("[data-jbs-ms-option]");
-    if (msOption) {
-      const wrapper = msOption.closest<HTMLElement>("[data-jbs-multi-select]");
-      if (wrapper) {
+      const overlayClose = target?.closest("[data-jbs-overlay-close]");
+      if (overlayClose) {
+        const overlay = overlayClose.closest<HTMLElement>("[data-jbs-overlay]");
+        if (overlay) {
+          event.preventDefault();
+          this.closeOverlay(overlay);
+        }
+        return;
+      }
+
+      if (target?.matches("[data-jbs-overlay]")) {
         event.preventDefault();
-        const single = wrapper.dataset.jbsMsSingle === "true";
-        if (single) {
+        this.closeOverlay(target);
+        return;
+      }
+
+      const disclosureTrigger = target?.closest("[data-jbs-disclosure-trigger]");
+      if (disclosureTrigger) {
+        const disclosure = disclosureTrigger.closest("[data-jbs-disclosure]");
+        if (disclosure) {
+          event.preventDefault();
+          this.toggleDisclosure(disclosure);
+        }
+        return;
+      }
+
+      const msToggle = target?.closest("[data-jbs-ms-toggle]");
+      if (msToggle) {
+        const wrapper = msToggle.closest("[data-jbs-multi-select]");
+        if (wrapper) {
+          event.preventDefault();
+          const menu = wrapper.querySelector<HTMLElement>("[data-jbs-ms-menu]");
+          if (menu?.hidden) {
+            this.openMultiSelect(wrapper);
+          } else {
+            this.closeMultiSelect(wrapper);
+          }
+        }
+        return;
+      }
+
+      const msOption = target?.closest<HTMLElement>("[data-jbs-ms-option]");
+      if (msOption) {
+        const wrapper = msOption.closest<HTMLElement>("[data-jbs-multi-select]");
+        if (wrapper) {
+          event.preventDefault();
+          const single = wrapper.dataset.jbsMsSingle === "true";
+          if (single) {
+            const options = wrapper.querySelectorAll<HTMLElement>("[data-jbs-ms-option]");
+            for (const option of options) {
+              option.classList.remove("active");
+            }
+            msOption.classList.add("active");
+            this.closeMultiSelect(wrapper);
+          } else {
+            msOption.classList.toggle("active");
+          }
+          this.syncMultiSelect(wrapper);
+          this.maybeSubmitMultiSelect(wrapper);
+        }
+        return;
+      }
+
+      const msClear = target?.closest("[data-jbs-ms-clear]");
+      if (msClear) {
+        const wrapper = msClear.closest<HTMLElement>("[data-jbs-multi-select]");
+        if (wrapper) {
+          event.preventDefault();
           const options = wrapper.querySelectorAll<HTMLElement>("[data-jbs-ms-option]");
           for (const option of options) {
             option.classList.remove("active");
           }
-          msOption.classList.add("active");
-          this.closeMultiSelect(wrapper);
-        } else {
-          msOption.classList.toggle("active");
+          this.syncMultiSelect(wrapper);
+          this.maybeSubmitMultiSelect(wrapper);
         }
-        this.syncMultiSelect(wrapper);
-        this.maybeSubmitMultiSelect(wrapper);
-      }
-      return;
-    }
-
-    const msClear = target?.closest("[data-jbs-ms-clear]");
-    if (msClear) {
-      const wrapper = msClear.closest<HTMLElement>("[data-jbs-multi-select]");
-      if (wrapper) {
-        event.preventDefault();
-        const options = wrapper.querySelectorAll<HTMLElement>("[data-jbs-ms-option]");
-        for (const option of options) {
-          option.classList.remove("active");
-        }
-        this.syncMultiSelect(wrapper);
-        this.maybeSubmitMultiSelect(wrapper);
-      }
-      return;
-    }
-
-    const drpToggle = target?.closest("[data-jbs-drp-toggle]");
-    if (drpToggle) {
-      const wrapper = drpToggle.closest("[data-jbs-date-range]");
-      if (wrapper) {
-        event.preventDefault();
-        const panel = wrapper.querySelector<HTMLElement>("[data-jbs-drp-panel]");
-        if (panel?.hidden) {
-          this.openDateRangePicker(wrapper);
-        } else {
-          this.closeDateRangePicker(wrapper);
-        }
-      }
-      return;
-    }
-
-    const drpPreset = target?.closest<HTMLElement>("[data-jbs-drp-preset]");
-    if (drpPreset) {
-      const wrapper = drpPreset.closest<HTMLElement>("[data-jbs-date-range]");
-      if (wrapper) {
-        event.preventDefault();
-        const minutes = Number(drpPreset.dataset.jbsMinutes ?? "0");
-        if (minutes > 0) {
-          this.applyDateRangePreset(wrapper, minutes);
-        }
-      }
-      return;
-    }
-
-    const drpApply = target?.closest("[data-jbs-drp-apply]");
-    if (drpApply) {
-      const wrapper = drpApply.closest<HTMLElement>("[data-jbs-date-range]");
-      if (wrapper) {
-        event.preventDefault();
-        this.applyDateRangeCustom(wrapper);
-      }
-      return;
-    }
-
-    const drpClear = target?.closest("[data-jbs-drp-clear]");
-    if (drpClear) {
-      const wrapper = drpClear.closest<HTMLElement>("[data-jbs-date-range]");
-      if (wrapper) {
-        event.preventDefault();
-        this.clearDateRange(wrapper);
-      }
-      return;
-    }
-
-    const assistOption = target?.closest<HTMLElement>("[data-jbs-assist-option]");
-    if (assistOption) {
-      const wrapper = assistOption.closest<HTMLElement>("[data-jbs-assist]");
-      if (wrapper) {
-        event.preventDefault();
-        const { input } = this.assistElements(wrapper);
-        if (input) {
-          this.insertAssistOption(input, assistOption.dataset.jbsAssistOption ?? "");
-          this.closeAssistPanel(wrapper);
-        }
-      }
-      return;
-    }
-
-    const autocompleteOption = target?.closest("[data-jbs-autocomplete-option]");
-    if (autocompleteOption) {
-      event.preventDefault();
-      this.selectAutocompleteOption(autocompleteOption);
-      return;
-    }
-
-    const menuTrigger = target?.closest("[data-jbs-menu-trigger]");
-    if (menuTrigger) {
-      const menu = menuTrigger.closest("[data-jbs-menu]");
-      if (!menu) {
         return;
       }
-      event.preventDefault();
-      this.toggleMenu(menu);
-      return;
-    }
 
-    const menuItem = target?.closest("[data-jbs-menu] [role='menuitem']");
-    if (menuItem) {
-      const menu = menuItem.closest("[data-jbs-menu]");
-      if (menuItem.matches(".disabled, [disabled]")) {
-        event.preventDefault();
-        this.closeMenu(menu ?? menuItem);
+      const drpToggle = target?.closest("[data-jbs-drp-toggle]");
+      if (drpToggle) {
+        const wrapper = drpToggle.closest("[data-jbs-date-range]");
+        if (wrapper) {
+          event.preventDefault();
+          const panel = wrapper.querySelector<HTMLElement>("[data-jbs-drp-panel]");
+          if (panel?.hidden) {
+            this.openDateRangePicker(wrapper);
+          } else {
+            this.closeDateRangePicker(wrapper);
+          }
+        }
         return;
       }
-      if (menu) {
-        this.closeMenu(menu);
+
+      const drpPreset = target?.closest<HTMLElement>("[data-jbs-drp-preset]");
+      if (drpPreset) {
+        const wrapper = drpPreset.closest<HTMLElement>("[data-jbs-date-range]");
+        if (wrapper) {
+          event.preventDefault();
+          const minutes = Number(drpPreset.dataset.jbsMinutes ?? "0");
+          if (minutes > 0) {
+            this.applyDateRangePreset(wrapper, minutes);
+          }
+        }
+        return;
       }
-    } else if (!target?.closest("[data-jbs-menu]")) {
-      this.closeAllMenus();
-    }
 
-    if (!target?.closest("[data-jbs-autocomplete]")) {
-      this.closeAllAutocompletes();
-    }
-    if (!target?.closest("[data-jbs-multi-select]")) {
-      this.closeAllMultiSelects();
-    }
-    if (!target?.closest("[data-jbs-date-range]")) {
-      this.closeAllDateRangePickers();
-    }
-    if (!target?.closest("[data-jbs-assist]")) {
-      this.closeAllAssistPanels();
-    }
+      const drpApply = target?.closest("[data-jbs-drp-apply]");
+      if (drpApply) {
+        const wrapper = drpApply.closest<HTMLElement>("[data-jbs-date-range]");
+        if (wrapper) {
+          event.preventDefault();
+          this.applyDateRangeCustom(wrapper);
+        }
+        return;
+      }
 
-    const trigger = target?.closest<HTMLElement>("[data-jbs-action]");
-    if (!trigger) {
-      return;
-    }
+      const drpClear = target?.closest("[data-jbs-drp-clear]");
+      if (drpClear) {
+        const wrapper = drpClear.closest<HTMLElement>("[data-jbs-date-range]");
+        if (wrapper) {
+          event.preventDefault();
+          this.clearDateRange(wrapper);
+        }
+        return;
+      }
 
-    const component = this.findComponent(trigger);
-    if (!component) {
-      return;
-    }
+      const assistOption = target?.closest<HTMLElement>("[data-jbs-assist-option]");
+      if (assistOption) {
+        const wrapper = assistOption.closest<HTMLElement>("[data-jbs-assist]");
+        if (wrapper) {
+          event.preventDefault();
+          const { input } = this.assistElements(wrapper);
+          if (input) {
+            this.insertAssistOption(input, assistOption.dataset.jbsAssistOption ?? "");
+            this.closeAssistPanel(wrapper);
+          }
+        }
+        return;
+      }
 
-    event.preventDefault();
-    const action = trigger.dataset.jbsAction ?? JBS_ACTIONS.refresh;
-    const patch = this.buildPatchFromTrigger(component, trigger, action);
-    await this.requestComponent(component, action, patch, trigger);
+      const autocompleteOption = target?.closest("[data-jbs-autocomplete-option]");
+      if (autocompleteOption) {
+        event.preventDefault();
+        this.selectAutocompleteOption(autocompleteOption);
+        return;
+      }
+
+      const menuTrigger = target?.closest("[data-jbs-menu-trigger]");
+      if (menuTrigger) {
+        const menu = menuTrigger.closest("[data-jbs-menu]");
+        if (!menu) {
+          return;
+        }
+        event.preventDefault();
+        this.toggleMenu(menu);
+        return;
+      }
+
+      const menuItem = target?.closest("[data-jbs-menu] [role='menuitem']");
+      if (menuItem) {
+        const menu = menuItem.closest("[data-jbs-menu]");
+        if (menuItem.matches(".disabled, [disabled]")) {
+          event.preventDefault();
+          this.closeMenu(menu ?? menuItem);
+          return;
+        }
+        if (menu) {
+          this.closeMenu(menu);
+        }
+      } else if (!target?.closest("[data-jbs-menu]")) {
+        this.closeAllMenus();
+      }
+
+      if (!target?.closest("[data-jbs-autocomplete]")) {
+        this.closeAllAutocompletes();
+      }
+      if (!target?.closest("[data-jbs-multi-select]")) {
+        this.closeAllMultiSelects();
+      }
+      if (!target?.closest("[data-jbs-date-range]")) {
+        this.closeAllDateRangePickers();
+      }
+      if (!target?.closest("[data-jbs-assist]")) {
+        this.closeAllAssistPanels();
+      }
+
+      const trigger = target?.closest<HTMLElement>("[data-jbs-action]");
+      if (!trigger) {
+        return;
+      }
+
+      const component = this.findComponent(trigger);
+      if (!component) {
+        return;
+      }
+
+      activeComponent = component;
+      event.preventDefault();
+      const action = trigger.dataset.jbsAction ?? JBS_ACTIONS.refresh;
+      const patch = this.buildPatchFromTrigger(component, trigger, action);
+      await this.requestComponent(component, action, patch, trigger);
+    } catch (error) {
+      this.reportRuntimeError("click handler", error, activeComponent);
+    }
   };
 
   private handleInput = (event: Event): void => {
@@ -1842,7 +2229,11 @@ export class JBSRuntime {
         window.clearTimeout(existingTimer);
       }
       const timer = window.setTimeout(() => {
-        void this.requestAutocompleteOptions(wrapper, input.value);
+        this.runTask(
+          this.requestAutocompleteOptions(wrapper, input.value),
+          "autocomplete options request",
+          wrapper,
+        );
       }, 150);
       this.autocompleteTimers.set(key, timer);
       return;
@@ -1859,7 +2250,11 @@ export class JBSRuntime {
         window.clearTimeout(existingTimer);
       }
       const timer = window.setTimeout(() => {
-        void this.validateAssist(wrapper, input.value);
+        this.runTask(
+          this.validateAssist(wrapper, input.value),
+          "assist validation",
+          wrapper,
+        );
         this.renderAssistOptions(wrapper, this.buildAssistOptions(wrapper, input.value));
       }, 180);
       this.assistTimers.set(key, timer);
@@ -1876,9 +2271,13 @@ export class JBSRuntime {
     if (!wrapper) {
       return;
     }
-    void this.loadAssistHints(wrapper).then(() => {
-      this.renderAssistOptions(wrapper, this.buildAssistOptions(wrapper, assistInput.value));
-    });
+    this.runTask(
+      this.loadAssistHints(wrapper).then(() => {
+        this.renderAssistOptions(wrapper, this.buildAssistOptions(wrapper, assistInput.value));
+      }),
+      "assist hints load",
+      wrapper,
+    );
   };
 
   private handleKeydown = (event: KeyboardEvent): void => {
@@ -1943,22 +2342,28 @@ export class JBSRuntime {
   };
 
   private handleSubmit = async (event: Event): Promise<void> => {
-    const form = event.target instanceof HTMLFormElement ? event.target : null;
-    if (!form || !form.hasAttribute("data-jbs-form")) {
-      return;
+    let activeComponent: HTMLElement | null = null;
+    try {
+      const form = event.target instanceof HTMLFormElement ? event.target : null;
+      if (!form || !form.hasAttribute("data-jbs-form")) {
+        return;
+      }
+      const component = form.closest<HTMLElement>("[data-jbs-component][data-jbs-endpoint]");
+      if (!component) {
+        return;
+      }
+      activeComponent = component;
+      event.preventDefault();
+      const patch = normalizeFormData(form);
+      const nextState = {
+        ...stripTransientState(this.getState(component)),
+        ...patch,
+        page: 1,
+      };
+      await this.requestComponent(component, JBS_ACTIONS.filter, nextState, form);
+    } catch (error) {
+      this.reportRuntimeError("submit handler", error, activeComponent);
     }
-    const component = form.closest<HTMLElement>("[data-jbs-component][data-jbs-endpoint]");
-    if (!component) {
-      return;
-    }
-    event.preventDefault();
-    const patch = normalizeFormData(form);
-    const nextState = {
-      ...stripTransientState(this.getState(component)),
-      ...patch,
-      page: 1,
-    };
-    await this.requestComponent(component, JBS_ACTIONS.filter, nextState, form);
   };
 
   private handlePopState = (): void => {
@@ -1972,9 +2377,13 @@ export class JBSRuntime {
       const state = stripTransientState(
         applyStatePatch(parseState(component.dataset.jbsState ?? null), readQueryState(component)),
       );
-      void this.requestComponent(component, JBS_ACTIONS.refresh, state, null, {
-        persist: false,
-      });
+      this.runTask(
+        this.requestComponent(component, JBS_ACTIONS.refresh, state, null, {
+          persist: false,
+        }),
+        "popstate refresh",
+        component,
+      );
     }
   };
 
@@ -1987,7 +2396,7 @@ export class JBSRuntime {
     );
     for (const component of components) {
       const key = this.componentKey(component);
-      void this.flushStreamQueue(component, key);
+      this.runTask(this.flushStreamQueue(component, key), "visibility stream flush", component);
     }
   };
 
@@ -1997,7 +2406,7 @@ export class JBSRuntime {
     );
     for (const component of components) {
       const key = this.componentKey(component);
-      void this.flushStreamQueue(component, key);
+      this.runTask(this.flushStreamQueue(component, key), "scroll stream flush", component);
     }
   };
 }

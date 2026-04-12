@@ -154,6 +154,7 @@ The runtime also sends these headers:
 - `X-JBS-Request: true`
 - `X-JBS-Component: table`
 - `X-JBS-Action: refresh|filter|page|sort|row`
+- `If-None-Match: W/"jbs-..."` (when the runtime already has an ETag for the component)
 
 On the Python side, use `parse_table_state(...)` to normalize incoming state
 before querying data:
@@ -183,6 +184,38 @@ that root should remain the same logical component:
 
 The runtime will reject a swapped fragment if the component type changes, and it
 expects the root identity to stay stable across requests.
+
+To reduce payload when content is unchanged, you can return conditional responses
+using helper utilities:
+
+```python
+from flask import request
+from jinja_bootstrap_spa import conditional_fragment_response
+
+
+@app.get("/components/orders")
+def orders_component():
+    html = render_template("partials/orders_table.html", **build_orders_context())
+    return conditional_fragment_response(html, request.headers)
+```
+
+When `If-None-Match` matches, the helper returns `304` with no HTML body.
+The runtime treats that as "no visual change", skips swap, and keeps current DOM.
+
+## Visual Cues
+
+The runtime emits visible update cues by default:
+
+- `jbs-swap-pulse` on full component replacement (orange border/glow flash)
+- `jbs-not-modified-pulse` on `304 Not Modified` refresh attempts (cyan border/glow flash)
+- `jbs-stream-row-pulse` on stream append/prepend row insert
+
+What you should see in the example app:
+
+- Clicking `Refresh Table` with changed content flashes the table boundary.
+- Clicking `Refresh Table` with no server-side changes flashes cyan to show the request was handled but no replacement was needed.
+- Stream buttons (`Push Prepend Row` / `Push Append Row`) flash inserted rows.
+- If a response is `304 Not Modified`, there is no swap flash; you should see the cyan not-modified flash instead.
 
 ### Stream shape
 

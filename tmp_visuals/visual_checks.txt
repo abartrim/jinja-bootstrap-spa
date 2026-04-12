@@ -1,0 +1,22 @@
+orders_filters_collapsed_after_refresh: True
+append_pager_before_push: 
+        Previous
+        
+          Page 2 of 2
+        
+        Next
+      
+append_pager_after_push: 
+        Previous
+        
+          Page 2 of 2
+        
+        Next
+      
+append_last_row_after_push: append-5
+                  sse
+                  
+              
+session_table_summary: 
+        Showing 4 of 6 results
+      

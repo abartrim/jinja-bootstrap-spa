@@ -25,7 +25,9 @@ from flask import (
 )
 from jinja2 import ChoiceLoader, PackageLoader
 
-from jinja_bootstrap_spa import parse_table_state, register_bootstrap_macros
+from jinja_bootstrap_spa import conditional_fragment_response
+from jinja_bootstrap_spa import parse_table_state
+from jinja_bootstrap_spa import register_bootstrap_macros
 
 app = Flask(__name__, template_folder="templates")
 app.jinja_loader = ChoiceLoader(
@@ -123,6 +125,10 @@ def _runtime_asset_path() -> Path:
         / "static"
         / "jinja-bootstrap-spa.js"
     )
+
+
+def _fragment_response(content: str) -> tuple[str, int, dict[str, str]]:
+    return conditional_fragment_response(content, request.headers)
 
 
 def _publish_orders_event(message: str, patch: dict[str, Any] | None = None) -> None:
@@ -367,52 +373,95 @@ def build_session_context() -> dict[str, Any]:
     }
 
 
+def build_live_table_context() -> dict[str, Any]:
+    state = parse_table_state(
+        request.args,
+        default_sort_by="",
+        default_page_size=5,
+        allowed_page_sizes=(5,),
+        filter_keys=(),
+    )
+    page = int(state["page"])
+    page_size = int(state["page_size"])
+    start = (page - 1) * page_size
+    end = start + page_size
+    return {
+        "live_rows": list(LIVE_ROWS[start:end]),
+        "live_total_rows": len(LIVE_ROWS),
+        "live_state": state,
+    }
+
+
+def build_live_append_context() -> dict[str, Any]:
+    state = parse_table_state(
+        request.args,
+        default_sort_by="",
+        default_page_size=5,
+        allowed_page_sizes=(5,),
+        filter_keys=(),
+    )
+    page = int(state["page"])
+    page_size = int(state["page_size"])
+    start = (page - 1) * page_size
+    end = start + page_size
+    return {
+        "append_rows": list(APPEND_ROWS[start:end]),
+        "append_total_rows": len(APPEND_ROWS),
+        "append_state": state,
+    }
+
+
 @app.get("/")
 def index() -> str:
     context = build_orders_context()
     context.update(build_session_context())
+    context.update(build_live_table_context())
+    context.update(build_live_append_context())
     return render_template("index.html", **context)
 
 
 @app.get("/components/orders")
-def orders_component() -> str:
-    return render_template("partials/orders_table.html", **build_orders_context())
+def orders_component() -> tuple[str, int, dict[str, str]]:
+    html = render_template("partials/orders_table.html", **build_orders_context())
+    return _fragment_response(html)
 
 
 @app.get("/components/live-table")
-def live_table_component() -> str:
-    context = build_orders_context()
-    context.update(build_session_context())
-    return render_template("partials/live_table.html", **context)
+def live_table_component() -> tuple[str, int, dict[str, str]]:
+    context = build_live_table_context()
+    html = render_template("partials/live_table.html", **context)
+    return _fragment_response(html)
 
 
 @app.get("/components/live-append-table")
-def live_append_table_component() -> str:
-    context = build_orders_context()
-    context.update(build_session_context())
-    return render_template("partials/live_append_table.html", **context)
+def live_append_table_component() -> tuple[str, int, dict[str, str]]:
+    context = build_live_append_context()
+    html = render_template("partials/live_append_table.html", **context)
+    return _fragment_response(html)
 
 
 @app.get("/components/session-table")
-def session_table_component() -> str:
+def session_table_component() -> tuple[str, int, dict[str, str]]:
     context = build_orders_context()
     context.update(build_session_context())
-    return render_template("partials/session_table.html", **context)
+    html = render_template("partials/session_table.html", **context)
+    return _fragment_response(html)
 
 
 @app.get("/components/cancel-demo")
-def cancel_demo_component() -> str:
+def cancel_demo_component() -> tuple[str, int, dict[str, str]]:
     value = str(request.args.get("value", "idle"))
     delay_ms = int(request.args.get("delay_ms", 0) or 0)
     delay_ms = max(0, min(delay_ms, 1000))
     if delay_ms:
         time.sleep(delay_ms / 1000)
-    return render_template("partials/cancel_demo.html", value=value, delay_ms=delay_ms)
+    html = render_template("partials/cancel_demo.html", value=value, delay_ms=delay_ms)
+    return _fragment_response(html)
 
 
 @app.get("/components/lazy-summary")
-def lazy_summary_component() -> str:
-    return (
+def lazy_summary_component() -> tuple[str, int, dict[str, str]]:
+    html = (
         '<section id="lazy-summary" '
         'class="card p-3 border-success-subtle" '
         'data-jbs-component="lazy-summary" '
@@ -428,15 +477,17 @@ def lazy_summary_component() -> str:
         '<span class="text-body-secondary">Loaded on first viewport entry.</span>'
         "</section>"
     )
+    return _fragment_response(html)
 
 
 @app.get("/fragments/customer-options")
-def customer_options() -> str:
+def customer_options() -> tuple[str, int, dict[str, str]]:
     query = str(request.args.get("q", "") or "")
-    return render_template(
+    html = render_template(
         "partials/customer_autocomplete_options.html",
         matches=_customer_matches(query),
     )
+    return _fragment_response(html)
 
 
 @app.get("/assets/jinja-bootstrap-spa.js")
@@ -564,9 +615,7 @@ def push_live_row() -> Any:
     _publish_live_event(
         {
             "target": "live-table",
-            "mode": "prepend",
-            "row": _render_live_row(row["entry"], row["source"]),
-            "max_rows": 5,
+            "action": "refresh",
         }
     )
     return {"ok": True, "entry": row["entry"]}
@@ -582,9 +631,7 @@ def push_live_append_row() -> Any:
     _publish_append_event(
         {
             "target": "live-append-table",
-            "mode": "append",
-            "row": _render_live_row(row["entry"], row["source"]),
-            "max_rows": 5,
+            "action": "refresh",
         }
     )
     return {"ok": True, "entry": row["entry"]}

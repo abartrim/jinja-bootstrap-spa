@@ -13,6 +13,9 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 from werkzeug.serving import make_server
 
+from tests.browser_assertions import assert_no_browser_errors
+from tests.browser_assertions import capture_browser_errors
+
 
 def _load_example_app_module() -> ModuleType:
     app_path = Path(__file__).resolve().parents[1] / "examples" / "table_app" / "app.py"
@@ -68,6 +71,7 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
         except PlaywrightError as exc:
             pytest.skip(f"Playwright browser is unavailable: {exc}")
         page = browser.new_page()
+        console_errors, page_errors = capture_browser_errors(page)
         page.goto(example_live_server, wait_until="domcontentloaded")
         page.wait_for_function(
             "() => document.getElementById('orders-table')"
@@ -100,6 +104,52 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
                 "() => !!document.getElementById('orders-drawer')?.hidden"
             )
 
+            page.locator("#orders-filters [data-jbs-disclosure-trigger]").click()
+            page.wait_for_function(
+                "() => !!document.querySelector("
+                "'#orders-filters [data-jbs-disclosure-panel]'"
+                ")?.hidden"
+            )
+            with page.expect_response("**/components/orders*") as first_refresh:
+                page.get_by_role("button", name="Refresh Table").click()
+            assert first_refresh.value.status in (200, 304)
+            with page.expect_response("**/components/orders*") as second_refresh:
+                page.get_by_role("button", name="Refresh Table").click()
+            assert second_refresh.value.status == 304
+            page.wait_for_function(
+                "() => document.getElementById('orders-table')"
+                "?.dataset.jbsPhase === 'unchanged'"
+            )
+            page.wait_for_function(
+                "() => !!document.getElementById('orders-table')"
+                "?.classList.contains('jbs-not-modified-pulse')"
+            )
+            page.wait_for_function(
+                "() => !!document.getElementById('orders-table')"
+                "?.classList.contains('jbs-swap-pulse')"
+            )
+            page.wait_for_function(
+                "() => !!document.querySelector("
+                "'#orders-filters [data-jbs-disclosure-panel]'"
+                ")?.hidden"
+            )
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_function(
+                "() => document.getElementById('orders-table')"
+                "?.dataset.jbsHydrated === 'true'"
+            )
+            page.wait_for_function(
+                "() => !!document.querySelector("
+                "'#orders-filters [data-jbs-disclosure-panel]'"
+                ")?.hidden"
+            )
+            page.locator("#orders-filters [data-jbs-disclosure-trigger]").click()
+            page.wait_for_function(
+                "() => !document.querySelector("
+                "'#orders-filters [data-jbs-disclosure-panel]'"
+                ")?.hidden"
+            )
+
             regex_input = page.locator("#orders-table input[name='regex']")
             regex_input.fill("(")
             page.wait_for_function(
@@ -130,6 +180,32 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
                 "() => document.querySelector('#live-append-table tbody tr:last-child')"
                 "?.textContent?.includes('append-1')"
             )
+            page.get_by_role("button", name="Push Append Row").click()
+            page.get_by_role("button", name="Push Append Row").click()
+            page.get_by_role("button", name="Push Append Row").click()
+            page.wait_for_function(
+                "() => document.querySelector('#live-append-table')"
+                "?.textContent?.includes('Page 1 of 2')"
+            )
+            append_pager = page.locator("#live-append-table")
+            append_pager.get_by_role("button", name="Next").click()
+            page.wait_for_function(
+                "() => document.querySelector('#live-append-table')"
+                "?.textContent?.includes('Page 2 of 2')"
+            )
+            page.get_by_role("button", name="Push Append Row").click()
+            page.wait_for_function(
+                "() => document.querySelector('#live-append-table tbody tr:last-child')"
+                "?.textContent?.includes('append-5')"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('live-append-table')"
+                "?.classList.contains('jbs-demo-replaced')"
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-append-table')"
+                "?.textContent?.includes('Page 2 of 2')"
+            )
 
             page.locator(
                 "#session-table [data-jbs-ms-input-name='page_size'] "
@@ -153,12 +229,32 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.locator("#cancel-demo").get_by_role(
                 "button", name="Slow Request"
             ).click()
+            page.wait_for_function(
+                "() => document.getElementById('cancel-demo')"
+                "?.dataset.jbsPhase === 'loading'"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('cancel-demo')"
+                "?.classList.contains('jbs-is-loading')"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('cancel-demo')"
+                "?.getAttribute('aria-busy') === 'true'"
+            )
             page.locator("#cancel-demo").get_by_role(
                 "button", name="Fast Request"
             ).click()
             page.wait_for_function(
                 "() => document.getElementById('cancel-demo-value')"
                 "?.textContent?.trim() === 'fast'"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('cancel-demo')"
+                "?.dataset.jbsPhase === 'success'"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('cancel-demo')"
+                "?.getAttribute('aria-busy') === 'false'"
             )
 
             page.get_by_role("button", name="Simulate SSE Update").click()
@@ -172,5 +268,6 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
                 "() => document.getElementById('lazy-summary')"
                 "?.textContent?.includes('Lazy summary ready.')"
             )
+            assert_no_browser_errors(console_errors, page_errors)
         finally:
             browser.close()

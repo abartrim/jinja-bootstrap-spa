@@ -9,6 +9,9 @@ from jinja_bootstrap_spa.runtime.components import (
     table_attrs,
 )
 from jinja_bootstrap_spa.runtime.contract import parse_table_state
+from jinja_bootstrap_spa.runtime.contract import conditional_fragment_response
+from jinja_bootstrap_spa.runtime.contract import etag_matches
+from jinja_bootstrap_spa.runtime.contract import fragment_etag
 
 
 def build_environment() -> Environment:
@@ -489,3 +492,34 @@ def test_parse_table_state_normalizes_paging_sorting_and_filters() -> None:
         "query": "urgent",
         "status": "open",
     }
+
+
+def test_fragment_etag_is_stable_for_identical_content() -> None:
+    content = "<section id='orders-table'>A</section>"
+    assert fragment_etag(content) == fragment_etag(content)
+
+
+def test_etag_matches_accepts_weak_and_strong_forms() -> None:
+    etag = fragment_etag("<section id='orders-table'>A</section>")
+    strong = etag[2:]
+    assert etag_matches(etag, etag)
+    assert etag_matches(strong, etag)
+    assert etag_matches(f"{strong}, W/\"other\"", etag)
+    assert not etag_matches('W/"jbs-other"', etag)
+
+
+def test_conditional_fragment_response_returns_304_on_match() -> None:
+    content = "<section id='orders-table'>A</section>"
+    first_body, first_status, first_headers = conditional_fragment_response(content, {})
+    assert first_status == 200
+    assert first_body == content
+    assert first_headers["Cache-Control"] == "no-cache"
+    etag = first_headers["ETag"]
+
+    second_body, second_status, second_headers = conditional_fragment_response(
+        content,
+        {"If-None-Match": etag},
+    )
+    assert second_status == 304
+    assert second_body == ""
+    assert second_headers["ETag"] == etag

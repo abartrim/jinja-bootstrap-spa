@@ -6,11 +6,14 @@ for server-rendered components in jinja-bootstrap-spa.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any, Iterable, Mapping
 
 JBS_REQUEST_HEADER = "X-JBS-Request"
 JBS_COMPONENT_HEADER = "X-JBS-Component"
 JBS_ACTION_HEADER = "X-JBS-Action"
+JBS_CONDITIONAL_HEADER = "If-None-Match"
+JBS_ETAG_HEADER = "ETag"
 
 JBS_ACTION_REFRESH = "refresh"
 JBS_ACTION_FILTER = "filter"
@@ -35,6 +38,54 @@ TABLE_ALLOWED_SORT_DIRS = {"asc", "desc"}
 
 
 TableState = dict[str, Any]
+
+
+def fragment_etag(content: str) -> str:
+    """Build a weak ETag for rendered component fragments."""
+
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()[:24]
+    return f'W/"jbs-{digest}"'
+
+
+def etag_matches(if_none_match_header: str | None, etag: str) -> bool:
+    """Return ``True`` when an ``If-None-Match`` header matches ``etag``."""
+
+    if not if_none_match_header:
+        return False
+
+    candidates = [
+        token.strip() for token in if_none_match_header.split(",") if token.strip()
+    ]
+    if "*" in candidates:
+        return True
+
+    strong_etag = etag[2:] if etag.startswith("W/") else etag
+    weak_etag = f"W/{strong_etag}"
+
+    for candidate in candidates:
+        candidate_strong = candidate[2:] if candidate.startswith("W/") else candidate
+        if candidate in {etag, strong_etag, weak_etag}:
+            return True
+        if candidate_strong == strong_etag:
+            return True
+
+    return False
+
+
+def conditional_fragment_response(
+    content: str, request_headers: Mapping[str, Any]
+) -> tuple[str, int, dict[str, str]]:
+    """Return an HTTP tuple with ETag and conditional ``304`` support."""
+
+    etag = fragment_etag(content)
+    headers = {
+        JBS_ETAG_HEADER: etag,
+        "Cache-Control": "no-cache",
+    }
+    if_none_match = request_headers.get(JBS_CONDITIONAL_HEADER)
+    if etag_matches(str(if_none_match or ""), etag):
+        return "", 304, headers
+    return content, 200, headers
 
 
 def _coerce_int(value: Any, default: int, minimum: int = 1) -> int:
