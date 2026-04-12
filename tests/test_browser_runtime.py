@@ -1927,6 +1927,38 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
                         refresh_median = float(median(metrics["refreshTimes"]))
                         savings_ratio = 1 - (v2_bytes / refresh_bytes)
 
+                        metrics_dir = Path(__file__).resolve().parents[1] / "tmp" / "metrics"
+                        metrics_dir.mkdir(parents=True, exist_ok=True)
+                        metrics_file = metrics_dir / "stream_protocol_metrics.md"
+                        metrics_file.write_text(
+                            "\n".join(
+                                [
+                                    "# Stream Protocol Metrics",
+                                    "",
+                                    f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+                                    "",
+                                    "## Byte Size",
+                                    "",
+                                    f"- Refresh HTML bytes: {refresh_bytes}",
+                                    f"- V2 payload bytes: {v2_bytes}",
+                                    f"- Byte savings: {savings_ratio:.1%}",
+                                    "",
+                                    "## Client Apply Latency",
+                                    "",
+                                    f"- V2 median: {v2_median:.2f} ms",
+                                    f"- Refresh median: {refresh_median:.2f} ms",
+                                    f"- Ratio (v2/refresh): {(v2_median / refresh_median):.2f}",
+                                    "",
+                                    "## Raw Samples",
+                                    "",
+                                    f"- v2Times: {metrics['v2Times']}",
+                                    f"- refreshTimes: {metrics['refreshTimes']}",
+                                ]
+                            )
+                            + "\n",
+                            encoding="utf-8",
+                        )
+
                         assert refresh_bytes > v2_bytes, (
                                 f"Expected v2 payload to be smaller than refresh HTML, got v2={v2_bytes} "
                                 f"refresh={refresh_bytes}."
