@@ -1,0 +1,77 @@
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+
+{% set modal_body %}
+  <div class="vstack gap-3">
+    <p class="mb-0">
+      The runtime keeps the server as the source of truth while handling component
+      replacement, menus, overlays, forms, and autocomplete interactions on the client.
+    </p>
+    <div class="row g-3">
+      <div class="col-sm-6">
+        <div class="border rounded-3 p-3 h-100">
+          <div class="text-uppercase small text-body-secondary mb-2">Active Filters</div>
+          <div class="fw-semibold">
+            {{ table_state.customer or "Any customer" }}
+          </div>
+          <div class="text-body-secondary small">
+            {{ table_state.status or "Any status" }}
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6">
+        <div class="border rounded-3 p-3 h-100">
+          <div class="text-uppercase small text-body-secondary mb-2">Visible Rows</div>
+          <div class="display-6 mb-0">{{ rows|length }}</div>
+          <div class="text-body-secondary small">of {{ total_rows }} matching orders</div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endset %}
+
+{% set drawer_body %}
+  <div class="vstack gap-4">
+    <section>
+      <div class="text-uppercase small text-body-secondary mb-2">Current View</div>
+      <dl class="row mb-0">
+        <dt class="col-4 text-body-secondary">Customer</dt>
+        <dd class="col-8">{{ table_state.customer or "Any customer" }}</dd>
+        <dt class="col-4 text-body-secondary">Search</dt>
+        <dd class="col-8">{{ table_state.query or "No free-text search" }}</dd>
+        <dt class="col-4 text-body-secondary">Status</dt>
+        <dd class="col-8">{{ table_state.status or "Any status" }}</dd>
+        <dt class="col-4 text-body-secondary">Page Size</dt>
+        <dd class="col-8">{{ table_state.page_size }}</dd>
+      </dl>
+    </section>
+    <section>
+      <div class="text-uppercase small text-body-secondary mb-2">Status Summary</div>
+      <div class="list-group list-group-flush border rounded-3">
+        {% for item in status_summary %}
+          <div class="list-group-item d-flex align-items-center justify-content-between">
+            <span>{{ item.label }}</span>
+            <span class="badge text-bg-secondary rounded-pill">{{ item.count }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+{% endset %}
+
+{{
+  ui.modal(
+    "runtime-modal",
+    title="Runtime Notes",
+    body=modal_body,
+    footer='<button class="btn btn-primary" type="button" data-jbs-overlay-close>Close</button>'
+  )
+}}
+
+{{
+  ui.drawer(
+    "orders-drawer",
+    title="Orders Workbench",
+    body=drawer_body,
+    footer='<button class="btn btn-outline-secondary" type="button" data-jbs-overlay-close>Done</button>'
+  )
+}}

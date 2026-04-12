@@ -17,13 +17,41 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+          python -m playwright install --with-deps chromium
+          npm ci
+
+      - name: Build browser runtime
+        run: |
+          npm run build:js
+          git diff --exit-code -- src/jinja_bootstrap_spa/static
 
       - name: Run flake8
         run: flake8 src tests
+
+      - name: Run black
+        run: black --check src tests
+
+      - name: Run isort
+        run: isort --check-only src tests
+
+      - name: Run mypy
+        run: mypy src
+
+      - name: Run djLint
+        run: djlint src/jinja_bootstrap_spa/templates --check
+
+      - name: Type-check browser runtime
+        run: npm run typecheck:js
 
       - name: Run pytest
         run: pytest

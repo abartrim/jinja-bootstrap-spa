@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
+    "rootDir": "frontend/src",
+    "outDir": "src/jinja_bootstrap_spa/static",
+    "strict": true,
+    "declaration": true,
+    "sourceMap": false,
+    "moduleResolution": "bundler",
+    "skipLibCheck": true
+  },
+  "include": ["frontend/src/**/*.ts"]
+}

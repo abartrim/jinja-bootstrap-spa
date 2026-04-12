@@ -1,0 +1,11 @@
+{
+  "name": "jinja-bootstrap-spa",
+  "private": true,
+  "scripts": {
+    "build:js": "tsc -p tsconfig.json",
+    "typecheck:js": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jinja-bootstrap-spa"
 version = "0.1.0"
-description = "Composable Jinja2 + Bootstrap 5 UI primitives with lightweight SPA-style updates."
+description = "Composable Jinja2 + Bootstrap 5 UI primitives with a typed fragment runtime."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -16,7 +16,7 @@ dependencies = [
   "Jinja2>=3.1,<4",
   "Flask>=3.0,<4",
 ]
-keywords = ["jinja2", "bootstrap", "htmx", "turbo", "spa", "ui"]
+keywords = ["jinja2", "bootstrap", "spa", "ui", "components", "typescript"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Framework :: Flask",
@@ -31,8 +31,12 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
+  "black>=24.0,<25",
+  "djlint>=1.36,<2",
   "flake8>=7.0,<8",
+  "isort>=5.13,<6",
   "mypy>=1.10,<2",
+  "playwright>=1.52,<2",
   "pytest>=8.0,<9",
   "pytest-cov>=5.0,<6",
 ]
@@ -50,4 +54,21 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-jinja_bootstrap_spa = ["templates/*.html", "py.typed"]
+jinja_bootstrap_spa = ["templates/*.html", "static/*.js", "static/*.d.ts", "py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+src_paths = ["src", "tests"]
+
+[tool.djlint]
+profile = "jinja"
+indent = 2
+max_line_length = 88
+format_css = true
+format_js = true
+ignore = "H006,H020,H021"

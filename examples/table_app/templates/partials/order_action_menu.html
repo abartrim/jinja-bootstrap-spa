@@ -1,0 +1,13 @@
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+
+{{
+  ui.action_menu(
+    menu_id,
+    label="Actions",
+    items=items,
+    variant="outline-secondary",
+    size="sm",
+    align="end",
+    button_class="w-100"
+  )
+}}
