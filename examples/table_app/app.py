@@ -43,15 +43,15 @@ LIVE_SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 LIVE_SUBSCRIBERS_LOCK = Lock()
 LIVE_PUSH_COUNTER = 0
 LIVE_ROWS = [
-    {"entry": "boot complete", "source": "runtime"},
-    {"entry": "table hydrated", "source": "runtime"},
+    {"id": "live-boot", "entry": "boot complete", "source": "runtime"},
+    {"id": "live-hydrated", "entry": "table hydrated", "source": "runtime"},
 ]
 APPEND_SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 APPEND_SUBSCRIBERS_LOCK = Lock()
 APPEND_PUSH_COUNTER = 0
 APPEND_ROWS = [
-    {"entry": "append channel online", "source": "runtime"},
-    {"entry": "append stream ready", "source": "runtime"},
+    {"id": "append-boot", "entry": "append channel online", "source": "runtime"},
+    {"id": "append-ready", "entry": "append stream ready", "source": "runtime"},
 ]
 SESSION_ROWS = [
     {"name": "Alerts", "owner": "SRE"},
@@ -154,10 +154,13 @@ def _publish_append_event(payload: dict[str, Any]) -> None:
         subscriber.put(payload)
 
 
-def _render_live_row(entry: str, source: str) -> str:
+def _render_live_row(row_id: str, entry: str, source: str) -> str:
+    safe_id = row_id.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_source = source.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    return f"<tr><td>{safe_entry}</td><td>{safe_source}</td></tr>"
+    return (
+        f'<tr data-jbs-row-id="{safe_id}"><td>{safe_entry}</td><td>{safe_source}</td></tr>'
+    )
 
 
 def _action_menu(order: dict[str, Any]) -> str:
@@ -311,6 +314,7 @@ def build_orders_context() -> dict[str, Any]:
 
     rows = [
         {
+            "id": order["id"],
             "number": order["number"],
             "customer": order["customer"],
             "status": order["status"].title(),
@@ -610,12 +614,25 @@ def push_live_row() -> Any:
     global LIVE_PUSH_COUNTER
 
     LIVE_PUSH_COUNTER += 1
-    row = {"entry": f"event-{LIVE_PUSH_COUNTER}", "source": "sse"}
+    row = {
+        "id": f"live-{LIVE_PUSH_COUNTER}",
+        "entry": f"event-{LIVE_PUSH_COUNTER}",
+        "source": "sse",
+    }
     LIVE_ROWS.insert(0, row)
     _publish_live_event(
         {
+            "v": 2,
+            "seq": LIVE_PUSH_COUNTER,
             "target": "live-table",
-            "action": "refresh",
+            "ops": [
+                {
+                    "op": "upsert",
+                    "id": row["id"],
+                    "position": "prepend",
+                    "html": _render_live_row(row["id"], row["entry"], row["source"]),
+                }
+            ],
         }
     )
     return {"ok": True, "entry": row["entry"]}
@@ -626,7 +643,11 @@ def push_live_append_row() -> Any:
     global APPEND_PUSH_COUNTER
 
     APPEND_PUSH_COUNTER += 1
-    row = {"entry": f"append-{APPEND_PUSH_COUNTER}", "source": "sse"}
+    row = {
+        "id": f"append-{APPEND_PUSH_COUNTER}",
+        "entry": f"append-{APPEND_PUSH_COUNTER}",
+        "source": "sse",
+    }
     APPEND_ROWS.append(row)
     _publish_append_event(
         {

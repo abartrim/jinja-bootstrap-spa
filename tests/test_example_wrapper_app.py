@@ -44,13 +44,13 @@ def example_live_server() -> str:
     module.PUSH_COUNTER = 0
     module.LIVE_PUSH_COUNTER = 0
     module.LIVE_ROWS = [
-        {"entry": "boot complete", "source": "runtime"},
-        {"entry": "table hydrated", "source": "runtime"},
+        {"id": "live-boot", "entry": "boot complete", "source": "runtime"},
+        {"id": "live-hydrated", "entry": "table hydrated", "source": "runtime"},
     ]
     module.APPEND_PUSH_COUNTER = 0
     module.APPEND_ROWS = [
-        {"entry": "append channel online", "source": "runtime"},
-        {"entry": "append stream ready", "source": "runtime"},
+        {"id": "append-boot", "entry": "append channel online", "source": "runtime"},
+        {"id": "append-ready", "entry": "append stream ready", "source": "runtime"},
     ]
 
     server = make_server("127.0.0.1", 0, module.app, threaded=True)

@@ -41,13 +41,25 @@ export interface JBSRequestFinishedDetail {
   source: HTMLElement | HTMLFormElement | null;
 }
 
+interface JBSStreamOperation {
+  op?: "upsert" | "delete" | "move";
+  id?: string;
+  html?: string;
+  position?: "append" | "prepend";
+  before_id?: string;
+  after_id?: string;
+}
+
 interface JBSStreamPayload {
+  v?: number;
+  seq?: number;
   action?: string;
   patch?: JBSState;
   target?: string;
   mode?: JBSStreamMode;
   row?: string;
   rows?: string[];
+  ops?: JBSStreamOperation[];
   max_rows?: number;
 }
 
@@ -323,6 +335,7 @@ export class JBSRuntime {
   private readonly stateStore = new Map<string, JBSState>();
   private readonly streamStore = new Map<string, EventSource>();
   private readonly streamQueue = new Map<string, JBSStreamPayload[]>();
+  private readonly streamLastSeq = new Map<string, number>();
   private readonly componentEtags = new Map<string, string>();
   private readonly requestAbortControllers = new Map<string, AbortController>();
   private readonly requestSeq = new Map<string, number>();
@@ -914,6 +927,165 @@ export class JBSRuntime {
     return [];
   }
 
+  private tableBody(component: HTMLElement): HTMLTableSectionElement | null {
+    const tableBody = component.querySelector("tbody");
+    if (tableBody instanceof HTMLTableSectionElement) {
+      return tableBody;
+    }
+    return null;
+  }
+
+  private tableRowById(tableBody: HTMLTableSectionElement, rowId: string): HTMLTableRowElement | null {
+    for (const row of tableBody.rows) {
+      if (row.dataset.jbsRowId === rowId) {
+        return row;
+      }
+    }
+    return null;
+  }
+
+  private parseStreamRowHtml(rowHtml: string, rowId: string): HTMLTableRowElement | null {
+    const template = document.createElement("template");
+    template.innerHTML = rowHtml.trim();
+    const row = template.content.firstElementChild;
+    if (!(row instanceof HTMLTableRowElement)) {
+      return null;
+    }
+    if (!row.dataset.jbsRowId) {
+      row.dataset.jbsRowId = rowId;
+    }
+    return row;
+  }
+
+  private insertRowByPosition(
+    tableBody: HTMLTableSectionElement,
+    row: HTMLTableRowElement,
+    position: "append" | "prepend" = "append",
+  ): void {
+    if (position === "prepend") {
+      tableBody.prepend(row);
+      return;
+    }
+    tableBody.append(row);
+  }
+
+  private applyStreamOps(component: HTMLElement, payload: JBSStreamPayload): boolean {
+    const ops = Array.isArray(payload.ops) ? payload.ops : [];
+    if (ops.length === 0) {
+      return false;
+    }
+
+    const tableBody = this.tableBody(component);
+    if (!tableBody) {
+      return false;
+    }
+
+    const touchedRows: HTMLTableRowElement[] = [];
+    let trimFromStart = this.streamMode(component, payload) !== JBS_STREAM_MODES.prepend;
+    for (const operation of ops) {
+      const op = operation.op;
+      const rowId = operation.id?.trim();
+      if (!op || !rowId) {
+        return false;
+      }
+
+      if (op === "delete") {
+        this.tableRowById(tableBody, rowId)?.remove();
+        continue;
+      }
+
+      if (op === "move") {
+        const existing = this.tableRowById(tableBody, rowId);
+        if (!existing) {
+          continue;
+        }
+        const beforeId = operation.before_id?.trim();
+        const afterId = operation.after_id?.trim();
+        if (beforeId) {
+          const beforeRow = this.tableRowById(tableBody, beforeId);
+          if (beforeRow) {
+            tableBody.insertBefore(existing, beforeRow);
+            touchedRows.push(existing);
+            continue;
+          }
+        }
+        if (afterId) {
+          const afterRow = this.tableRowById(tableBody, afterId);
+          if (afterRow) {
+            tableBody.insertBefore(existing, afterRow.nextSibling);
+            touchedRows.push(existing);
+            continue;
+          }
+        }
+        this.insertRowByPosition(tableBody, existing, operation.position ?? "append");
+        trimFromStart = (operation.position ?? "append") !== "prepend";
+        touchedRows.push(existing);
+        continue;
+      }
+
+      if (op === "upsert") {
+        if (typeof operation.html !== "string") {
+          return false;
+        }
+        const parsed = this.parseStreamRowHtml(operation.html, rowId);
+        if (!parsed) {
+          return false;
+        }
+
+        const existing = this.tableRowById(tableBody, rowId);
+        if (existing) {
+          existing.replaceWith(parsed);
+          touchedRows.push(parsed);
+          continue;
+        }
+
+        const beforeId = operation.before_id?.trim();
+        const afterId = operation.after_id?.trim();
+        if (beforeId) {
+          const beforeRow = this.tableRowById(tableBody, beforeId);
+          if (beforeRow) {
+            tableBody.insertBefore(parsed, beforeRow);
+            touchedRows.push(parsed);
+            continue;
+          }
+        }
+        if (afterId) {
+          const afterRow = this.tableRowById(tableBody, afterId);
+          if (afterRow) {
+            tableBody.insertBefore(parsed, afterRow.nextSibling);
+            touchedRows.push(parsed);
+            continue;
+          }
+        }
+        this.insertRowByPosition(tableBody, parsed, operation.position ?? "append");
+        trimFromStart = (operation.position ?? "append") !== "prepend";
+        touchedRows.push(parsed);
+        continue;
+      }
+
+      return false;
+    }
+
+    const maxRows = this.streamMaxRows(component, payload);
+    if (maxRows !== null) {
+      while (tableBody.rows.length > maxRows) {
+        if (trimFromStart) {
+          tableBody.deleteRow(0);
+        } else {
+          tableBody.deleteRow(tableBody.rows.length - 1);
+        }
+      }
+    }
+
+    for (const row of touchedRows) {
+      if (row.isConnected) {
+        pulseElement(row, JBS_STREAM_ROW_PULSE_CLASS);
+      }
+    }
+
+    return true;
+  }
+
   private applyRowFragments(
     component: HTMLElement,
     mode: Exclude<JBSStreamMode, "replace">,
@@ -975,6 +1147,30 @@ export class JBSRuntime {
     key: string,
     payload: JBSStreamPayload,
   ): Promise<void> {
+    if (typeof payload.seq === "number") {
+      const lastSeq = this.streamLastSeq.get(key);
+      if (lastSeq !== undefined && payload.seq <= lastSeq) {
+        return;
+      }
+      this.streamLastSeq.set(key, payload.seq);
+    }
+
+    if (payload.v === 2 && this.applyStreamOps(component, payload)) {
+      const nextState = stripTransientState(
+        applyStatePatch(this.getState(component), payload.patch ?? {}),
+      );
+      this.stateStore.set(key, nextState);
+      component.dataset.jbsState = JSON.stringify(nextState);
+      this.persistState(component, key, nextState);
+      component.dispatchEvent(
+        new CustomEvent("jbs:after-stream-patch", {
+          detail: { component, key, payload, mode: "replace" },
+          bubbles: true,
+        }),
+      );
+      return;
+    }
+
     const mode = this.streamMode(component, payload);
     const action = payload.action ?? JBS_ACTIONS.refresh;
 

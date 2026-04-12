@@ -993,7 +993,7 @@ BOOTSTRAP_MACROS = """
         <tbody>
           {%- if rows %}
             {%- for row in rows %}
-              <tr>
+              <tr{%- if row.id is defined %} data-jbs-row-id="{{ row.id }}"{% endif -%}>
                 {%- for column in columns %}
                   {%- set cell = row[column.key] -%}
                   <td
