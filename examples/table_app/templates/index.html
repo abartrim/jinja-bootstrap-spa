@@ -3,6 +3,51 @@
 
 {% block title %}jinja-bootstrap-spa Dev App{% endblock %}
 
+{% block head_extra %}
+  <style>
+    @keyframes jbsDemoSwapFlash {
+      0% {
+        box-shadow: 0 0 0 0 rgba(255, 153, 0, 0.75);
+        background: rgba(255, 193, 7, 0.14);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(255, 153, 0, 0);
+        background: transparent;
+      }
+    }
+
+    .jbs-demo-replaced {
+      position: relative;
+      outline: 2px solid rgba(255, 153, 0, 0.65);
+      outline-offset: 2px;
+      animation: jbsDemoSwapFlash 1.35s ease-out;
+    }
+
+    .jbs-demo-replaced::after {
+      content: attr(data-jbs-demo-label);
+      position: absolute;
+      top: -10px;
+      right: 8px;
+      z-index: 4;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background: #ffc107;
+      color: #212529;
+      border: 1px solid rgba(33, 37, 41, 0.25);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .jbs-demo-replaced {
+        animation: none;
+      }
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
   <main class="container py-4">
     <section class="card border-primary-subtle shadow-sm mb-4">
@@ -166,6 +211,32 @@
 {% block spa_runtime %}
   <script type="module" src="{{ runtime_url }}"></script>
   <script type="module">
+    const flashReplacedComponent = (component, label) => {
+      if (!(component instanceof HTMLElement)) return;
+      component.classList.remove("jbs-demo-replaced");
+      component.dataset.jbsDemoLabel = label;
+      void component.offsetWidth;
+      component.classList.add("jbs-demo-replaced");
+      window.setTimeout(() => {
+        component.classList.remove("jbs-demo-replaced");
+      }, 1500);
+    };
+
+    document.addEventListener("jbs:after-swap", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const label = target.id ? `Replaced: #${target.id}` : "Component replaced";
+      flashReplacedComponent(target, label);
+    });
+
+    document.addEventListener("jbs:after-stream-patch", (event) => {
+      const detail = event.detail ?? {};
+      const component = detail.component;
+      const mode = detail.mode || "replace";
+      if (!(component instanceof HTMLElement)) return;
+      flashReplacedComponent(component, `Stream patch: ${mode}`);
+    });
+
     const pushButton = document.getElementById("simulate-sse-push");
     pushButton?.addEventListener("click", async () => {
       await fetch("{{ push_url }}", { method: "POST" });
