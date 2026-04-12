@@ -109,6 +109,15 @@ feature-by-feature narration, and summary) and supports pacing controls:
 .venv/bin/python scripts/record_example_walkthrough.py --pace 2.2
 ```
 
+For stream protocol benchmark trend summaries (from Playwright metrics artifacts):
+
+```bash
+.venv/bin/python scripts/summarize_stream_metrics.py
+```
+
+This reads `tmp/metrics/stream_protocol_metrics_history.csv` and reports latest
+metrics, rolling medians, and deltas versus previous/baseline runs.
+
 ## Runtime Model
 
 Each interactive fragment is a server-rendered component root:
