@@ -102,6 +102,7 @@ def _reset_stream_state() -> None:
         {"id": "append-ready", "entry": "append stream ready", "source": "runtime"},
     ]
 
+
 PAGE_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -596,9 +597,7 @@ def _render_live_row(row_id: str, entry: str, source: str) -> str:
     safe_id = row_id.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_source = source.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    return (
-        f'<tr data-jbs-row-id="{safe_id}"><td>{safe_entry}</td><td>{safe_source}</td></tr>'
-    )
+    return f'<tr data-jbs-row-id="{safe_id}"><td>{safe_entry}</td><td>{safe_source}</td></tr>'
 
 
 def _build_live_table(app: Flask) -> str:
@@ -1587,20 +1586,20 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
 
 
 def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
-        with sync_playwright() as playwright:
-                try:
-                        browser = playwright.chromium.launch(headless=True)
-                except PlaywrightError as exc:
-                        pytest.skip(f"Playwright browser is unavailable: {exc}")
-                page = browser.new_page()
-                console_errors, page_errors = capture_browser_errors(page)
-                page.goto(live_server, wait_until="domcontentloaded")
-                page.wait_for_function(
-                        "() => document.getElementById('live-table')?.dataset.jbsHydrated === 'true'"
-                )
-                try:
-                        page.evaluate(
-                                """
+    with sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(headless=True)
+        except PlaywrightError as exc:
+            pytest.skip(f"Playwright browser is unavailable: {exc}")
+        page = browser.new_page()
+        console_errors, page_errors = capture_browser_errors(page)
+        page.goto(live_server, wait_until="domcontentloaded")
+        page.wait_for_function(
+            "() => document.getElementById('live-table')?.dataset.jbsHydrated === 'true'"
+        )
+        try:
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/reset-stream-state', { method: 'POST' });
                                     await fetch('/admin/set-live-rows', {
@@ -1627,13 +1626,13 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     await window.JinjaBootstrapSpa.refresh('live-append-table');
                                 }
                                 """
-                        )
+            )
 
-                        page.wait_for_function(
-                                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('alpha-base')"
-                        )
-                        page.evaluate(
-                                """
+            page.wait_for_function(
+                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('alpha-base')"
+            )
+            page.evaluate(
+                """
                                 () => {
                                     window.__jbsLastStreamStats = {};
                                     const bind = (id) => {
@@ -1650,10 +1649,10 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     bind('live-append-table');
                                 }
                                 """
-                        )
+            )
 
-                        page.evaluate(
-                                """
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/publish-live-payload', {
                                         method: 'POST',
@@ -1674,13 +1673,13 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     });
                                 }
                                 """
-                        )
-                        page.wait_for_function(
-                                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('new-10')"
-                        )
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('new-10')"
+            )
 
-                        page.evaluate(
-                                """
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/publish-live-payload', {
                                         method: 'POST',
@@ -1701,12 +1700,14 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     });
                                 }
                                 """
-                        )
-                        page.wait_for_timeout(150)
-                        assert "should-ignore" not in page.locator("#live-table tbody").text_content()
+            )
+            page.wait_for_timeout(150)
+            assert (
+                "should-ignore" not in page.locator("#live-table tbody").text_content()
+            )
 
-                        page.evaluate(
-                                """
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/publish-live-payload', {
                                         method: 'POST',
@@ -1727,12 +1728,12 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     });
                                 }
                                 """
-                        )
-                        page.wait_for_timeout(150)
-                        assert "stale" not in page.locator("#live-table tbody").text_content()
+            )
+            page.wait_for_timeout(150)
+            assert "stale" not in page.locator("#live-table tbody").text_content()
 
-                        page.evaluate(
-                                """
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/publish-live-payload', {
                                         method: 'POST',
@@ -1746,12 +1747,12 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     });
                                 }
                                 """
-                        )
-                        page.wait_for_timeout(150)
-                        assert "new-10" not in page.locator("#live-table tbody").text_content()
+            )
+            page.wait_for_timeout(150)
+            assert "new-10" not in page.locator("#live-table tbody").text_content()
 
-                        page.evaluate(
-                                """
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/publish-live-payload', {
                                         method: 'POST',
@@ -1764,13 +1765,13 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     });
                                 }
                                 """
-                        )
-                        page.wait_for_function(
-                                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('legacy-row')"
-                        )
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('legacy-row')"
+            )
 
-                        page.evaluate(
-                                """
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/set-live-rows', {
                                         method: 'POST',
@@ -1795,13 +1796,13 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     });
                                 }
                                 """
-                        )
-                        page.wait_for_function(
-                                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('refresh-a')"
-                        )
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('refresh-a')"
+            )
 
-                        page.evaluate(
-                                """
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/set-live-rows', {
                                         method: 'POST',
@@ -1832,14 +1833,14 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     });
                                 }
                                 """
-                        )
-                        page.wait_for_function(
-                                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('gap-refresh')"
-                        )
-                        assert "gap-op" not in page.locator("#live-table tbody").text_content()
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('gap-refresh')"
+            )
+            assert "gap-op" not in page.locator("#live-table tbody").text_content()
 
-                        page.evaluate(
-                                """
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/publish-live-payload', {
                                         method: 'POST',
@@ -1860,13 +1861,13 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     });
                                 }
                                 """
-                        )
-                        page.wait_for_function(
-                                "() => document.querySelector('#live-table .card-header p.text-body-secondary')?.textContent?.includes('Fragment subtitle update')"
-                        )
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-table .card-header p.text-body-secondary')?.textContent?.includes('Fragment subtitle update')"
+            )
 
-                        page.evaluate(
-                                """
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/publish-live-payload', {
                                         method: 'POST',
@@ -1917,14 +1918,16 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     });
                                 }
                                 """
-                        )
-                        page.wait_for_function(
-                                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('scope-refresh')"
-                        )
-                        assert "scope-noapply" not in page.locator("#live-table tbody").text_content()
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('scope-refresh')"
+            )
+            assert (
+                "scope-noapply" not in page.locator("#live-table tbody").text_content()
+            )
 
-                        page.evaluate(
-                                """
+            page.evaluate(
+                """
                                 async () => {
                                     await fetch('/admin/set-append-rows', {
                                         method: 'POST',
@@ -1948,16 +1951,16 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                     });
                                 }
                                 """
-                        )
-                        page.wait_for_function(
-                                "() => document.querySelector('#live-append-table')?.textContent?.includes('Page 1 of 2')"
-                        )
-                        page.wait_for_function(
-                                "() => document.querySelector('#live-append-table tbody tr:last-child')?.textContent?.includes('refresh-append-c')"
-                        )
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-append-table')?.textContent?.includes('Page 1 of 2')"
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-append-table tbody tr:last-child')?.textContent?.includes('refresh-append-c')"
+            )
 
-                        page.evaluate(
-                            """
+            page.evaluate(
+                """
                             async () => {
                                 await fetch('/admin/publish-append-payload', {
                                 method: 'POST',
@@ -1985,49 +1988,49 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                 });
                             }
                             """
-                        )
-                        page.wait_for_function(
-                            "() => document.querySelector('#live-append-table .card-footer small')?.textContent?.includes('Showing 3 of 4')"
-                        )
-                        page.wait_for_function(
-                            "() => document.querySelector('#live-append-table .card-footer .btn.disabled')?.textContent?.includes('Page 1 of 2')"
-                        )
-                        page.wait_for_function(
-                            "() => document.querySelector('#live-append-table .card-header p.text-body-secondary')?.textContent?.includes('Append metadata synchronized.')"
-                        )
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-append-table .card-footer small')?.textContent?.includes('Showing 3 of 4')"
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-append-table .card-footer .btn.disabled')?.textContent?.includes('Page 1 of 2')"
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-append-table .card-header p.text-body-secondary')?.textContent?.includes('Append metadata synchronized.')"
+            )
 
-                        stats = page.evaluate(
-                            """
+            stats = page.evaluate(
+                """
                             () => window.__jbsLastStreamStats || {}
                             """
-                        )
-                        live_stats = stats.get("live-table", {})
-                        append_stats = stats.get("live-append-table", {})
-                        assert int(live_stats.get("received", 0)) >= 6
-                        assert int(live_stats.get("deduped", 0)) >= 2
-                        assert int(live_stats.get("fallbackRefresh", 0)) >= 1
-                        assert int(append_stats.get("received", 0)) >= 1
+            )
+            live_stats = stats.get("live-table", {})
+            append_stats = stats.get("live-append-table", {})
+            assert int(live_stats.get("received", 0)) >= 6
+            assert int(live_stats.get("deduped", 0)) >= 2
+            assert int(live_stats.get("fallbackRefresh", 0)) >= 1
+            assert int(append_stats.get("received", 0)) >= 1
 
-                        assert_no_browser_errors(console_errors, page_errors)
-                finally:
-                        browser.close()
+            assert_no_browser_errors(console_errors, page_errors)
+        finally:
+            browser.close()
 
 
 def test_stream_protocol_metrics_show_v1_efficiency(live_server: str) -> None:
-        with sync_playwright() as playwright:
-                try:
-                        browser = playwright.chromium.launch(headless=True)
-                except PlaywrightError as exc:
-                        pytest.skip(f"Playwright browser is unavailable: {exc}")
-                page = browser.new_page()
-                console_errors, page_errors = capture_browser_errors(page)
-                page.goto(live_server, wait_until="domcontentloaded")
-                page.wait_for_function(
-                        "() => document.getElementById('live-table')?.dataset.jbsHydrated === 'true'"
-                )
-                try:
-                        metrics = page.evaluate(
-                                """
+    with sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(headless=True)
+        except PlaywrightError as exc:
+            pytest.skip(f"Playwright browser is unavailable: {exc}")
+        page = browser.new_page()
+        console_errors, page_errors = capture_browser_errors(page)
+        page.goto(live_server, wait_until="domcontentloaded")
+        page.wait_for_function(
+            "() => document.getElementById('live-table')?.dataset.jbsHydrated === 'true'"
+        )
+        try:
+            metrics = page.evaluate(
+                """
                                 async () => {
                                     const encoder = new TextEncoder();
                                     const baseRows = [
@@ -2142,74 +2145,74 @@ def test_stream_protocol_metrics_show_v1_efficiency(live_server: str) -> None:
                                     };
                                 }
                                 """
-                        )
+            )
 
-                        refresh_bytes = int(metrics["refreshBytes"])
-                        v1_bytes = int(metrics["v1Bytes"])
-                        v1_median = float(median(metrics["v1Times"]))
-                        refresh_median = float(median(metrics["refreshTimes"]))
-                        savings_ratio = 1 - (v1_bytes / refresh_bytes)
+            refresh_bytes = int(metrics["refreshBytes"])
+            v1_bytes = int(metrics["v1Bytes"])
+            v1_median = float(median(metrics["v1Times"]))
+            refresh_median = float(median(metrics["refreshTimes"]))
+            savings_ratio = 1 - (v1_bytes / refresh_bytes)
 
-                        metrics_dir = Path(__file__).resolve().parents[1] / "tmp" / "metrics"
-                        metrics_dir.mkdir(parents=True, exist_ok=True)
-                        generated_at = time.strftime("%Y-%m-%d %H:%M:%S")
-                        metrics_file = metrics_dir / "stream_protocol_metrics.md"
-                        metrics_file.write_text(
-                            "\n".join(
-                                [
-                                    "# Stream Protocol Metrics",
-                                    "",
-                                    f"Generated: {generated_at}",
-                                    "",
-                                    "## Byte Size",
-                                    "",
-                                    f"- Refresh HTML bytes: {refresh_bytes}",
-                                    f"- V1 payload bytes: {v1_bytes}",
-                                    f"- Byte savings: {savings_ratio:.1%}",
-                                    "",
-                                    "## Client Apply Latency",
-                                    "",
-                                    f"- V1 median: {v1_median:.2f} ms",
-                                    f"- Refresh median: {refresh_median:.2f} ms",
-                                    f"- Ratio (v1/refresh): {(v1_median / refresh_median):.2f}",
-                                    "",
-                                    "## Raw Samples",
-                                    "",
-                                    f"- v1Times: {metrics['v1Times']}",
-                                    f"- refreshTimes: {metrics['refreshTimes']}",
-                                ]
-                            )
-                            + "\n",
-                            encoding="utf-8",
-                        )
+            metrics_dir = Path(__file__).resolve().parents[1] / "tmp" / "metrics"
+            metrics_dir.mkdir(parents=True, exist_ok=True)
+            generated_at = time.strftime("%Y-%m-%d %H:%M:%S")
+            metrics_file = metrics_dir / "stream_protocol_metrics.md"
+            metrics_file.write_text(
+                "\n".join(
+                    [
+                        "# Stream Protocol Metrics",
+                        "",
+                        f"Generated: {generated_at}",
+                        "",
+                        "## Byte Size",
+                        "",
+                        f"- Refresh HTML bytes: {refresh_bytes}",
+                        f"- V1 payload bytes: {v1_bytes}",
+                        f"- Byte savings: {savings_ratio:.1%}",
+                        "",
+                        "## Client Apply Latency",
+                        "",
+                        f"- V1 median: {v1_median:.2f} ms",
+                        f"- Refresh median: {refresh_median:.2f} ms",
+                        f"- Ratio (v1/refresh): {(v1_median / refresh_median):.2f}",
+                        "",
+                        "## Raw Samples",
+                        "",
+                        f"- v1Times: {metrics['v1Times']}",
+                        f"- refreshTimes: {metrics['refreshTimes']}",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
 
-                        history_file = metrics_dir / "stream_protocol_metrics_history.csv"
-                        if not history_file.exists():
-                                history_file.write_text(
-                                "timestamp,refresh_html_bytes,v1_payload_bytes,byte_savings_ratio,v1_median_ms,refresh_median_ms,v1_to_refresh_ratio\n",
-                                        encoding="utf-8",
-                                )
-                        with history_file.open("a", encoding="utf-8") as handle:
-                                handle.write(
-                                        (
-                                    f"{generated_at},{refresh_bytes},{v1_bytes},"
-                                    f"{savings_ratio:.6f},{v1_median:.4f},{refresh_median:.4f},"
-                                    f"{(v1_median / refresh_median):.6f}\n"
-                                        )
-                                )
+            history_file = metrics_dir / "stream_protocol_metrics_history.csv"
+            if not history_file.exists():
+                history_file.write_text(
+                    "timestamp,refresh_html_bytes,v1_payload_bytes,byte_savings_ratio,v1_median_ms,refresh_median_ms,v1_to_refresh_ratio\n",
+                    encoding="utf-8",
+                )
+            with history_file.open("a", encoding="utf-8") as handle:
+                handle.write(
+                    (
+                        f"{generated_at},{refresh_bytes},{v1_bytes},"
+                        f"{savings_ratio:.6f},{v1_median:.4f},{refresh_median:.4f},"
+                        f"{(v1_median / refresh_median):.6f}\n"
+                    )
+                )
 
-                        assert refresh_bytes > v1_bytes, (
-                            f"Expected v1 payload to be smaller than refresh HTML, got v1={v1_bytes} "
-                                f"refresh={refresh_bytes}."
-                        )
-                        assert savings_ratio >= 0.4, (
-                                f"Expected at least 40% byte savings, got {savings_ratio:.1%} "
-                            f"(v1={v1_bytes}, refresh={refresh_bytes})."
-                        )
-                        assert v1_median <= refresh_median * 1.2, (
-                            f"Expected v1 median apply time to be no worse than 20% over refresh; "
-                            f"v1={v1_median:.2f}ms refresh={refresh_median:.2f}ms."
-                        )
-                        assert_no_browser_errors(console_errors, page_errors)
-                finally:
-                        browser.close()
+            assert refresh_bytes > v1_bytes, (
+                f"Expected v1 payload to be smaller than refresh HTML, got v1={v1_bytes} "
+                f"refresh={refresh_bytes}."
+            )
+            assert savings_ratio >= 0.4, (
+                f"Expected at least 40% byte savings, got {savings_ratio:.1%} "
+                f"(v1={v1_bytes}, refresh={refresh_bytes})."
+            )
+            assert v1_median <= refresh_median * 1.2, (
+                f"Expected v1 median apply time to be no worse than 20% over refresh; "
+                f"v1={v1_median:.2f}ms refresh={refresh_median:.2f}ms."
+            )
+            assert_no_browser_errors(console_errors, page_errors)
+        finally:
+            browser.close()
