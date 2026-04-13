@@ -1,7 +1,7 @@
 export type JBSScalar = string | number | boolean | null;
 export type JBSValue = JBSScalar | JBSScalar[];
 export type JBSState = Record<string, JBSValue>;
-export type JBSPersistStrategy = "memory" | "querystring" | "session";
+export type JBSPersistStrategy = "memory" | "querystring" | "session" | "header";
 export type JBSUiPersistStrategy = "memory" | "session" | "local" | "none";
 export type JBSStreamMode = "replace" | "append" | "prepend";
 export type JBSPhase = "idle" | "loading" | "success" | "unchanged" | "error";
@@ -40,6 +40,7 @@ export declare const JBS_HEADERS: {
     readonly marker: "X-JBS-Request";
     readonly component: "X-JBS-Component";
     readonly action: "X-JBS-Action";
+    readonly state: "X-JBS-State";
     readonly ifNoneMatch: "If-None-Match";
     readonly etag: "ETag";
 };
@@ -54,6 +55,7 @@ export declare const JBS_PERSISTENCE: {
     readonly memory: "memory";
     readonly querystring: "querystring";
     readonly session: "session";
+    readonly header: "header";
 };
 export declare const JBS_UI_PERSISTENCE: {
     readonly memory: "memory";
@@ -81,6 +83,11 @@ export declare class JBSRuntime {
     private readonly stateStore;
     private readonly streamStore;
     private readonly streamQueue;
+    private readonly streamLastSeq;
+    private readonly streamSnapshots;
+    private readonly streamCacheScopes;
+    private readonly streamStats;
+    private readonly streamFragmentCache;
     private readonly componentEtags;
     private readonly requestAbortControllers;
     private readonly requestSeq;
@@ -92,8 +99,11 @@ export declare class JBSRuntime {
     private readonly assistControllers;
     private readonly assistHints;
     private readonly disclosureStateStore;
+    private readonly tablePageCache;
     private readonly overlayReturnFocus;
     private lazyObserver;
+    private devModeEnabled;
+    private devModeInitialized;
     private initialized;
     constructor(options?: JBSRuntimeOptions);
     private isAbortError;
@@ -101,6 +111,9 @@ export declare class JBSRuntime {
     private reportRuntimeError;
     private runTask;
     init(): void;
+    private isDevModeEnabled;
+    private installDevMode;
+    private markDevEvent;
     hydrate(root: ParentNode): void;
     getState(component: HTMLElement): JBSState;
     refresh(componentOrId: string | HTMLElement, patch?: JBSState): Promise<void>;
@@ -124,6 +137,11 @@ export declare class JBSRuntime {
     private hydratedState;
     private persistStrategy;
     private persistState;
+    private tableCacheSignature;
+    private tablePageNumber;
+    private clearTablePageCache;
+    private cacheCurrentTablePage;
+    private tryServeTablePageFromCache;
     private streamMode;
     private streamBufferMax;
     private streamMaxRows;
@@ -131,6 +149,19 @@ export declare class JBSRuntime {
     private queueStreamPayload;
     private flushStreamQueue;
     private parseStreamRows;
+    private defaultStreamStats;
+    private bumpStreamStats;
+    private fragmentCacheFor;
+    private resolveFragmentTarget;
+    private applyFragmentOps;
+    private applyStreamMeta;
+    private finalizeStreamPatch;
+    private requestRefreshFromStream;
+    private tableBody;
+    private tableRowById;
+    private parseStreamRowHtml;
+    private insertRowByPosition;
+    private applyStreamOps;
     private applyRowFragments;
     private applyStreamPayload;
     private connectStream;
@@ -199,6 +230,7 @@ export declare class JBSRuntime {
 }
 declare global {
     interface Window {
+        __JBS_DEV_MODE__?: boolean;
         JinjaBootstrapSpa: JBSRuntime;
     }
 }

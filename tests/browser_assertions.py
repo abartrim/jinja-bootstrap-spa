@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from playwright.sync_api import ConsoleMessage
-from playwright.sync_api import Page
+from playwright.sync_api import ConsoleMessage, Page
 
 
 def capture_browser_errors(page: Page) -> tuple[list[str], list[str]]:

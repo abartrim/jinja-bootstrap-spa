@@ -12,17 +12,21 @@ Last visual check run: April 12, 2026 (desktop + mobile screenshots via
 | Feature | Wrapper App Example | Playwright Coverage | Visual Check |
 | --- | --- | --- | --- |
 | Table contract (sort, page, filter form) | `orders-table` | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
-| Querystring persistence | `orders-table` (`persist="querystring"`) | `tests/test_browser_runtime.py` | Yes |
+| Header persistence | `orders-table` (`persist="header"`) | `tests/test_browser_runtime.py` | Yes |
 | Session persistence | `session-table` (`persist="session"`) | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
 | SSE replace mode | `orders-table` (`/events/orders`) | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
+| Delta stream protocol v1 (`seq`, dedupe/resync, fallback refresh) | `orders-table`, `live-table`, `live-append-table` | `tests/test_browser_runtime.py` | Yes |
+| Stream row CRUD ops (`create/read/update/delete/upsert/move`) | `orders-table` stream updates | `tests/test_browser_runtime.py` | Yes |
 | SSE prepend mode | `live-table` | `tests/test_browser_runtime.py` | Yes |
 | SSE append mode | `live-append-table` | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
 | Hidden stream buffering + flush | `live-table` (`stream_pause_when_hidden=true`) | `tests/test_browser_runtime.py` | Yes |
 | Lazy hydration/fetch | `lazy-summary` | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
 | Action menus | order row menu | `tests/test_browser_runtime.py` | Yes |
 | Modal + drawer overlays | `runtime-modal`, `orders-drawer` | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
-| Tabs (segmented status control) | `orders-status-tabs` | `tests/test_browser_runtime.py` | Yes |
+| Segmented control (status filter) | `orders-status-tabs` | `tests/test_browser_runtime.py` | Yes |
 | Status region (dismissible) | `orders-status-region` | `tests/test_browser_runtime.py` | Yes |
+| Toast notice (dismissible) | `orders-status-toast` | `tests/test_browser_runtime.py` | Yes |
+| Navbar showcase | wrapper app top nav | `tests/test_example_wrapper_app.py` | Yes |
 | Multi-select + single-select filters | orders/session toolbars | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
 | Date range picker | orders filters | `tests/test_browser_runtime.py` | Yes |
 | SQL assist (hints + validation) | orders filters | `tests/test_browser_runtime.py` | Yes |
@@ -30,15 +34,10 @@ Last visual check run: April 12, 2026 (desktop + mobile screenshots via
 | Autocomplete input | customer filter | `tests/test_browser_runtime.py` | Yes |
 | Request cancellation (stale response protection) | `cancel-demo` | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
 
-## Open Questions
+## Decisions
 
-1. Should we add a dedicated `toast(...)` macro and runtime queue, or keep the current
-   `status_region(...)` as the only baseline notification primitive?
-1. Should we introduce an explicit `segmented_control(...)` macro, or continue using
-   `tabs(...)` as the segmented view primitive?
-1. For SSE table updates, do we want keyed row `update`/`delete` payload operations in
-   v0.2, or keep v0.1 strictly to `replace`/`prepend`/`append`?
-1. Should the wrapper app include a dedicated `navbar(...)` showcase section, or keep
-   navigation examples out of the initial table-focused vertical?
-1. Should querystring persistence support opt-in browser history (`pushState`) mode in
-   addition to the current replace-only URL sync?
+1. Add `toast(...)` as a first-class notification primitive alongside `status_region(...)`.
+1. Add explicit `segmented_control(...)` macro for status-style tabs.
+1. Extend stream table operations to full CRUD semantics (`create`, `read`, `update`, `delete`) while preserving `upsert` compatibility.
+1. Include `navbar(...)` showcase in the wrapper app.
+1. Prefer header-based state transport (`persist="header"`) for table state where URL query params could conflict with host application routing.

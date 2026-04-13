@@ -1,22 +1,19 @@
 {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
-
-{{
-  ui.table(
-    "live-append-table",
-    "/components/live-append-table",
-    columns=[
-      {"key": "entry", "label": "Entry", "sortable": false},
-      {"key": "source", "label": "Source", "sortable": false},
-    ],
-    rows=append_rows,
-    state=append_state,
-    total_rows=append_total_rows,
-    title="Append Stream Table",
-    subtitle="SSE refresh keeps paging stable while newest events remain at the bottom.",
-    sse_endpoint="/events/live-append-table",
-    stream_mode="append",
-    stream_max_rows=5,
-    stream_pause_when_hidden=false,
-    stream_buffer_max=50
-  )
+{{ ui.table("live-append-table",
+"/components/live-append-table",
+columns=[
+{"key": "entry", "label": "Entry", "sortable": false},
+{"key": "source", "label": "Source", "sortable": false},
+],
+rows=append_rows,
+state=append_state,
+total_rows=append_total_rows,
+title="Append Stream Table",
+subtitle="SSE refresh keeps paging stable while newest events remain at the bottom.",
+class_name="jbs-feature-table",
+sse_endpoint="/events/live-append-table",
+stream_mode="append",
+stream_max_rows=5,
+stream_pause_when_hidden=false,
+stream_buffer_max=50) 
 }}

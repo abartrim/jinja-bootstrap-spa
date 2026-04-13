@@ -217,6 +217,23 @@ BOOTSTRAP_MACROS = """
   </div>
 {%- endmacro -%}
 
+{%- macro segmented_control(group_id, items, active=None, class_name="", attrs="") -%}
+  {%- set classes = "jbs-segmented-control" -%}
+  {%- if class_name -%}
+    {%- set classes = classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  {{-
+    tabs(
+      group_id,
+      items,
+      active=active,
+      variant="pills",
+      class_name=classes,
+      attrs=attrs
+    )
+  -}}
+{%- endmacro -%}
+
 {%- macro card(title=None, body="", footer=None, class_name="", id=None, attrs="") -%}
   <div class="card{% if class_name %} {{ class_name }}{% endif %}"
        {%- if id %} id="{{ id }}"{% endif -%}
@@ -365,6 +382,35 @@ BOOTSTRAP_MACROS = """
   </div>
 {%- endmacro -%}
 
+{%- macro toast(toast_id=None, title=None, message="", variant="info",
+                dismissible=True, class_name="", attrs="") -%}
+  {%- set toast_classes = "alert alert-" ~ variant ~ " shadow-sm mb-0" -%}
+  {%- if class_name -%}
+    {%- set toast_classes = toast_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <aside class="{{ toast_classes }}"
+         role="status"
+         aria-live="polite"
+         data-jbs-status-region
+         {%- if toast_id %} id="{{ toast_id }}"{% endif -%}
+         {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="d-flex align-items-start justify-content-between gap-3">
+      <div>
+        {%- if title %}
+          <h3 class="h6 mb-1">{{ title }}</h3>
+        {%- endif %}
+        <div>{{ message }}</div>
+      </div>
+      {%- if dismissible %}
+        <button type="button"
+                class="btn-close"
+                aria-label="Dismiss"
+                data-jbs-status-dismiss></button>
+      {%- endif %}
+    </div>
+  </aside>
+{%- endmacro -%}
+
 {%- macro filter_accordion(
       accordion_id, title="Filters", body="", icon_class="bi bi-funnel",
       open=True, active_badge=False, header_suffix="", class_name="", attrs=""
@@ -393,8 +439,13 @@ BOOTSTRAP_MACROS = """
           <span class="badge text-bg-primary ms-1">Active</span>
         {%- endif %}
         {%- if header_suffix %}
-          <span class="ms-auto">{{ header_suffix|safe }}</span>
+          <span class="ms-auto d-inline-flex align-items-center">
+            {{ header_suffix|safe }}
+          </span>
         {%- endif %}
+        <span class="ms-2" data-jbs-disclosure-icon aria-hidden="true">
+          <i class="bi bi-chevron-down"></i>
+        </span>
       </button>
     </header>
     <div id="{{ panel_id }}"
@@ -894,11 +945,13 @@ BOOTSTRAP_MACROS = """
 
 {%- macro sort_indicator(active, direction) -%}
   {%- if not active -%}
-    <span class="text-body-tertiary" aria-hidden="true">&harr;</span>
+    <span class="text-body-tertiary" aria-hidden="true">
+      <i class="bi bi-arrow-down-up"></i>
+    </span>
   {%- elif direction == "desc" -%}
-    <span aria-hidden="true">&darr;</span>
+    <span aria-hidden="true"><i class="bi bi-arrow-down"></i></span>
   {%- else -%}
-    <span aria-hidden="true">&uarr;</span>
+    <span aria-hidden="true"><i class="bi bi-arrow-up"></i></span>
   {%- endif -%}
 {%- endmacro -%}
 
@@ -993,7 +1046,7 @@ BOOTSTRAP_MACROS = """
         <tbody>
           {%- if rows %}
             {%- for row in rows %}
-              <tr>
+              <tr{%- if row.id is defined %} data-jbs-row-id="{{ row.id }}"{% endif -%}>
                 {%- for column in columns %}
                   {%- set cell = row[column.key] -%}
                   <td

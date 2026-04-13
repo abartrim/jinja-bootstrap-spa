@@ -1,17 +1,12 @@
 {% if matches %}
   {% for customer in matches %}
-    <button
-      class="dropdown-item"
-      type="button"
-      role="option"
-      data-jbs-autocomplete-option
-      data-jbs-autocomplete-value="{{ customer }}"
-      data-jbs-autocomplete-label="{{ customer }}">
-      {{ customer }}
-    </button>
+    <button class="dropdown-item"
+            type="button"
+            role="option"
+            data-jbs-autocomplete-option
+            data-jbs-autocomplete-value="{{ customer }}"
+            data-jbs-autocomplete-label="{{ customer }}">{{ customer }}</button>
   {% endfor %}
 {% else %}
-  <div class="dropdown-item-text text-body-secondary small">
-    No matching customers.
-  </div>
+  <div class="dropdown-item-text text-body-secondary small">No matching customers.</div>
 {% endif %}

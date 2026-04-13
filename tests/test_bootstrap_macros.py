@@ -8,10 +8,13 @@ from jinja_bootstrap_spa.runtime.components import (
     attrs_to_html,
     table_attrs,
 )
-from jinja_bootstrap_spa.runtime.contract import parse_table_state
-from jinja_bootstrap_spa.runtime.contract import conditional_fragment_response
-from jinja_bootstrap_spa.runtime.contract import etag_matches
-from jinja_bootstrap_spa.runtime.contract import fragment_etag
+from jinja_bootstrap_spa.runtime.contract import (
+    JBS_STATE_HEADER,
+    conditional_fragment_response,
+    etag_matches,
+    fragment_etag,
+    parse_table_state,
+)
 
 
 def build_environment() -> Environment:
@@ -206,6 +209,57 @@ def test_tabs_macro_renders_runtime_tab_actions() -> None:
     assert "data-jbs-patch=" in rendered
     assert 'class="nav-link active"' in rendered
     assert 'aria-selected="true"' in rendered
+
+
+def test_segmented_control_macro_renders_pill_tabs_contract() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.segmented_control(
+            "orders-segments",
+            items=[
+              {"label": "All", "value": "__all__", "jbs_action": "filter"},
+              {"label": "Queued", "value": "queued", "jbs_action": "filter"},
+            ],
+            active="queued"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="orders-segments"' in rendered
+    assert "jbs-segmented-control" in rendered
+    assert "nav-pills" in rendered
+    assert 'role="tablist"' in rendered
+
+
+def test_toast_macro_renders_dismissible_status_notice() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.toast(
+            "orders-toast",
+            title="Live Update",
+            message="Order #1005 moved to open.",
+            variant="warning"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="orders-toast"' in rendered
+    assert "data-jbs-status-region" in rendered
+    assert "data-jbs-status-dismiss" in rendered
+    assert 'class="alert alert-warning shadow-sm mb-0"' in rendered
+    assert "Order #1005 moved to open." in rendered
 
 
 def test_status_region_macro_renders_dismissible_notice() -> None:
@@ -494,6 +548,36 @@ def test_parse_table_state_normalizes_paging_sorting_and_filters() -> None:
     }
 
 
+def test_parse_table_state_prefers_header_state_over_query_params() -> None:
+    state = parse_table_state(
+        {
+            "page": "3",
+            "page_size": "10",
+            "sort_by": "number",
+            "sort_dir": "asc",
+            "status": "queued",
+        },
+        request_headers={
+            JBS_STATE_HEADER: (
+                '{"page":2,"page_size":25,"sort_by":"customer",'
+                '"sort_dir":"desc","status":"open"}'
+            )
+        },
+        default_sort_by="number",
+        default_page_size=10,
+        allowed_page_sizes=(10, 25),
+        filter_keys=("status",),
+    )
+
+    assert state == {
+        "page": 2,
+        "page_size": 25,
+        "sort_by": "customer",
+        "sort_dir": "desc",
+        "status": "open",
+    }
+
+
 def test_fragment_etag_is_stable_for_identical_content() -> None:
     content = "<section id='orders-table'>A</section>"
     assert fragment_etag(content) == fragment_etag(content)
@@ -504,7 +588,7 @@ def test_etag_matches_accepts_weak_and_strong_forms() -> None:
     strong = etag[2:]
     assert etag_matches(etag, etag)
     assert etag_matches(strong, etag)
-    assert etag_matches(f"{strong}, W/\"other\"", etag)
+    assert etag_matches(f'{strong}, W/"other"', etag)
     assert not etag_matches('W/"jbs-other"', etag)
 
 

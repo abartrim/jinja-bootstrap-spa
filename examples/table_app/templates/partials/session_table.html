@@ -1,38 +1,31 @@
 {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
-
 {% set toolbar %}
   <form class="d-flex flex-wrap align-items-end gap-2" data-jbs-form>
-    {{
-      ui.filter_single_select(
-        "page_size",
+    {{ ui.filter_single_select("page_size",
         "Rows",
         [
-          {"value": "2", "label": "2 rows"},
-          {"value": "4", "label": "4 rows"},
+        {"value": "2", "label": "2 rows"},
+        {"value": "4", "label": "4 rows"},
         ],
         selected_value=session_state.page_size or 2,
-        auto_submit=false
-      )
+        auto_submit=false) 
     }}
     <button class="btn btn-sm btn-primary" type="submit">Apply</button>
   </form>
 {% endset %}
-
-{{
-  ui.table(
-    "session-table",
-    "/components/session-table",
-    columns=[
-      {"key": "name", "label": "View", "sortable": false},
-      {"key": "owner", "label": "Owner", "sortable": false},
-    ],
-    rows=session_rows,
-    state=session_state,
-    total_rows=session_total_rows,
-    title="Session Persistence Table",
-    subtitle="This component keeps state in sessionStorage across reloads.",
-    toolbar=toolbar,
-    persist="session",
-    state_keys=["page", "page_size"]
-  )
+{{ ui.table("session-table",
+"/components/session-table",
+columns=[
+{"key": "name", "label": "View", "sortable": false},
+{"key": "owner", "label": "Owner", "sortable": false},
+],
+rows=session_rows,
+state=session_state,
+total_rows=session_total_rows,
+title="Session Persistence Table",
+subtitle="This component keeps state in sessionStorage across reloads.",
+toolbar=toolbar,
+class_name="jbs-feature-table",
+persist="session",
+state_keys=["page", "page_size"]) 
 }}

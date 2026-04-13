@@ -39,19 +39,20 @@ SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 SUBSCRIBERS_LOCK = Lock()
 PUSH_COUNTER = 0
 LAST_PUSH_MESSAGE = ""
+ORDERS_STREAM_SEQ = 0
 LIVE_SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 LIVE_SUBSCRIBERS_LOCK = Lock()
 LIVE_PUSH_COUNTER = 0
 LIVE_ROWS = [
-    {"entry": "boot complete", "source": "runtime"},
-    {"entry": "table hydrated", "source": "runtime"},
+    {"id": "live-boot", "entry": "boot complete", "source": "runtime"},
+    {"id": "live-hydrated", "entry": "table hydrated", "source": "runtime"},
 ]
 APPEND_SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 APPEND_SUBSCRIBERS_LOCK = Lock()
 APPEND_PUSH_COUNTER = 0
 APPEND_ROWS = [
-    {"entry": "append channel online", "source": "runtime"},
-    {"entry": "append stream ready", "source": "runtime"},
+    {"id": "append-boot", "entry": "append channel online", "source": "runtime"},
+    {"id": "append-ready", "entry": "append stream ready", "source": "runtime"},
 ]
 SESSION_ROWS = [
     {"name": "Alerts", "owner": "SRE"},
@@ -132,8 +133,18 @@ def _fragment_response(content: str) -> tuple[str, int, dict[str, str]]:
 
 
 def _publish_orders_event(message: str, patch: dict[str, Any] | None = None) -> None:
-    payload = {"action": "refresh", "target": "orders-table", "patch": patch or {}}
+    global ORDERS_STREAM_SEQ
+
     with SUBSCRIBERS_LOCK:
+        ORDERS_STREAM_SEQ += 1
+        payload = {
+            "v": 1,
+            "seq": ORDERS_STREAM_SEQ,
+            "action": "refresh",
+            "target": "orders-table",
+            "patch": patch or {},
+            "snapshot": f"orders-{ORDERS_STREAM_SEQ}",
+        }
         subscribers = list(SUBSCRIBERS)
     for subscriber in subscribers:
         subscriber.put(payload)
@@ -154,10 +165,13 @@ def _publish_append_event(payload: dict[str, Any]) -> None:
         subscriber.put(payload)
 
 
-def _render_live_row(entry: str, source: str) -> str:
+def _render_live_row(row_id: str, entry: str, source: str) -> str:
+    safe_id = row_id.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_source = source.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    return f"<tr><td>{safe_entry}</td><td>{safe_source}</td></tr>"
+    return (
+        f'<tr data-jbs-row-id="{safe_id}"><td>{safe_entry}</td><td>{safe_source}</td></tr>'
+    )
 
 
 def _action_menu(order: dict[str, Any]) -> str:
@@ -267,9 +281,10 @@ def _status_summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def build_orders_context() -> dict[str, Any]:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="number",
-        default_page_size=10,
-        allowed_page_sizes=(5, 10, 20, 50),
+        default_page_size=8,
+        allowed_page_sizes=(4, 8, 12, 20),
         filter_keys=(
             "status",
             "customer",
@@ -311,6 +326,7 @@ def build_orders_context() -> dict[str, Any]:
 
     rows = [
         {
+            "id": order["id"],
             "number": order["number"],
             "customer": order["customer"],
             "status": order["status"].title(),
@@ -356,6 +372,7 @@ def build_orders_context() -> dict[str, Any]:
 def build_session_context() -> dict[str, Any]:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="name",
         default_page_size=2,
         allowed_page_sizes=(2, 4),
@@ -376,6 +393,7 @@ def build_session_context() -> dict[str, Any]:
 def build_live_table_context() -> dict[str, Any]:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="",
         default_page_size=5,
         allowed_page_sizes=(5,),
@@ -395,6 +413,7 @@ def build_live_table_context() -> dict[str, Any]:
 def build_live_append_context() -> dict[str, Any]:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="",
         default_page_size=5,
         allowed_page_sizes=(5,),
@@ -610,12 +629,25 @@ def push_live_row() -> Any:
     global LIVE_PUSH_COUNTER
 
     LIVE_PUSH_COUNTER += 1
-    row = {"entry": f"event-{LIVE_PUSH_COUNTER}", "source": "sse"}
+    row = {
+        "id": f"live-{LIVE_PUSH_COUNTER}",
+        "entry": f"event-{LIVE_PUSH_COUNTER}",
+        "source": "sse",
+    }
     LIVE_ROWS.insert(0, row)
     _publish_live_event(
         {
+            "v": 1,
+            "seq": LIVE_PUSH_COUNTER,
             "target": "live-table",
-            "action": "refresh",
+            "ops": [
+                {
+                    "op": "upsert",
+                    "id": row["id"],
+                    "position": "prepend",
+                    "html": _render_live_row(row["id"], row["entry"], row["source"]),
+                }
+            ],
         }
     )
     return {"ok": True, "entry": row["entry"]}
@@ -626,12 +658,33 @@ def push_live_append_row() -> Any:
     global APPEND_PUSH_COUNTER
 
     APPEND_PUSH_COUNTER += 1
-    row = {"entry": f"append-{APPEND_PUSH_COUNTER}", "source": "sse"}
+    row = {
+        "id": f"append-{APPEND_PUSH_COUNTER}",
+        "entry": f"append-{APPEND_PUSH_COUNTER}",
+        "source": "sse",
+    }
     APPEND_ROWS.append(row)
+    page_size = 5
+    page_count = max(1, (len(APPEND_ROWS) + page_size - 1) // page_size)
     _publish_append_event(
         {
+            "v": 1,
+            "seq": APPEND_PUSH_COUNTER,
             "target": "live-append-table",
-            "action": "refresh",
+            "ops": [
+                {
+                    "op": "upsert",
+                    "id": row["id"],
+                    "position": "append",
+                    "html": _render_live_row(row["id"], row["entry"], row["source"]),
+                }
+            ],
+            "meta": {
+                "total_rows": len(APPEND_ROWS),
+                "page_count": page_count,
+                "showing_rows": min(page_size, len(APPEND_ROWS)),
+                "subtitle": "SSE stream appends rows while table metadata stays in sync.",
+            },
         }
     )
     return {"ok": True, "entry": row["entry"]}

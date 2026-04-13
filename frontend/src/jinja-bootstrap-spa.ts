@@ -1,7 +1,7 @@
 export type JBSScalar = string | number | boolean | null;
 export type JBSValue = JBSScalar | JBSScalar[];
 export type JBSState = Record<string, JBSValue>;
-export type JBSPersistStrategy = "memory" | "querystring" | "session";
+export type JBSPersistStrategy = "memory" | "querystring" | "session" | "header";
 export type JBSUiPersistStrategy = "memory" | "session" | "local" | "none";
 export type JBSStreamMode = "replace" | "append" | "prepend";
 export type JBSPhase = "idle" | "loading" | "success" | "unchanged" | "error";
@@ -41,18 +41,71 @@ export interface JBSRequestFinishedDetail {
   source: HTMLElement | HTMLFormElement | null;
 }
 
+interface JBSStreamOperation {
+  op?: "upsert" | "create" | "read" | "update" | "delete" | "move";
+  id?: string;
+  html?: string;
+  position?: "append" | "prepend";
+  before_id?: string;
+  after_id?: string;
+}
+
+interface JBSFragmentOperation {
+  op?: "replace" | "append" | "prepend" | "remove";
+  target?: string;
+  id?: string;
+  html?: string;
+}
+
+interface JBSStreamMeta {
+  total_rows?: number;
+  page?: number;
+  page_count?: number;
+  showing_rows?: number;
+  subtitle?: string;
+}
+
+interface JBSStreamStats {
+  received: number;
+  applied: number;
+  deduped: number;
+  buffered: number;
+  fallbackRefresh: number;
+  resync: number;
+  seqGap: number;
+}
+
 interface JBSStreamPayload {
+  v?: number;
+  seq?: number;
+  snapshot?: string;
+  cache_scope?: string;
+  resync?: boolean;
   action?: string;
   patch?: JBSState;
+  meta?: JBSStreamMeta;
   target?: string;
   mode?: JBSStreamMode;
   row?: string;
   rows?: string[];
+  ops?: JBSStreamOperation[];
+  fragment_ops?: JBSFragmentOperation[];
   max_rows?: number;
 }
 
 interface JBSRequestOptions {
   persist?: boolean;
+}
+
+interface JBSTablePageSnapshot {
+  html: string;
+  rowIds: string[];
+}
+
+interface JBSTablePageCache {
+  signature: string;
+  pages: Map<number, JBSTablePageSnapshot>;
+  rowHtmlById: Map<string, string>;
 }
 
 const DEFAULT_SQL_HINTS = [
@@ -72,12 +125,16 @@ const JBS_NOT_MODIFIED_PULSE_CLASS = "jbs-not-modified-pulse";
 const JBS_STREAM_ROW_PULSE_CLASS = "jbs-stream-row-pulse";
 const JBS_PULSE_MS = 1800;
 const JBS_DEFAULT_LOADING_LABEL = "Loading...";
+const JBS_TABLE_PAGE_CACHE_MAX = 12;
+const JBS_DEV_EVENT_CLASS = "jbs-dev-event";
+const JBS_DEV_EVENT_STYLE_ID = "jbs-dev-event-style";
 
 export const JBS_HEADERS = {
   accept: "text/html",
   marker: "X-JBS-Request",
   component: "X-JBS-Component",
   action: "X-JBS-Action",
+  state: "X-JBS-State",
   ifNoneMatch: "If-None-Match",
   etag: "ETag",
 } as const;
@@ -94,6 +151,7 @@ export const JBS_PERSISTENCE = {
   memory: "memory",
   querystring: "querystring",
   session: "session",
+  header: "header",
 } as const;
 
 export const JBS_UI_PERSISTENCE = {
@@ -323,6 +381,11 @@ export class JBSRuntime {
   private readonly stateStore = new Map<string, JBSState>();
   private readonly streamStore = new Map<string, EventSource>();
   private readonly streamQueue = new Map<string, JBSStreamPayload[]>();
+  private readonly streamLastSeq = new Map<string, number>();
+  private readonly streamSnapshots = new Map<string, string>();
+  private readonly streamCacheScopes = new Map<string, string>();
+  private readonly streamStats = new Map<string, JBSStreamStats>();
+  private readonly streamFragmentCache = new Map<string, Map<string, string>>();
   private readonly componentEtags = new Map<string, string>();
   private readonly requestAbortControllers = new Map<string, AbortController>();
   private readonly requestSeq = new Map<string, number>();
@@ -334,8 +397,11 @@ export class JBSRuntime {
   private readonly assistControllers = new Map<string, AbortController>();
   private readonly assistHints = new Map<string, string[]>();
   private readonly disclosureStateStore = new Map<string, Map<string, boolean>>();
+  private readonly tablePageCache = new Map<string, JBSTablePageCache>();
   private readonly overlayReturnFocus = new Map<string, HTMLElement>();
   private lazyObserver: IntersectionObserver | null = null;
+  private devModeEnabled = false;
+  private devModeInitialized = false;
   private initialized = false;
 
   constructor(options: JBSRuntimeOptions = {}) {
@@ -440,8 +506,160 @@ export class JBSRuntime {
       );
     }
 
+    this.devModeEnabled = this.isDevModeEnabled();
+    if (this.devModeEnabled) {
+      this.installDevMode();
+    }
+
     this.hydrate(document);
     this.initialized = true;
+  }
+
+  private isDevModeEnabled(): boolean {
+    const htmlFlag = document.documentElement.dataset.jbsDevMode === "true";
+    const globalFlag = window.__JBS_DEV_MODE__ === true;
+    const storageFlag =
+      typeof localStorage !== "undefined" && localStorage.getItem("jbs:dev-mode") === "true";
+    return htmlFlag || globalFlag || storageFlag;
+  }
+
+  private installDevMode(): void {
+    if (this.devModeInitialized) {
+      return;
+    }
+
+    if (!document.getElementById(JBS_DEV_EVENT_STYLE_ID)) {
+      const style = document.createElement("style");
+      style.id = JBS_DEV_EVENT_STYLE_ID;
+      style.textContent = `
+        .${JBS_DEV_EVENT_CLASS} {
+          position: relative;
+          outline: 2px solid rgba(255, 153, 0, 0.75);
+          outline-offset: 2px;
+          transition: outline-color 140ms ease, box-shadow 140ms ease;
+        }
+
+        .${JBS_DEV_EVENT_CLASS}[data-jbs-dev-variant="stream"] {
+          outline-color: rgba(25, 135, 84, 0.75);
+        }
+
+        .${JBS_DEV_EVENT_CLASS}[data-jbs-dev-variant="not-modified"] {
+          outline-color: rgba(13, 202, 240, 0.88);
+        }
+
+        .${JBS_DEV_EVENT_CLASS}[data-jbs-dev-variant="cache"] {
+          outline-color: rgba(13, 110, 253, 0.82);
+        }
+
+        .${JBS_DEV_EVENT_CLASS}[data-jbs-dev-variant="error"] {
+          outline-color: rgba(220, 53, 69, 0.84);
+        }
+
+        .${JBS_DEV_EVENT_CLASS}::after {
+          content: attr(data-jbs-dev-label);
+          position: absolute;
+          top: -0.7rem;
+          right: 0.4rem;
+          z-index: 20;
+          max-width: min(26rem, 95%);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          padding: 0.16rem 0.45rem;
+          border-radius: 999px;
+          font-size: 0.67rem;
+          font-weight: 700;
+          line-height: 1.15;
+          letter-spacing: 0.01em;
+          color: #212529;
+          background: #ffc107;
+          border: 1px solid rgba(33, 37, 41, 0.24);
+          box-shadow: 0 0.2rem 0.65rem rgba(0, 0, 0, 0.18);
+        }
+
+        [data-bs-theme="dark"] .${JBS_DEV_EVENT_CLASS}::after {
+          color: #f8f9fa;
+          background: #0d6efd;
+          border-color: rgba(248, 249, 250, 0.24);
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    document.addEventListener("jbs:before-request", (event) => {
+      const detail = (event as CustomEvent<JBSRequestDetail>).detail;
+      const component = detail?.component;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      this.markDevEvent(component, `Request: ${detail.action}`, "request");
+    });
+
+    document.addEventListener("jbs:after-swap", (event) => {
+      const component = event.target;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      const id = component.id ? `#${component.id}` : "component";
+      this.markDevEvent(component, `Replaced ${id}`, "swap");
+    });
+
+    document.addEventListener("jbs:after-stream-patch", (event) => {
+      const detail = (event as CustomEvent<{ component?: HTMLElement; mode?: string }>).detail;
+      const component = detail?.component;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      this.markDevEvent(component, `Stream patch: ${detail.mode ?? "replace"}`, "stream");
+    });
+
+    document.addEventListener("jbs:not-modified", (event) => {
+      const component = event.target;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      this.markDevEvent(component, "No visual change", "not-modified");
+    });
+
+    document.addEventListener("jbs:table-page-cache-hit", (event) => {
+      const detail = (event as CustomEvent<{ component?: HTMLElement; page?: number }>).detail;
+      const component = detail?.component;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      const page = Number(detail.page ?? 0);
+      this.markDevEvent(component, page > 0 ? `Cache hit: page ${page}` : "Cache hit", "cache");
+    });
+
+    document.addEventListener("jbs:request-error", (event) => {
+      const detail = (event as CustomEvent<JBSRequestDetail>).detail;
+      const component = detail?.component;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      this.markDevEvent(component, `Request failed: ${detail.action}`, "error");
+    });
+
+    this.devModeInitialized = true;
+  }
+
+  private markDevEvent(
+    component: HTMLElement,
+    label: string,
+    variant: "request" | "swap" | "stream" | "not-modified" | "cache" | "error",
+  ): void {
+    component.classList.add(JBS_DEV_EVENT_CLASS);
+    component.dataset.jbsDevLabel = label;
+    component.dataset.jbsDevVariant = variant;
+
+    window.setTimeout(() => {
+      if (!component.isConnected) {
+        return;
+      }
+      component.classList.remove(JBS_DEV_EVENT_CLASS);
+      delete component.dataset.jbsDevLabel;
+      delete component.dataset.jbsDevVariant;
+    }, 1600);
   }
 
   hydrate(root: ParentNode): void {
@@ -730,6 +948,7 @@ export class JBSRuntime {
     if (!component.dataset.jbsPhase) {
       this.setComponentPhase(component, JBS_PHASES.idle);
     }
+    this.cacheCurrentTablePage(component, key, state);
     this.applyDisclosureState(component, key);
     this.connectStream(component, key);
     this.runTask(this.flushStreamQueue(component, key), "flush stream queue", component);
@@ -800,7 +1019,11 @@ export class JBSRuntime {
 
   private persistStrategy(component: HTMLElement): JBSPersistStrategy {
     const persist = component.dataset.jbsPersist;
-    if (persist === JBS_PERSISTENCE.querystring || persist === JBS_PERSISTENCE.session) {
+    if (
+      persist === JBS_PERSISTENCE.querystring ||
+      persist === JBS_PERSISTENCE.session ||
+      persist === JBS_PERSISTENCE.header
+    ) {
       return persist;
     }
     return JBS_PERSISTENCE.memory;
@@ -826,6 +1049,114 @@ export class JBSRuntime {
     if (persist === JBS_PERSISTENCE.session && typeof sessionStorage !== "undefined") {
       sessionStorage.setItem(sessionStorageKey(component, key), JSON.stringify(state));
     }
+  }
+
+  private tableCacheSignature(component: HTMLElement, state: JBSState): string {
+    const scopedState = stripTransientState(cloneState(state));
+    delete scopedState.page;
+    return `${component.dataset.jbsEndpoint ?? ""}|${stableStateString(scopedState)}`;
+  }
+
+  private tablePageNumber(state: JBSState): number | null {
+    const value = state.page;
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 1) {
+      return Math.floor(parsed);
+    }
+    return null;
+  }
+
+  private clearTablePageCache(key: string): void {
+    this.tablePageCache.delete(key);
+  }
+
+  private cacheCurrentTablePage(component: HTMLElement, key: string, state: JBSState): void {
+    if (component.dataset.jbsComponent !== "table") {
+      return;
+    }
+
+    const page = this.tablePageNumber(state);
+    if (page === null) {
+      return;
+    }
+
+    const signature = this.tableCacheSignature(component, state);
+    const existing = this.tablePageCache.get(key);
+    let cache: JBSTablePageCache;
+    if (!existing || existing.signature !== signature) {
+      cache = { signature, pages: new Map(), rowHtmlById: new Map() };
+      this.tablePageCache.set(key, cache);
+    } else {
+      cache = existing;
+    }
+
+    const tableBody = this.tableBody(component);
+    if (!tableBody) {
+      return;
+    }
+
+    const rowIds: string[] = [];
+    for (const row of tableBody.rows) {
+      const rowId = row.dataset.jbsRowId?.trim();
+      if (!rowId) {
+        continue;
+      }
+      rowIds.push(rowId);
+      cache.rowHtmlById.set(rowId, row.outerHTML);
+    }
+
+    cache.pages.delete(page);
+    cache.pages.set(page, { html: component.outerHTML, rowIds });
+    while (cache.pages.size > JBS_TABLE_PAGE_CACHE_MAX) {
+      const oldest = cache.pages.keys().next().value;
+      if (typeof oldest === "number") {
+        cache.pages.delete(oldest);
+      } else {
+        break;
+      }
+    }
+  }
+
+  private tryServeTablePageFromCache(
+    component: HTMLElement,
+    key: string,
+    action: string,
+    state: JBSState,
+    detail: JBSRequestDetail,
+  ): boolean {
+    if (action !== JBS_ACTIONS.page || component.dataset.jbsComponent !== "table") {
+      return false;
+    }
+
+    const page = this.tablePageNumber(state);
+    if (page === null) {
+      return false;
+    }
+
+    const cache = this.tablePageCache.get(key);
+    if (!cache) {
+      return false;
+    }
+
+    const signature = this.tableCacheSignature(component, state);
+    if (cache.signature !== signature) {
+      this.tablePageCache.delete(key);
+      return false;
+    }
+
+    const snapshot = cache.pages.get(page);
+    if (!snapshot) {
+      return false;
+    }
+
+    const next = this.swapComponent(component, snapshot.html, key, detail);
+    next.dispatchEvent(
+      new CustomEvent("jbs:table-page-cache-hit", {
+        detail: { component: next, key, page, rowIds: [...snapshot.rowIds] },
+        bubbles: true,
+      }),
+    );
+    return true;
   }
 
   private streamMode(component: HTMLElement, payload: JBSStreamPayload): JBSStreamMode {
@@ -882,6 +1213,7 @@ export class JBSRuntime {
       existing.shift();
     }
     this.streamQueue.set(key, existing);
+    this.bumpStreamStats(component, key, { buffered: 1 });
     component.dispatchEvent(
       new CustomEvent("jbs:stream-buffered", {
         detail: { pending: existing.length, component, key },
@@ -912,6 +1244,461 @@ export class JBSRuntime {
       return [payload.row];
     }
     return [];
+  }
+
+  private defaultStreamStats(): JBSStreamStats {
+    return {
+      received: 0,
+      applied: 0,
+      deduped: 0,
+      buffered: 0,
+      fallbackRefresh: 0,
+      resync: 0,
+      seqGap: 0,
+    };
+  }
+
+  private bumpStreamStats(
+    component: HTMLElement,
+    key: string,
+    delta: Partial<JBSStreamStats>,
+  ): void {
+    const current = this.streamStats.get(key) ?? this.defaultStreamStats();
+    const next: JBSStreamStats = {
+      received: current.received + (delta.received ?? 0),
+      applied: current.applied + (delta.applied ?? 0),
+      deduped: current.deduped + (delta.deduped ?? 0),
+      buffered: current.buffered + (delta.buffered ?? 0),
+      fallbackRefresh: current.fallbackRefresh + (delta.fallbackRefresh ?? 0),
+      resync: current.resync + (delta.resync ?? 0),
+      seqGap: current.seqGap + (delta.seqGap ?? 0),
+    };
+    this.streamStats.set(key, next);
+    component.dispatchEvent(
+      new CustomEvent("jbs:stream-stats", {
+        detail: { component, key, stats: { ...next } },
+        bubbles: true,
+      }),
+    );
+  }
+
+  private fragmentCacheFor(key: string): Map<string, string> {
+    const existing = this.streamFragmentCache.get(key);
+    if (existing) {
+      return existing;
+    }
+    const created = new Map<string, string>();
+    this.streamFragmentCache.set(key, created);
+    return created;
+  }
+
+  private resolveFragmentTarget(component: HTMLElement, op: JBSFragmentOperation): HTMLElement | null {
+    if (op.target) {
+      return component.querySelector<HTMLElement>(op.target);
+    }
+    if (op.id) {
+      const byData = component.querySelector<HTMLElement>(`[data-jbs-fragment-id="${op.id}"]`);
+      if (byData) {
+        return byData;
+      }
+      return component.querySelector<HTMLElement>(`#${op.id}`);
+    }
+    return null;
+  }
+
+  private applyFragmentOps(component: HTMLElement, key: string, payload: JBSStreamPayload): boolean {
+    const ops = Array.isArray(payload.fragment_ops) ? payload.fragment_ops : [];
+    if (ops.length === 0) {
+      return false;
+    }
+
+    const cache = this.fragmentCacheFor(key);
+    let applied = false;
+
+    for (const op of ops) {
+      const mode = op.op;
+      const target = this.resolveFragmentTarget(component, op);
+      if (!mode || !target) {
+        return false;
+      }
+
+      let html = op.html;
+      if (!html && op.id) {
+        html = cache.get(op.id);
+      }
+      if (op.id && html) {
+        cache.set(op.id, html);
+      }
+
+      if (mode === "remove") {
+        target.remove();
+        applied = true;
+        continue;
+      }
+
+      if (!html) {
+        return false;
+      }
+
+      if (mode === "replace") {
+        const template = document.createElement("template");
+        template.innerHTML = html.trim();
+        const next = template.content.firstElementChild;
+        if (!(next instanceof HTMLElement)) {
+          return false;
+        }
+        target.replaceWith(next);
+        applied = true;
+        continue;
+      }
+
+      if (mode === "append") {
+        target.insertAdjacentHTML("beforeend", html);
+        applied = true;
+        continue;
+      }
+
+      if (mode === "prepend") {
+        target.insertAdjacentHTML("afterbegin", html);
+        applied = true;
+        continue;
+      }
+
+      return false;
+    }
+
+    return applied;
+  }
+
+  private applyStreamMeta(component: HTMLElement, payload: JBSStreamPayload): void {
+    const meta = payload.meta;
+    if (!meta) {
+      return;
+    }
+
+    const totalRows = typeof meta.total_rows === "number" && meta.total_rows >= 0
+      ? Math.floor(meta.total_rows)
+      : null;
+    const page = typeof meta.page === "number" && meta.page > 0
+      ? Math.floor(meta.page)
+      : null;
+    const pageCount = typeof meta.page_count === "number" && meta.page_count > 0
+      ? Math.floor(meta.page_count)
+      : null;
+    const showingRows = typeof meta.showing_rows === "number" && meta.showing_rows >= 0
+      ? Math.floor(meta.showing_rows)
+      : null;
+
+    const tableBody = this.tableBody(component);
+    const footerLabel = component.querySelector<HTMLElement>(".card-footer small.text-body-secondary");
+    if (footerLabel && totalRows !== null) {
+      const visibleRows = showingRows ?? tableBody?.rows.length ?? 0;
+      footerLabel.textContent = `Showing ${visibleRows} of ${totalRows} ${totalRows === 1 ? "result" : "results"}`;
+    }
+
+    const pagerLabel = component.querySelector<HTMLElement>(".card-footer .btn-group .btn.disabled");
+    const currentPageFromLabel = (() => {
+      if (!pagerLabel?.textContent) {
+        return null;
+      }
+      const match = pagerLabel.textContent.match(/Page\s+(\d+)\s+of\s+(\d+)/i);
+      if (!match) {
+        return null;
+      }
+      const parsed = Number(match[1]);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        return null;
+      }
+      return Math.floor(parsed);
+    })();
+    const resolvedPage = page ?? currentPageFromLabel;
+
+    if (pagerLabel && resolvedPage !== null && pageCount !== null) {
+      pagerLabel.textContent = `Page ${resolvedPage} of ${pageCount}`;
+    }
+
+    if (resolvedPage !== null && pageCount !== null) {
+      const pageButtons = component.querySelectorAll<HTMLButtonElement>(
+        ".card-footer .btn-group button[data-jbs-action='page']",
+      );
+      const previous = pageButtons[0];
+      const next = pageButtons[1];
+
+      if (previous instanceof HTMLButtonElement) {
+        previous.dataset.jbsPage = String(Math.max(1, resolvedPage - 1));
+        previous.disabled = resolvedPage <= 1;
+        previous.setAttribute("aria-disabled", previous.disabled ? "true" : "false");
+      }
+
+      if (next instanceof HTMLButtonElement) {
+        next.dataset.jbsPage = String(Math.min(pageCount, resolvedPage + 1));
+        next.disabled = resolvedPage >= pageCount;
+        next.setAttribute("aria-disabled", next.disabled ? "true" : "false");
+      }
+    }
+
+    if (typeof meta.subtitle === "string") {
+      const subtitle = component.querySelector<HTMLElement>(".card-header p.text-body-secondary");
+      if (subtitle) {
+        subtitle.textContent = meta.subtitle;
+      }
+    }
+  }
+
+  private finalizeStreamPatch(
+    component: HTMLElement,
+    key: string,
+    payload: JBSStreamPayload,
+    mode: JBSStreamMode,
+  ): void {
+    const nextState = stripTransientState(
+      applyStatePatch(this.getState(component), payload.patch ?? {}),
+    );
+    this.stateStore.set(key, nextState);
+    component.dataset.jbsState = JSON.stringify(nextState);
+    this.persistState(component, key, nextState);
+    this.clearTablePageCache(key);
+    this.applyStreamMeta(component, payload);
+    if (typeof payload.snapshot === "string") {
+      this.streamSnapshots.set(key, payload.snapshot);
+    }
+    this.bumpStreamStats(component, key, { applied: 1 });
+    component.dispatchEvent(
+      new CustomEvent("jbs:after-stream-patch", {
+        detail: { component, key, payload, mode },
+        bubbles: true,
+      }),
+    );
+  }
+
+  private async requestRefreshFromStream(
+    component: HTMLElement,
+    key: string,
+    payload: JBSStreamPayload,
+    action: string,
+  ): Promise<void> {
+    this.bumpStreamStats(component, key, { fallbackRefresh: 1 });
+    const nextState = applyStatePatch(this.getState(component), payload.patch ?? {});
+    await this.requestComponent(component, action, nextState, null);
+    if (typeof payload.snapshot === "string") {
+      this.streamSnapshots.set(key, payload.snapshot);
+    }
+  }
+
+  private tableBody(component: HTMLElement): HTMLTableSectionElement | null {
+    const tableBody = component.querySelector("tbody");
+    if (tableBody instanceof HTMLTableSectionElement) {
+      return tableBody;
+    }
+    return null;
+  }
+
+  private tableRowById(tableBody: HTMLTableSectionElement, rowId: string): HTMLTableRowElement | null {
+    for (const row of tableBody.rows) {
+      if (row.dataset.jbsRowId === rowId) {
+        return row;
+      }
+    }
+    return null;
+  }
+
+  private parseStreamRowHtml(rowHtml: string, rowId: string): HTMLTableRowElement | null {
+    const template = document.createElement("template");
+    template.innerHTML = rowHtml.trim();
+    const row = template.content.firstElementChild;
+    if (!(row instanceof HTMLTableRowElement)) {
+      return null;
+    }
+    if (!row.dataset.jbsRowId) {
+      row.dataset.jbsRowId = rowId;
+    }
+    return row;
+  }
+
+  private insertRowByPosition(
+    tableBody: HTMLTableSectionElement,
+    row: HTMLTableRowElement,
+    position: "append" | "prepend" = "append",
+  ): void {
+    if (position === "prepend") {
+      tableBody.prepend(row);
+      return;
+    }
+    tableBody.append(row);
+  }
+
+  private applyStreamOps(component: HTMLElement, payload: JBSStreamPayload): boolean {
+    const ops = Array.isArray(payload.ops) ? payload.ops : [];
+    if (ops.length === 0) {
+      return false;
+    }
+
+    const tableBody = this.tableBody(component);
+    if (!tableBody) {
+      return false;
+    }
+
+    const touchedRows: HTMLTableRowElement[] = [];
+    let trimFromStart = this.streamMode(component, payload) !== JBS_STREAM_MODES.prepend;
+    for (const operation of ops) {
+      const op = operation.op;
+      const rowId = operation.id?.trim();
+      if (!op || !rowId) {
+        return false;
+      }
+
+      if (op === "read") {
+        continue;
+      }
+
+      if (op === "delete") {
+        this.tableRowById(tableBody, rowId)?.remove();
+        continue;
+      }
+
+      if (op === "move") {
+        const existing = this.tableRowById(tableBody, rowId);
+        if (!existing) {
+          continue;
+        }
+        const beforeId = operation.before_id?.trim();
+        const afterId = operation.after_id?.trim();
+        if (beforeId) {
+          const beforeRow = this.tableRowById(tableBody, beforeId);
+          if (beforeRow) {
+            tableBody.insertBefore(existing, beforeRow);
+            touchedRows.push(existing);
+            continue;
+          }
+        }
+        if (afterId) {
+          const afterRow = this.tableRowById(tableBody, afterId);
+          if (afterRow) {
+            tableBody.insertBefore(existing, afterRow.nextSibling);
+            touchedRows.push(existing);
+            continue;
+          }
+        }
+        this.insertRowByPosition(tableBody, existing, operation.position ?? "append");
+        trimFromStart = (operation.position ?? "append") !== "prepend";
+        touchedRows.push(existing);
+        continue;
+      }
+
+      if (op === "update") {
+        if (typeof operation.html !== "string") {
+          return false;
+        }
+        const existing = this.tableRowById(tableBody, rowId);
+        if (!existing) {
+          return false;
+        }
+        const parsed = this.parseStreamRowHtml(operation.html, rowId);
+        if (!parsed) {
+          return false;
+        }
+        existing.replaceWith(parsed);
+        touchedRows.push(parsed);
+        continue;
+      }
+
+      if (op === "create") {
+        if (typeof operation.html !== "string") {
+          return false;
+        }
+        if (this.tableRowById(tableBody, rowId)) {
+          continue;
+        }
+        const parsed = this.parseStreamRowHtml(operation.html, rowId);
+        if (!parsed) {
+          return false;
+        }
+
+        const beforeId = operation.before_id?.trim();
+        const afterId = operation.after_id?.trim();
+        if (beforeId) {
+          const beforeRow = this.tableRowById(tableBody, beforeId);
+          if (beforeRow) {
+            tableBody.insertBefore(parsed, beforeRow);
+            touchedRows.push(parsed);
+            continue;
+          }
+        }
+        if (afterId) {
+          const afterRow = this.tableRowById(tableBody, afterId);
+          if (afterRow) {
+            tableBody.insertBefore(parsed, afterRow.nextSibling);
+            touchedRows.push(parsed);
+            continue;
+          }
+        }
+        this.insertRowByPosition(tableBody, parsed, operation.position ?? "append");
+        trimFromStart = (operation.position ?? "append") !== "prepend";
+        touchedRows.push(parsed);
+        continue;
+      }
+
+      if (op === "upsert") {
+        if (typeof operation.html !== "string") {
+          return false;
+        }
+        const parsed = this.parseStreamRowHtml(operation.html, rowId);
+        if (!parsed) {
+          return false;
+        }
+
+        const existing = this.tableRowById(tableBody, rowId);
+        if (existing) {
+          existing.replaceWith(parsed);
+          touchedRows.push(parsed);
+          continue;
+        }
+
+        const beforeId = operation.before_id?.trim();
+        const afterId = operation.after_id?.trim();
+        if (beforeId) {
+          const beforeRow = this.tableRowById(tableBody, beforeId);
+          if (beforeRow) {
+            tableBody.insertBefore(parsed, beforeRow);
+            touchedRows.push(parsed);
+            continue;
+          }
+        }
+        if (afterId) {
+          const afterRow = this.tableRowById(tableBody, afterId);
+          if (afterRow) {
+            tableBody.insertBefore(parsed, afterRow.nextSibling);
+            touchedRows.push(parsed);
+            continue;
+          }
+        }
+        this.insertRowByPosition(tableBody, parsed, operation.position ?? "append");
+        trimFromStart = (operation.position ?? "append") !== "prepend";
+        touchedRows.push(parsed);
+        continue;
+      }
+
+      return false;
+    }
+
+    const maxRows = this.streamMaxRows(component, payload);
+    if (maxRows !== null) {
+      while (tableBody.rows.length > maxRows) {
+        if (trimFromStart) {
+          tableBody.deleteRow(0);
+        } else {
+          tableBody.deleteRow(tableBody.rows.length - 1);
+        }
+      }
+    }
+
+    for (const row of touchedRows) {
+      if (row.isConnected) {
+        pulseElement(row, JBS_STREAM_ROW_PULSE_CLASS);
+      }
+    }
+
+    return true;
   }
 
   private applyRowFragments(
@@ -975,27 +1762,71 @@ export class JBSRuntime {
     key: string,
     payload: JBSStreamPayload,
   ): Promise<void> {
+    this.bumpStreamStats(component, key, { received: 1 });
+
+    if (typeof payload.cache_scope === "string") {
+      const existingScope = this.streamCacheScopes.get(key);
+      if (existingScope && existingScope !== payload.cache_scope) {
+        this.streamFragmentCache.delete(key);
+        this.streamSnapshots.delete(key);
+        this.streamCacheScopes.set(key, payload.cache_scope);
+        this.bumpStreamStats(component, key, { resync: 1 });
+        await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
+        return;
+      }
+      this.streamCacheScopes.set(key, payload.cache_scope);
+    }
+
+    if (typeof payload.seq === "number") {
+      const lastSeq = this.streamLastSeq.get(key);
+      if (lastSeq !== undefined && payload.seq <= lastSeq) {
+        this.bumpStreamStats(component, key, { deduped: 1 });
+        return;
+      }
+      if (lastSeq !== undefined && payload.seq > lastSeq + 1) {
+        this.streamLastSeq.set(key, payload.seq);
+        this.bumpStreamStats(component, key, { seqGap: 1, resync: 1 });
+        await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
+        return;
+      }
+      this.streamLastSeq.set(key, payload.seq);
+    }
+
+    if (payload.resync === true) {
+      this.bumpStreamStats(component, key, { resync: 1 });
+      await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
+      return;
+    }
+
+    if (payload.v === 1) {
+      const fragmentApplied = this.applyFragmentOps(component, key, payload);
+      if (fragmentApplied) {
+        this.finalizeStreamPatch(component, key, payload, JBS_STREAM_MODES.replace);
+        return;
+      }
+      if (Array.isArray(payload.fragment_ops) && payload.fragment_ops.length > 0) {
+        await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
+        return;
+      }
+
+      if (this.applyStreamOps(component, payload)) {
+        this.finalizeStreamPatch(component, key, payload, this.streamMode(component, payload));
+        return;
+      }
+      if (Array.isArray(payload.ops) && payload.ops.length > 0) {
+        await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
+        return;
+      }
+    }
+
     const mode = this.streamMode(component, payload);
     const action = payload.action ?? JBS_ACTIONS.refresh;
 
     if (mode !== JBS_STREAM_MODES.replace && this.applyRowFragments(component, mode, payload)) {
-      const nextState = stripTransientState(
-        applyStatePatch(this.getState(component), payload.patch ?? {}),
-      );
-      this.stateStore.set(key, nextState);
-      component.dataset.jbsState = JSON.stringify(nextState);
-      this.persistState(component, key, nextState);
-      component.dispatchEvent(
-        new CustomEvent("jbs:after-stream-patch", {
-          detail: { component, key, payload, mode },
-          bubbles: true,
-        }),
-      );
+      this.finalizeStreamPatch(component, key, payload, mode);
       return;
     }
-
-    const nextState = applyStatePatch(this.getState(component), payload.patch ?? {});
-    await this.requestComponent(component, action, nextState, null);
+    await this.requestRefreshFromStream(component, key, payload, action);
   }
 
   private connectStream(component: HTMLElement, key: string): void {
@@ -1858,8 +2689,15 @@ export class JBSRuntime {
     this.setComponentPhase(component, JBS_PHASES.loading);
     component.dispatchEvent(new CustomEvent("jbs:before-request", { detail, bubbles: true }));
 
+    if (this.tryServeTablePageFromCache(component, key, action, persistedState, detail)) {
+      return;
+    }
+
     const requestUrl = new URL(endpoint, window.location.href);
-    appendStateParams(requestUrl, requestState);
+    const persist = this.persistStrategy(component);
+    if (persist !== JBS_PERSISTENCE.header) {
+      appendStateParams(requestUrl, requestState);
+    }
 
     this.requestAbortControllers.get(key)?.abort();
     const controller = new AbortController();
@@ -1872,6 +2710,9 @@ export class JBSRuntime {
       [JBS_HEADERS.component]: component.dataset.jbsComponent ?? "component",
       [JBS_HEADERS.action]: action,
     };
+    if (persist === JBS_PERSISTENCE.header) {
+      headers[JBS_HEADERS.state] = stableStateString(requestState);
+    }
     const existingEtag = this.componentEtags.get(key) ?? component.dataset.jbsEtag;
     if (existingEtag) {
       headers[JBS_HEADERS.ifNoneMatch] = existingEtag;
@@ -1923,7 +2764,7 @@ export class JBSRuntime {
     html: string,
     key: string,
     detail: JBSRequestDetail,
-  ): void {
+  ): HTMLElement {
     const template = document.createElement("template");
     template.innerHTML = html.trim();
     const next = template.content.firstElementChild;
@@ -1974,10 +2815,12 @@ export class JBSRuntime {
     this.closeAllDateRangePickers();
     this.closeAllAssistPanels();
     this.hydrate(next.parentNode ?? document);
+    this.cacheCurrentTablePage(next, key, detail.state);
     this.applyDisclosureState(next, key);
     pulseElement(next, JBS_SWAP_PULSE_CLASS);
     next.dispatchEvent(new CustomEvent("jbs:after-swap", { bubbles: true }));
     this.finishRequest(next, detail, JBS_PHASES.success);
+    return next;
   }
 
   private handleClick = async (event: Event): Promise<void> => {
@@ -2424,6 +3267,7 @@ if (typeof window !== "undefined") {
 
 declare global {
   interface Window {
+    __JBS_DEV_MODE__?: boolean;
     JinjaBootstrapSpa: JBSRuntime;
   }
 }

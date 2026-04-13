@@ -1,139 +1,145 @@
 {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
-
 {% set selected_statuses = [table_state.status] if table_state.status else [] %}
 {% set filter_body %}
   <form class="vstack gap-3" data-jbs-form>
     <div class="d-flex flex-wrap align-items-end gap-2">
-      {{
-        ui.form_input(
-          "query",
-          value=table_state.query or "",
-          placeholder="Search orders",
-          class_name="form-control-sm mb-0"
-        )
+      {{ ui.form_input("query",
+            value=table_state.query or "",
+            placeholder="Search orders",
+            class_name="form-control-sm mb-0") 
       }}
-      {{
-        ui.autocomplete(
-          "customer",
-          "/fragments/customer-options",
-          value=table_state.customer or "",
-          display_value=table_state.customer or "",
-          placeholder="Filter customer",
-          class_name="mb-0",
-          input_class="form-control-sm"
-        )
+      {{ ui.autocomplete("customer",
+            "/fragments/customer-options",
+            value=table_state.customer or "",
+            display_value=table_state.customer or "",
+            placeholder="Filter customer",
+            class_name="mb-0",
+            input_class="form-control-sm") 
       }}
-      {{
-        ui.filter_multi_select(
-          "status",
-          "Status",
-          [
+      {{ ui.filter_multi_select("status",
+            "Status",
+            [
             {"value": "queued", "label": "Queued"},
             {"value": "open", "label": "Open"},
             {"value": "archived", "label": "Archived"},
-          ],
-          selected_values=selected_statuses,
-          class_name="mb-0"
-        )
+            ],
+            selected_values=selected_statuses,
+            class_name="mb-0") 
       }}
-      {{
-        ui.filter_single_select(
-          "page_size",
-          "Page Size",
-          [
-            {"value": "5", "label": "5 rows"},
-            {"value": "10", "label": "10 rows"},
+      {{ ui.filter_single_select("page_size",
+            "Page Size",
+            [
+            {"value": "4", "label": "4 rows"},
+            {"value": "8", "label": "8 rows"},
+            {"value": "12", "label": "12 rows"},
             {"value": "20", "label": "20 rows"},
-            {"value": "50", "label": "50 rows"},
-          ],
-          selected_value=table_state.page_size or 10,
-          class_name="mb-0"
-        )
+            ],
+            selected_value=table_state.page_size or 8,
+            class_name="mb-0") 
       }}
-      {{
-        ui.date_range_picker(
-          from_name="from_ts",
-          to_name="to_ts",
-          from_value=table_state.from_ts or "",
-          to_value=table_state.to_ts or "",
-          class_name="mb-0"
-        )
+      {{ ui.date_range_picker(from_name="from_ts",
+            to_name="to_ts",
+            from_value=table_state.from_ts or "",
+            to_value=table_state.to_ts or "",
+            class_name="mb-0") 
       }}
     </div>
-    {{
-      ui.sql_filter_input(
-        name="sql",
+    {{ ui.sql_filter_input(name="sql",
         value=table_state.sql or "",
         hints_endpoint="/api/sql-hints",
-        validate_endpoint="/api/sql-validate"
-      )
+        validate_endpoint="/api/sql-validate") 
     }}
-    {{
-      ui.regex_filter_input(
-        name="regex",
+    {{ ui.regex_filter_input(name="regex",
         value=table_state.regex or "",
-        validate_endpoint="/api/validate-regex"
-      )
+        validate_endpoint="/api/validate-regex") 
     }}
-    <button class="btn btn-sm btn-primary align-self-start" type="submit">Apply</button>
+    <div class="d-flex flex-wrap gap-2 pt-1 border-top">
+      <button class="btn btn-sm btn-primary" type="submit">
+        <i class="bi bi-check2-circle me-1" aria-hidden="true"></i>
+        Apply Filters
+      </button>
+      {{ ui.button("Reset",
+            variant="outline-secondary",
+            size="sm",
+            jbs_action="refresh",
+            jbs_component_ref="orders-table",
+            jbs_patch={
+            "query": "",
+            "customer": "",
+            "status": none,
+            "from_ts": "",
+            "to_ts": "",
+            "sql": "",
+            "regex": "",
+            "page": 1,
+            }) 
+      }}
+    </div>
   </form>
 {% endset %}
-
 {% set toolbar %}
   <div class="vstack gap-3">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      {{ ui.button("Refresh Table",
+            variant="outline-primary",
+            size="sm",
+            jbs_action="refresh",
+            jbs_component_ref="orders-table") 
+      }}
+      <button class="btn btn-sm btn-primary" id="simulate-sse-push" type="button">
+        <i class="bi bi-broadcast-pin me-1" aria-hidden="true"></i>
+        Simulate SSE Update
+      </button>
+    </div>
     {% if status_notice %}
-      {{
-        ui.status_region(
-          "orders-status-region",
-          title=status_notice.title,
-          message=status_notice.message,
-          variant=status_notice.variant,
-          class_name="mb-0"
-        )
+      {{ ui.status_region("orders-status-region",
+            title=status_notice.title,
+            message=status_notice.message,
+            variant=status_notice.variant,
+            class_name="mb-0") 
+      }}
+      {{ ui.toast("orders-status-toast",
+            title=status_notice.title,
+            message=status_notice.message,
+            variant=status_notice.variant,
+            class_name="mt-2") 
       }}
     {% endif %}
-    {{
-      ui.tabs(
-        "orders-status-tabs",
+    {{ ui.segmented_control("orders-status-tabs",
         [
-          {"label": "All", "value": "__all__", "jbs_action": "filter", "jbs_patch": {"status": none, "page": 1}},
-          {"label": "Queued", "value": "queued", "jbs_action": "filter", "jbs_patch": {"status": "queued", "page": 1}},
-          {"label": "Open", "value": "open", "jbs_action": "filter", "jbs_patch": {"status": "open", "page": 1}},
-          {"label": "Archived", "value": "archived", "jbs_action": "filter", "jbs_patch": {"status": "archived", "page": 1}},
+        {"label": "All", "value": "__all__", "jbs_action": "filter", "jbs_patch": {"status": none, "page": 1}},
+        {"label": "Queued", "value": "queued", "jbs_action": "filter", "jbs_patch": {"status": "queued", "page": 1}},
+        {"label": "Open", "value": "open", "jbs_action": "filter", "jbs_patch": {"status": "open", "page": 1}},
+        {"label": "Archived", "value": "archived", "jbs_action": "filter", "jbs_patch": {"status": "archived", "page": 1}},
         ],
         active=table_state.status or "__all__",
-        class_name="small"
-      )
+        class_name="small") 
     }}
-    {{
-      ui.filter_accordion(
-        "orders-filters",
+    {{ ui.filter_accordion("orders-filters",
         body=filter_body,
-        active_badge=(table_state.status or table_state.query or table_state.customer or table_state.sql or table_state.regex)
-      )
+        icon_class="bi bi-sliders2",
+        active_badge=(table_state.status or table_state.query or table_state.customer or table_state.sql or table_state.regex) 
+    )
     }}
   </div>
 {% endset %}
-
-{{
-  ui.table(
-    "orders-table",
-    "/components/orders",
-    columns=[
-      {"key": "number", "label": "Order", "sortable": true},
-      {"key": "customer", "label": "Customer", "sortable": true},
-      {"key": "status", "label": "Status", "sortable": true},
-      {"key": "total", "label": "Total", "sortable": true, "cell_class": "text-end"},
-      {"key": "actions", "label": "Actions", "sortable": false, "html": true, "cell_class": "text-end"},
-    ],
-    rows=rows,
-    state=table_state,
-    total_rows=total_rows,
-    title="Orders",
-    subtitle=subtitle,
-    toolbar=toolbar,
-    persist="querystring",
-    state_keys=["page", "page_size", "sort_by", "sort_dir", "query", "customer", "status", "from_ts", "to_ts", "sql", "regex"],
-    sse_endpoint="/events/orders"
-  )
+{{ ui.table("orders-table",
+"/components/orders",
+columns=[
+{"key": "number", "label": "Order", "sortable": true},
+{"key": "customer", "label": "Customer", "sortable": true},
+{"key": "status", "label": "Status", "sortable": true},
+{"key": "total", "label": "Total", "sortable": true, "cell_class": "text-end"},
+{"key": "actions", "label": "Actions", "sortable": false, "html": true, "cell_class": "text-end"},
+],
+rows=rows,
+state=table_state,
+total_rows=total_rows,
+title="Orders",
+subtitle=subtitle,
+toolbar=toolbar,
+class_name="jbs-feature-table",
+persist="header",
+state_keys=["page", "page_size", "sort_by", "sort_dir", "query", "customer", "status", "from_ts", "to_ts", "sql", "regex"],
+sse_endpoint="/events/orders") 
 }}

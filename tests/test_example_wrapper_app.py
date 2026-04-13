@@ -13,8 +13,7 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 from werkzeug.serving import make_server
 
-from tests.browser_assertions import assert_no_browser_errors
-from tests.browser_assertions import capture_browser_errors
+from tests.browser_assertions import assert_no_browser_errors, capture_browser_errors
 
 
 def _load_example_app_module() -> ModuleType:
@@ -42,15 +41,16 @@ def example_live_server() -> str:
 
     module.LAST_PUSH_MESSAGE = ""
     module.PUSH_COUNTER = 0
+    module.ORDERS_STREAM_SEQ = 0
     module.LIVE_PUSH_COUNTER = 0
     module.LIVE_ROWS = [
-        {"entry": "boot complete", "source": "runtime"},
-        {"entry": "table hydrated", "source": "runtime"},
+        {"id": "live-boot", "entry": "boot complete", "source": "runtime"},
+        {"id": "live-hydrated", "entry": "table hydrated", "source": "runtime"},
     ]
     module.APPEND_PUSH_COUNTER = 0
     module.APPEND_ROWS = [
-        {"entry": "append channel online", "source": "runtime"},
-        {"entry": "append stream ready", "source": "runtime"},
+        {"id": "append-boot", "entry": "append channel online", "source": "runtime"},
+        {"id": "append-ready", "entry": "append stream ready", "source": "runtime"},
     ]
 
     server = make_server("127.0.0.1", 0, module.app, threaded=True)
@@ -85,6 +85,7 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.wait_for_selector("#session-table")
             page.wait_for_selector("#cancel-demo")
             page.wait_for_selector("#lazy-summary")
+            page.wait_for_selector("nav.navbar")
 
             page.get_by_role("button", name="About Runtime").click()
             page.wait_for_function(
@@ -149,6 +150,40 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
                 "'#orders-filters [data-jbs-disclosure-panel]'"
                 ")?.hidden"
             )
+
+            page.locator("#orders-table").get_by_role("button", name="Next").click()
+            page.wait_for_function(
+                "() => document.querySelector('#orders-table')"
+                "?.textContent?.includes('Page 2 of')"
+            )
+            page.locator("#orders-table").get_by_role("button", name="Previous").click()
+            page.wait_for_function(
+                "() => document.querySelector('#orders-table')"
+                "?.textContent?.includes('Page 1 of')"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('orders-table')"
+                "?.classList.contains('jbs-demo-cache-hit')"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('orders-table')"
+                "?.dataset.jbsDemoLabel?.includes('Cache hit')"
+            )
+
+            page.get_by_role("button", name="Theme").click()
+            page.locator("[data-bs-theme-value='dark']").click()
+            page.wait_for_function(
+                "() => document.documentElement"
+                ".getAttribute('data-bs-theme') === 'dark'"
+            )
+            page.wait_for_selector("#orders-table")
+            page.get_by_role("button", name="Theme").click()
+            page.locator("[data-bs-theme-value='light']").click()
+            page.wait_for_function(
+                "() => document.documentElement"
+                ".getAttribute('data-bs-theme') === 'light'"
+            )
+            page.wait_for_selector("#orders-table")
 
             regex_input = page.locator("#orders-table input[name='regex']")
             regex_input.fill("(")
@@ -260,6 +295,10 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.get_by_role("button", name="Simulate SSE Update").click()
             page.wait_for_function(
                 "() => document.querySelector('#orders-table')"
+                "?.textContent?.includes('SSE update #1:')"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('orders-status-toast')"
                 "?.textContent?.includes('SSE update #1:')"
             )
 
