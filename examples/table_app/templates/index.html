@@ -5,6 +5,47 @@
 
 {% block head_extra %}
   <style>
+    body {
+      background:
+        radial-gradient(circle at 10% -20%, rgba(var(--bs-primary-rgb), 0.12), transparent 45%),
+        radial-gradient(circle at 100% 0%, rgba(var(--bs-info-rgb), 0.1), transparent 35%),
+        var(--bs-body-bg);
+    }
+
+    .jbs-shell {
+      backdrop-filter: saturate(1.04);
+    }
+
+    .jbs-hero {
+      border: 1px solid rgba(var(--bs-primary-rgb), 0.2);
+      background: linear-gradient(
+        135deg,
+        rgba(var(--bs-primary-rgb), 0.08) 0%,
+        rgba(var(--bs-info-rgb), 0.06) 52%,
+        rgba(var(--bs-success-rgb), 0.08) 100%
+      );
+    }
+
+    .jbs-step {
+      border-color: rgba(var(--bs-secondary-rgb), 0.28) !important;
+      background: rgba(var(--bs-tertiary-bg-rgb), 0.72);
+    }
+
+    [data-bs-theme="dark"] .jbs-step {
+      background: rgba(var(--bs-dark-rgb), 0.45);
+    }
+
+    .jbs-toolbar-card {
+      border: 1px solid rgba(var(--bs-secondary-rgb), 0.2);
+      border-radius: 0.9rem;
+      background: var(--bs-body-bg);
+      box-shadow: 0 0.45rem 1.2rem rgba(0, 0, 0, 0.06);
+    }
+
+    [data-bs-theme="dark"] .jbs-toolbar-card {
+      box-shadow: 0 0.55rem 1.5rem rgba(0, 0, 0, 0.28);
+    }
+
     @keyframes jbsDemoSwapFlash {
       0% {
         box-shadow: 0 0 0 0 rgba(255, 153, 0, 0.75);
@@ -33,6 +74,11 @@
       background: rgba(25, 135, 84, 0.12);
     }
 
+    .jbs-demo-replaced.jbs-demo-cache-hit {
+      outline-color: rgba(13, 110, 253, 0.82);
+      background: rgba(13, 110, 253, 0.14);
+    }
+
     .jbs-demo-replaced::after {
       content: attr(data-jbs-demo-label);
       position: absolute;
@@ -48,6 +94,14 @@
       color: #212529;
       border: 1px solid rgba(33, 37, 41, 0.25);
       box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    }
+
+    .jbs-theme-toggle .dropdown-menu {
+      min-width: 12rem;
+    }
+
+    .jbs-theme-toggle .dropdown-item.active {
+      font-weight: 600;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -70,8 +124,8 @@
       class_name="mb-4"
     )
   }}
-  <main class="container py-4">
-    <section class="card border-primary-subtle shadow-sm mb-4">
+  <main class="container py-4 jbs-shell">
+    <section class="card jbs-hero shadow-sm mb-4">
       <div class="card-body">
         <h2 class="h5 mb-2">Interactive Tutorial Flow</h2>
         <p class="text-body-secondary mb-2">
@@ -110,13 +164,44 @@
           Manual playground for the table runtime contract.
         </p>
       </div>
-      <div class="d-flex flex-wrap justify-content-end gap-2">
+      <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
+        <div class="dropdown jbs-theme-toggle">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-2"
+                  id="bd-theme"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  aria-label="Toggle theme">
+            <svg class="bi" width="1em" height="1em" aria-hidden="true"><use href="#circle-half"></use></svg>
+            <span>Theme</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="bd-theme">
+            <li>
+              <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-bs-theme-value="light">
+                <svg class="bi" width="1em" height="1em" aria-hidden="true"><use href="#sun-fill"></use></svg>
+                Light
+              </button>
+            </li>
+            <li>
+              <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-bs-theme-value="dark">
+                <svg class="bi" width="1em" height="1em" aria-hidden="true"><use href="#moon-stars-fill"></use></svg>
+                Dark
+              </button>
+            </li>
+            <li>
+              <button type="button" class="dropdown-item d-flex align-items-center gap-2 active" data-bs-theme-value="auto">
+                <svg class="bi" width="1em" height="1em" aria-hidden="true"><use href="#circle-half"></use></svg>
+                System
+              </button>
+            </li>
+          </ul>
+        </div>
         {{ ui.button("About Runtime", variant="outline-secondary", size="sm", attrs='data-jbs-overlay-open="runtime-modal"') }}
         {{ ui.button("Workbench", variant="outline-secondary", size="sm", attrs='data-jbs-overlay-open="orders-drawer"') }}
       </div>
     </div>
 
-    <section class="alert alert-light border mb-3">
+    <section class="alert jbs-step border mb-3">
       <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <div>
           <h2 class="h6 mb-1">Step 1: Stateful Table Contract</h2>
@@ -138,7 +223,7 @@
     </section>
     {% include "partials/orders_table.html" %}
 
-    <section class="alert alert-light border mt-4 mb-3">
+    <section class="alert jbs-step border mt-4 mb-3">
       <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <div>
           <h2 class="h6 mb-1">Step 2: SSE Prepend Stream</h2>
@@ -159,7 +244,7 @@
       {% include "partials/live_table.html" %}
     </div>
 
-    <section class="alert alert-light border mt-4 mb-3">
+    <section class="alert jbs-step border mt-4 mb-3">
       <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <div>
           <h2 class="h6 mb-1">Step 3: SSE Append Stream</h2>
@@ -180,7 +265,7 @@
       {% include "partials/live_append_table.html" %}
     </div>
 
-    <section class="alert alert-light border mt-4 mb-3">
+    <section class="alert jbs-step border mt-4 mb-3">
       <h2 class="h6 mb-1">Step 4: Session Persistence</h2>
       <p class="mb-0 small text-body-secondary">
         Change page size, apply, then reload the page. The component restores state from
@@ -191,7 +276,7 @@
       {% include "partials/session_table.html" %}
     </div>
 
-    <section class="alert alert-light border mt-4 mb-3">
+    <section class="alert jbs-step border mt-4 mb-3">
       <h2 class="h6 mb-1">Step 5: Request Cancellation</h2>
       <p class="mb-0 small text-body-secondary">
         Click Slow then Fast. The final rendered state should remain Fast.
@@ -201,7 +286,7 @@
       {% include "partials/cancel_demo.html" %}
     </div>
     <div style="height: 1000px;"></div>
-    <section class="alert alert-light border mb-3">
+    <section class="alert jbs-step border mb-3">
       <h2 class="h6 mb-1">Step 6: Lazy Hydration</h2>
       <p class="mb-0 small text-body-secondary">
         This component does not request content until it enters the viewport.
@@ -245,13 +330,31 @@
 {% endblock %}
 
 {% block spa_runtime %}
+  <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
+    <symbol id="sun-fill" viewBox="0 0 16 16">
+      <path d="M8 4.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 0 0 0-7zm0-3a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 8 1.5zm0 11a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0v-1a.5.5 0 0 1 .5-.5zm5-4.5a.5.5 0 0 1 .5.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1 0-1H13zM1.5 8a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1A.5.5 0 0 1 1.5 8zm9.95-3.536a.5.5 0 0 1 .707 0l.707.707a.5.5 0 0 1-.707.707l-.707-.707a.5.5 0 0 1 0-.707zM3.536 12.364a.5.5 0 0 1 .707 0l.707.707a.5.5 0 0 1-.707.707l-.707-.707a.5.5 0 0 1 0-.707zm9.535.707a.5.5 0 0 1-.707 0l-.707-.707a.5.5 0 1 1 .707-.707l.707.707a.5.5 0 0 1 0 .707zM4.243 4.243a.5.5 0 0 1-.707 0l-.707-.707a.5.5 0 1 1 .707-.707l.707.707a.5.5 0 0 1 0 .707z"/>
+    </symbol>
+    <symbol id="moon-stars-fill" viewBox="0 0 16 16">
+      <path d="M6 .278a.77.77 0 0 1 .08.858A7.2 7.2 0 0 0 5.6 4.596C5.6 8.76 9.044 12.2 13.2 12.2c1.314 0 2.55-.33 3.628-.91a.77.77 0 0 1 1.058.877A8.35 8.35 0 1 1 5.833.198A.77.77 0 0 1 6 .278z"/>
+      <path d="M10.794 3.148a.22.22 0 0 1 .412 0l.387 1.162c.042.128.144.23.272.272l1.162.387a.22.22 0 0 1 0 .412l-1.162.387a.43.43 0 0 0-.272.272l-.387 1.162a.22.22 0 0 1-.412 0l-.387-1.162a.43.43 0 0 0-.272-.272l-1.162-.387a.22.22 0 0 1 0-.412l1.162-.387a.43.43 0 0 0 .272-.272l.387-1.162z"/>
+    </symbol>
+    <symbol id="circle-half" viewBox="0 0 16 16">
+      <path d="M8 15A7 7 0 1 0 8 1v14zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16z"/>
+    </symbol>
+  </svg>
   <script type="module" src="{{ runtime_url }}"></script>
   <script type="module">
+    const storedTheme = localStorage.getItem("jbs-theme") || "auto";
+    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const resolvedTheme = storedTheme === "auto" ? (systemPrefersDark ? "dark" : "light") : storedTheme;
+    document.documentElement.setAttribute("data-bs-theme", resolvedTheme);
+
     const flashReplacedComponent = (component, label, variant = "swap") => {
       if (!(component instanceof HTMLElement)) return;
       component.classList.remove("jbs-demo-replaced");
       component.classList.remove("jbs-demo-not-modified");
       component.classList.remove("jbs-demo-stream-patch");
+      component.classList.remove("jbs-demo-cache-hit");
       component.dataset.jbsDemoLabel = label;
       void component.offsetWidth;
       component.classList.add("jbs-demo-replaced");
@@ -259,13 +362,48 @@
         component.classList.add("jbs-demo-not-modified");
       } else if (variant === "stream") {
         component.classList.add("jbs-demo-stream-patch");
+      } else if (variant === "cache") {
+        component.classList.add("jbs-demo-cache-hit");
       }
       window.setTimeout(() => {
         component.classList.remove("jbs-demo-replaced");
         component.classList.remove("jbs-demo-not-modified");
         component.classList.remove("jbs-demo-stream-patch");
+        component.classList.remove("jbs-demo-cache-hit");
       }, 1500);
     };
+
+    const setTheme = (theme) => {
+      localStorage.setItem("jbs-theme", theme);
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const nextTheme = theme === "auto" ? (prefersDark ? "dark" : "light") : theme;
+      document.documentElement.setAttribute("data-bs-theme", nextTheme);
+
+      document.querySelectorAll("[data-bs-theme-value]").forEach((button) => {
+        if (!(button instanceof HTMLElement)) return;
+        const active = button.getAttribute("data-bs-theme-value") === theme;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+
+      const iconUse = document.querySelector("#bd-theme use");
+      if (iconUse instanceof SVGUseElement) {
+        const iconMap = {
+          light: "#sun-fill",
+          dark: "#moon-stars-fill",
+          auto: "#circle-half",
+        };
+        iconUse.setAttribute("href", iconMap[theme] || "#circle-half");
+      }
+    };
+
+    document.querySelectorAll("[data-bs-theme-value]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const value = button.getAttribute("data-bs-theme-value") || "auto";
+        setTheme(value);
+      });
+    });
+    setTheme(storedTheme);
 
     document.addEventListener("jbs:after-swap", (event) => {
       const target = event.target;
@@ -287,6 +425,15 @@
       if (!(target instanceof HTMLElement)) return;
       const label = target.id ? `No change: #${target.id}` : "No visual change";
       flashReplacedComponent(target, label, "not-modified");
+    });
+
+    document.addEventListener("jbs:table-page-cache-hit", (event) => {
+      const detail = event.detail || {};
+      const component = detail.component;
+      const page = Number(detail.page || 0);
+      if (!(component instanceof HTMLElement)) return;
+      const label = page > 0 ? `Cache hit: page ${page}` : "Cache hit";
+      flashReplacedComponent(component, label, "cache");
     });
 
     const pushButton = document.getElementById("simulate-sse-push");

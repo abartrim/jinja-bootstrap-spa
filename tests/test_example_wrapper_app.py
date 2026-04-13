@@ -151,6 +151,44 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
                 ")?.hidden"
             )
 
+            page.locator("#orders-table").get_by_role("button", name="Next").click()
+            page.wait_for_function(
+                "() => document.querySelector('#orders-table')"
+                "?.textContent?.includes('Page 2 of')"
+            )
+            page.locator("#orders-table").get_by_role("button", name="Previous").click()
+            page.wait_for_function(
+                "() => document.querySelector('#orders-table')"
+                "?.textContent?.includes('Page 1 of')"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('orders-table')"
+                "?.classList.contains('jbs-demo-cache-hit')"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('orders-table')"
+                "?.dataset.jbsDemoLabel?.includes('Cache hit')"
+            )
+
+            page.get_by_role("button", name="Theme").click()
+            page.locator(
+                "[data-bs-theme-value='dark']"
+            ).click()
+            page.wait_for_function(
+                "() => document.documentElement"
+                ".getAttribute('data-bs-theme') === 'dark'"
+            )
+            page.wait_for_selector("#orders-table")
+            page.get_by_role("button", name="Theme").click()
+            page.locator(
+                "[data-bs-theme-value='light']"
+            ).click()
+            page.wait_for_function(
+                "() => document.documentElement"
+                ".getAttribute('data-bs-theme') === 'light'"
+            )
+            page.wait_for_selector("#orders-table")
+
             regex_input = page.locator("#orders-table input[name='regex']")
             regex_input.fill("(")
             page.wait_for_function(
