@@ -171,18 +171,14 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             )
 
             page.get_by_role("button", name="Theme").click()
-            page.locator(
-                "[data-bs-theme-value='dark']"
-            ).click()
+            page.locator("[data-bs-theme-value='dark']").click()
             page.wait_for_function(
                 "() => document.documentElement"
                 ".getAttribute('data-bs-theme') === 'dark'"
             )
             page.wait_for_selector("#orders-table")
             page.get_by_role("button", name="Theme").click()
-            page.locator(
-                "[data-bs-theme-value='light']"
-            ).click()
+            page.locator("[data-bs-theme-value='light']").click()
             page.wait_for_function(
                 "() => document.documentElement"
                 ".getAttribute('data-bs-theme') === 'light'"
