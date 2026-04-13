@@ -1337,8 +1337,58 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             page.get_by_role("button", name="Order").click()
             page.wait_for_function(_table_contains("#1012"))
 
+            page.evaluate(
+                """
+                () => {
+                    const originalFetch = window.fetch.bind(window);
+                    window.__jbsOrdersPageRequests = 0;
+                    window.__jbsOrdersCacheHits = 0;
+                    window.fetch = async (input, init) => {
+                        let url = "";
+                        if (typeof input === "string") {
+                            url = input;
+                        } else if (input instanceof URL) {
+                            url = input.toString();
+                        } else if (input instanceof Request) {
+                            url = input.url;
+                        }
+                        const headers = new Headers(
+                            init?.headers || (input instanceof Request ? input.headers : undefined),
+                        );
+                        if (
+                            url.includes('/components/orders') &&
+                            headers.get('X-JBS-Action') === 'page'
+                        ) {
+                            window.__jbsOrdersPageRequests += 1;
+                        }
+                        return originalFetch(input, init);
+                    };
+
+                    document.addEventListener('jbs:table-page-cache-hit', (event) => {
+                        const target = event.target;
+                        if (target instanceof HTMLElement && target.id === 'orders-table') {
+                            window.__jbsOrdersCacheHits += 1;
+                        }
+                    });
+                }
+                """
+            )
+
             page.locator("#orders-table").get_by_role("button", name="Next").click()
             page.wait_for_function(_table_contains("Page 2 of 3"))
+            page.locator("#orders-table").get_by_role("button", name="Previous").click()
+            page.wait_for_function(_table_contains("Page 1 of 3"))
+
+            page_cache_stats = page.evaluate(
+                """
+                () => ({
+                    pageRequests: Number(window.__jbsOrdersPageRequests || 0),
+                    cacheHits: Number(window.__jbsOrdersCacheHits || 0),
+                })
+                """
+            )
+            assert int(page_cache_stats["pageRequests"]) == 1
+            assert int(page_cache_stats["cacheHits"]) >= 1
 
             page.locator("[data-jbs-autocomplete-input]").fill("Marg")
             page.wait_for_selector("[data-jbs-autocomplete-option]")

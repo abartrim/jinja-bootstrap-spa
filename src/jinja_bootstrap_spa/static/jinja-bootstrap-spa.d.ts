@@ -99,6 +99,7 @@ export declare class JBSRuntime {
     private readonly assistControllers;
     private readonly assistHints;
     private readonly disclosureStateStore;
+    private readonly tablePageCache;
     private readonly overlayReturnFocus;
     private lazyObserver;
     private initialized;
@@ -131,6 +132,11 @@ export declare class JBSRuntime {
     private hydratedState;
     private persistStrategy;
     private persistState;
+    private tableCacheSignature;
+    private tablePageNumber;
+    private clearTablePageCache;
+    private cacheCurrentTablePage;
+    private tryServeTablePageFromCache;
     private streamMode;
     private streamBufferMax;
     private streamMaxRows;

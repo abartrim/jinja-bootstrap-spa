@@ -14,6 +14,7 @@ const JBS_NOT_MODIFIED_PULSE_CLASS = "jbs-not-modified-pulse";
 const JBS_STREAM_ROW_PULSE_CLASS = "jbs-stream-row-pulse";
 const JBS_PULSE_MS = 1800;
 const JBS_DEFAULT_LOADING_LABEL = "Loading...";
+const JBS_TABLE_PAGE_CACHE_MAX = 12;
 export const JBS_HEADERS = {
     accept: "text/html",
     marker: "X-JBS-Request",
@@ -232,6 +233,7 @@ export class JBSRuntime {
         this.assistControllers = new Map();
         this.assistHints = new Map();
         this.disclosureStateStore = new Map();
+        this.tablePageCache = new Map();
         this.overlayReturnFocus = new Map();
         this.lazyObserver = null;
         this.initialized = false;
@@ -911,6 +913,7 @@ export class JBSRuntime {
         if (!component.dataset.jbsPhase) {
             this.setComponentPhase(component, JBS_PHASES.idle);
         }
+        this.cacheCurrentTablePage(component, key, state);
         this.applyDisclosureState(component, key);
         this.connectStream(component, key);
         this.runTask(this.flushStreamQueue(component, key), "flush stream queue", component);
@@ -972,6 +975,93 @@ export class JBSRuntime {
         if (persist === JBS_PERSISTENCE.session && typeof sessionStorage !== "undefined") {
             sessionStorage.setItem(sessionStorageKey(component, key), JSON.stringify(state));
         }
+    }
+    tableCacheSignature(component, state) {
+        const scopedState = stripTransientState(cloneState(state));
+        delete scopedState.page;
+        return `${component.dataset.jbsEndpoint ?? ""}|${stableStateString(scopedState)}`;
+    }
+    tablePageNumber(state) {
+        const value = state.page;
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed >= 1) {
+            return Math.floor(parsed);
+        }
+        return null;
+    }
+    clearTablePageCache(key) {
+        this.tablePageCache.delete(key);
+    }
+    cacheCurrentTablePage(component, key, state) {
+        if (component.dataset.jbsComponent !== "table") {
+            return;
+        }
+        const page = this.tablePageNumber(state);
+        if (page === null) {
+            return;
+        }
+        const signature = this.tableCacheSignature(component, state);
+        const existing = this.tablePageCache.get(key);
+        let cache;
+        if (!existing || existing.signature !== signature) {
+            cache = { signature, pages: new Map(), rowHtmlById: new Map() };
+            this.tablePageCache.set(key, cache);
+        }
+        else {
+            cache = existing;
+        }
+        const tableBody = this.tableBody(component);
+        if (!tableBody) {
+            return;
+        }
+        const rowIds = [];
+        for (const row of tableBody.rows) {
+            const rowId = row.dataset.jbsRowId?.trim();
+            if (!rowId) {
+                continue;
+            }
+            rowIds.push(rowId);
+            cache.rowHtmlById.set(rowId, row.outerHTML);
+        }
+        cache.pages.delete(page);
+        cache.pages.set(page, { html: component.outerHTML, rowIds });
+        while (cache.pages.size > JBS_TABLE_PAGE_CACHE_MAX) {
+            const oldest = cache.pages.keys().next().value;
+            if (typeof oldest === "number") {
+                cache.pages.delete(oldest);
+            }
+            else {
+                break;
+            }
+        }
+    }
+    tryServeTablePageFromCache(component, key, action, state, detail) {
+        if (action !== JBS_ACTIONS.page || component.dataset.jbsComponent !== "table") {
+            return false;
+        }
+        const page = this.tablePageNumber(state);
+        if (page === null) {
+            return false;
+        }
+        const cache = this.tablePageCache.get(key);
+        if (!cache) {
+            return false;
+        }
+        const signature = this.tableCacheSignature(component, state);
+        if (cache.signature !== signature) {
+            this.tablePageCache.delete(key);
+            return false;
+        }
+        const snapshot = cache.pages.get(page);
+        if (!snapshot) {
+            return false;
+        }
+        const next = this.swapComponent(component, snapshot.html, key, detail);
+        next.dispatchEvent(new CustomEvent("jbs:table-page-cache-hit", {
+            detail: { component: next, key, page, rowIds: [...snapshot.rowIds] },
+            bubbles: true,
+        }));
+        return true;
     }
     streamMode(component, payload) {
         const explicitMode = payload.mode;
@@ -1220,6 +1310,7 @@ export class JBSRuntime {
         this.stateStore.set(key, nextState);
         component.dataset.jbsState = JSON.stringify(nextState);
         this.persistState(component, key, nextState);
+        this.clearTablePageCache(key);
         this.applyStreamMeta(component, payload);
         if (typeof payload.snapshot === "string") {
             this.streamSnapshots.set(key, payload.snapshot);
@@ -2270,6 +2361,9 @@ export class JBSRuntime {
         const detail = this.requestDetail(action, component, endpoint, requestState, source);
         this.setComponentPhase(component, JBS_PHASES.loading);
         component.dispatchEvent(new CustomEvent("jbs:before-request", { detail, bubbles: true }));
+        if (this.tryServeTablePageFromCache(component, key, action, persistedState, detail)) {
+            return;
+        }
         const requestUrl = new URL(endpoint, window.location.href);
         const persist = this.persistStrategy(component);
         if (persist !== JBS_PERSISTENCE.header) {
@@ -2371,10 +2465,12 @@ export class JBSRuntime {
         this.closeAllDateRangePickers();
         this.closeAllAssistPanels();
         this.hydrate(next.parentNode ?? document);
+        this.cacheCurrentTablePage(next, key, detail.state);
         this.applyDisclosureState(next, key);
         pulseElement(next, JBS_SWAP_PULSE_CLASS);
         next.dispatchEvent(new CustomEvent("jbs:after-swap", { bubbles: true }));
         this.finishRequest(next, detail, JBS_PHASES.success);
+        return next;
     }
 }
 if (typeof window !== "undefined") {
