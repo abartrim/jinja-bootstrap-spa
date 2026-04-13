@@ -1401,6 +1401,11 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             page.locator(
                 "[data-jbs-ms-input-name='status'] [data-jbs-ms-toggle]"
             ).click()
+            page.wait_for_function(
+                "() => !document.querySelector("
+                "\"[data-jbs-ms-input-name='status'] [data-jbs-ms-menu]\""
+                ")?.hasAttribute('hidden')"
+            )
             page.locator(
                 "[data-jbs-ms-input-name='status'] "
                 "[data-jbs-ms-option][data-jbs-ms-value='queued']"
@@ -1410,6 +1415,11 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
                 "#orders-table [data-jbs-ms-input-name='page_size'] "
                 "[data-jbs-ms-toggle]"
             ).click()
+            page.wait_for_function(
+                "() => !document.querySelector("
+                "\"#orders-table [data-jbs-ms-input-name='page_size'] [data-jbs-ms-menu]\""
+                ")?.hasAttribute('hidden')"
+            )
             page.locator(
                 "#orders-table [data-jbs-ms-input-name='page_size'] "
                 "[data-jbs-ms-option][data-jbs-ms-value='8']"
