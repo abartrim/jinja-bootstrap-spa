@@ -100,6 +100,9 @@ all stream modes.
 The feature-to-example coverage map lives in
 [docs/feature_coverage.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/feature_coverage.md).
 
+The generic framework implementation backlog lives in
+[docs/framework_backlog.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/framework_backlog.md).
+
 For manual visual inspection snapshots:
 
 ```bash
