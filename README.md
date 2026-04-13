@@ -49,6 +49,19 @@ npm run typecheck:js
 pytest
 ```
 
+To enforce linting automatically before each commit, enable pre-commit hooks:
+
+```bash
+pip install -e ".[dev]"
+pre-commit install
+```
+
+Run all hooks manually at any time with:
+
+```bash
+pre-commit run --all-files
+```
+
 The browser-level tests use Playwright's Python bindings and expect Chromium to
 be installed through `python -m playwright install chromium`.
 

@@ -1,0 +1,45 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        args: [--check]
+        files: ^(src|tests)/.*\.py$
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--check-only]
+        files: ^(src|tests)/.*\.py$
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        files: ^(src|tests)/.*\.py$
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        files: ^src/.*\.py$
+        additional_dependencies:
+          - Flask>=3.0,<4
+          - Jinja2>=3.1,<4
+
+  - repo: local
+    hooks:
+      - id: djlint-check
+        name: djlint template check
+        entry: djlint --check
+        language: python
+        additional_dependencies:
+          - djlint>=1.36,<2
+        files: ^(src/jinja_bootstrap_spa/templates/.*\.html|examples/.*/templates/.*\.html)$
+
+      - id: ts-typecheck
+        name: TypeScript typecheck
+        entry: npm run typecheck:js
+        language: system
+        pass_filenames: false
