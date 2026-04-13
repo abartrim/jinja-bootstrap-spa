@@ -195,6 +195,9 @@ export declare class JBSRuntime {
     private disclosureElements;
     private hydrateDisclosures;
     private toggleDisclosure;
+    private searchableListElements;
+    private hydrateSearchableLists;
+    private filterSearchableList;
     private dateRangeElements;
     private hydrateDateRangePickers;
     private openDateRangePicker;

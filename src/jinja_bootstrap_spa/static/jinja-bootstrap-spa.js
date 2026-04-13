@@ -459,6 +459,14 @@ export class JBSRuntime {
             if (!input) {
                 return;
             }
+            if (input.hasAttribute("data-jbs-searchable-list-input")) {
+                const wrapper = input.closest("[data-jbs-searchable-list]");
+                if (!wrapper) {
+                    return;
+                }
+                this.filterSearchableList(wrapper);
+                return;
+            }
             if (input.hasAttribute("data-jbs-autocomplete-input")) {
                 const wrapper = input.closest("[data-jbs-autocomplete]");
                 if (!wrapper) {
@@ -839,6 +847,7 @@ export class JBSRuntime {
         this.hydrateDisclosures(root);
         this.hydrateMultiSelects(root);
         this.hydrateDateRangePickers(root);
+        this.hydrateSearchableLists(root);
         const components = root.querySelectorAll("[data-jbs-component][data-jbs-endpoint]");
         for (const component of components) {
             this.hydrateComponent(component, true);
@@ -2116,6 +2125,37 @@ export class JBSRuntime {
         const component = wrapper.closest("[data-jbs-component][data-jbs-endpoint]");
         if (component) {
             this.captureDisclosureState(component);
+        }
+    }
+    searchableListElements(wrapper) {
+        return {
+            input: wrapper.querySelector("[data-jbs-searchable-list-input]"),
+            empty: wrapper.querySelector("[data-jbs-searchable-list-empty]"),
+            items: Array.from(wrapper.querySelectorAll("[data-jbs-searchable-item]")),
+        };
+    }
+    hydrateSearchableLists(root) {
+        const wrappers = root.querySelectorAll("[data-jbs-searchable-list]");
+        for (const wrapper of wrappers) {
+            this.filterSearchableList(wrapper);
+        }
+    }
+    filterSearchableList(wrapper) {
+        const { input, empty, items } = this.searchableListElements(wrapper);
+        const query = (input?.value ?? "").trim().toLowerCase();
+        let visibleCount = 0;
+        for (const item of items) {
+            const haystack = (item.dataset.jbsSearchableText ||
+                item.textContent ||
+                "").toLowerCase();
+            const matches = query.length === 0 || haystack.includes(query);
+            item.hidden = !matches;
+            if (matches) {
+                visibleCount += 1;
+            }
+        }
+        if (empty) {
+            empty.hidden = visibleCount > 0;
         }
     }
     dateRangeElements(wrapper) {

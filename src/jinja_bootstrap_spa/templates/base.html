@@ -150,6 +150,49 @@
             box-shadow: inset 0 0 0 2px rgba(13, 202, 240, 0.18);
         }
 
+        .jbs-stat-card .display-6 {
+            line-height: 1;
+        }
+
+        .jbs-stream-status {
+            border-width: 1px;
+        }
+
+        .jbs-detail-list dt {
+            letter-spacing: 0.02em;
+        }
+
+        .jbs-searchable-list [data-jbs-searchable-item][hidden] {
+            display: none !important;
+        }
+
+        .jbs-split-panel {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .jbs-split-panel[data-jbs-direction="horizontal"] {
+            grid-template-columns:
+                var(--jbs-split-primary, minmax(0, 1fr)) var(--jbs-split-secondary, minmax(0, 1fr));
+        }
+
+        .jbs-split-panel[data-jbs-direction="vertical"] {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows:
+                var(--jbs-split-primary, minmax(0, auto)) var(--jbs-split-secondary, minmax(0, auto));
+        }
+
+        [data-jbs-split-panel] [data-jbs-pane] {
+            min-width: 0;
+        }
+
+        .jbs-workspace-modal .card-body {
+            background:
+                linear-gradient(180deg,
+                    rgba(var(--bs-tertiary-bg-rgb), 0.45),
+                    rgba(var(--bs-body-bg-rgb), 0.12));
+        }
+
         @keyframes jbsLoadingBar {
             0% {
                 background-position: 200% 0;
@@ -191,6 +234,14 @@
 
             .jbs-stream-row-pulse {
                 background-color: rgba(255, 193, 7, 0.22);
+            }
+        }
+
+        @media (max-width: 991.98px) {
+
+            .jbs-split-panel[data-jbs-collapse-on-mobile="true"] {
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-rows: auto auto;
             }
         }
     </style>

@@ -317,6 +317,219 @@ def test_toolbar_macro_supports_badges_call_blocks_and_disclosure() -> None:
     assert '<form data-jbs-form><input name="query" value="open"></form>' in rendered
 
 
+def test_foundation_status_and_metric_macros_render_generic_shells() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.stat_card(
+            "Active Streams",
+            "4",
+            subtitle="Connected tabs",
+            icon="bi bi-broadcast",
+            tone="success",
+            trend={"label": "Healthy", "tone": "success"}
+          )
+        }}
+        {{
+          ui.stream_status(
+            "orders-stream",
+            state="buffered",
+            label="Live paused",
+            buffered_count=3,
+            updated_at="just now"
+          )
+        }}
+        {{
+          ui.callout(
+            title="Migration Note",
+            message="Keep domain language in the consuming app.",
+            tone="primary",
+            icon="bi bi-lightbulb"
+          )
+        }}
+        {{
+          ui.empty_state(
+            "No dashboards yet",
+            "Add a chart to get started.",
+            icon="bi bi-bar-chart"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert "jbs-stat-card" in rendered
+    assert "Active Streams" in rendered
+    assert "Healthy" in rendered
+    assert "data-jbs-stream-status" in rendered
+    assert 'data-jbs-stream-state="buffered"' in rendered
+    assert "3 buffered" in rendered
+    assert "jbs-callout" in rendered
+    assert "Migration Note" in rendered
+    assert "jbs-empty-state" in rendered
+    assert "No dashboards yet" in rendered
+
+
+def test_detail_list_and_key_value_panel_render_structured_metadata() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.detail_list(
+            [
+              {"label": "Service", "value": "api"},
+              {
+                "label": "Status",
+                "value_html": "<span class='badge text-bg-success'>OK</span>"
+              },
+            ],
+            columns=2,
+            striped=true
+          )
+        }}
+        {{
+          ui.key_value_panel(
+            [{"label": "Owner", "value": "platform"}],
+            compact=true
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert "jbs-detail-list" in rendered
+    assert "Service" in rendered
+    assert "badge text-bg-success" in rendered
+    assert "Owner" in rendered
+    assert "platform" in rendered
+
+
+def test_chart_shell_split_panel_and_workspace_modal_render_shell_contract() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {% call ui.chart_shell(
+          "requests-chart",
+          title="Request Volume",
+          subtitle="Shared chart chrome",
+          footer_html="<span>Footer</span>"
+        ) %}
+          <div id="chart-target">chart body</div>
+        {% endcall %}
+        {% call ui.split_panel(direction="horizontal", ratio="2/1") %}
+          <section data-jbs-pane="primary">left</section>
+          <section data-jbs-pane="secondary">right</section>
+        {% endcall %}
+        {% call ui.workspace_modal(
+          "chart-editor",
+          title="Edit Chart",
+          footer_html="<button>Save</button>"
+        ) %}
+          <div class="editor-body">editor</div>
+        {% endcall %}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="requests-chart"' in rendered
+    assert "jbs-chart-shell" in rendered
+    assert "chart body" in rendered
+    assert "data-jbs-split-panel" in rendered
+    assert 'data-jbs-direction="horizontal"' in rendered
+    assert 'data-jbs-pane="primary"' in rendered
+    assert 'id="chart-editor"' in rendered
+    assert "jbs-workspace-modal" in rendered
+    assert "editor-body" in rendered
+
+
+def test_data_grid_macro_renders_table_shell_and_slot_templates() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.data_grid(
+            "orders-grid",
+            "/components/orders-grid",
+            columns=[
+              {"key": "number", "label": "Order", "sortable": true},
+              {"key": "status", "label": "Status", "sortable": false},
+            ],
+            rows=[
+              {"id": "row-1", "number": "#1001", "status": "Queued"},
+              {"id": "row-2", "number": "#1002", "status": "Open"},
+            ],
+            state={"page": 1, "page_size": 10, "sort_by": "number", "sort_dir": "asc"},
+            caption="Orders Grid",
+            subtitle="Richer table shell",
+            count_label="2 seeded rows",
+            toolbar_html="<button>Refresh</button>",
+            empty_html="<div>Nothing here</div>"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="orders-grid"' in rendered
+    assert 'data-jbs-component="table"' in rendered
+    assert "jbs-data-grid" in rendered
+    assert "Orders Grid" in rendered
+    assert "Richer table shell" in rendered
+    assert '<div class="d-none" data-jbs-loading-template>' in rendered
+    assert '<div class="d-none" data-jbs-error-template>' in rendered
+    assert '<div class="d-none" data-jbs-empty-template>' in rendered
+    assert "2 seeded rows" in rendered
+    assert 'data-jbs-sort-key="number"' in rendered
+
+
+def test_searchable_expandable_list_renders_search_and_disclosure_contract() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {% call(item) ui.searchable_expandable_list(
+          "schema-list",
+          items=[
+            {
+              "label": "Orders",
+              "summary": "Stateful grid",
+              "search_text": "orders grid table",
+              "tags": ["grid"],
+              "open": true
+            },
+            {
+              "label": "Customers",
+              "summary": "Autocomplete and forms",
+              "search_text": "customers autocomplete forms"
+            },
+          ]
+        ) %}
+          <div class="item-body">{{ item.summary }}</div>
+        {% endcall %}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="schema-list"' in rendered
+    assert "data-jbs-searchable-list" in rendered
+    assert "data-jbs-searchable-list-input" in rendered
+    assert "data-jbs-searchable-item" in rendered
+    assert 'data-jbs-searchable-text="orders grid table"' in rendered
+    assert "data-jbs-disclosure" in rendered
+    assert "data-jbs-searchable-list-empty" in rendered
+    assert "item-body" in rendered
+
+
 def test_toast_macro_renders_dismissible_status_notice() -> None:
     environment = build_environment()
     template = environment.from_string(

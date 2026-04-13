@@ -323,6 +323,7 @@
     {"label": "Orders", "href": "#orders-table"},
     {"label": "Live", "href": "#live-table"},
     {"label": "Session", "href": "#session-table"},
+    {"label": "Foundations", "href": "#foundation-gallery"},
     ],
     theme="dark",
     background="dark",
@@ -378,6 +379,7 @@
       <a class="jbs-journey-link" href="#session-table"><span class="badge rounded-pill">4</span><i class="bi bi-device-hdd" aria-hidden="true"></i>Session persist</a>
       <a class="jbs-journey-link" href="#cancel-demo"><span class="badge rounded-pill">5</span><i class="bi bi-hourglass-split" aria-hidden="true"></i>Cancellation</a>
       <a class="jbs-journey-link" href="#lazy-summary"><span class="badge rounded-pill">6</span><i class="bi bi-eye" aria-hidden="true"></i>Lazy hydrate</a>
+      <a class="jbs-journey-link" href="#foundation-gallery"><span class="badge rounded-pill">7</span><i class="bi bi-grid-1x2" aria-hidden="true"></i>Foundation gallery</a>
     </div>
   {% endset %}
   <main class="container py-4 jbs-shell">
@@ -510,6 +512,7 @@
              data-jbs-lazy-fetch="true">
       Loading lazy summary…
     </section>
+    {% include "partials/foundation_gallery.html" %}
     <section class="card border-success-subtle shadow-sm mt-4">
       <div class="card-body">
         <h2 class="h6 mb-2">What You Just Saw</h2>

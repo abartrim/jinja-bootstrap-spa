@@ -430,12 +430,41 @@ def build_live_append_context() -> dict[str, Any]:
     }
 
 
+def build_foundation_grid_context() -> dict[str, Any]:
+    return {
+        "foundation_grid_rows": [
+            {
+                "primitive": "data_grid",
+                "purpose": "Reusable CRUD and operator shell for table-driven pages.",
+                "status": '<span class="badge text-bg-success">Implemented</span>',
+            },
+            {
+                "primitive": "searchable_expandable_list",
+                "purpose": "Explorer shell for drill-down lists and schema browsers.",
+                "status": '<span class="badge text-bg-success">Implemented</span>',
+            },
+            {
+                "primitive": "workspace_modal",
+                "purpose": "Large overlay for editors, inspectors, and multi-pane flows.",
+                "status": '<span class="badge text-bg-primary">Ready to compose</span>',
+            },
+        ],
+        "foundation_grid_state": {
+            "page": 1,
+            "page_size": 10,
+            "sort_by": "",
+            "sort_dir": "asc",
+        },
+    }
+
+
 @app.get("/")
 def index() -> str:
     context = build_orders_context()
     context.update(build_session_context())
     context.update(build_live_table_context())
     context.update(build_live_append_context())
+    context.update(build_foundation_grid_context())
     return render_template("index.html", **context)
 
 
@@ -464,6 +493,15 @@ def session_table_component() -> tuple[str, int, dict[str, str]]:
     context = build_orders_context()
     context.update(build_session_context())
     html = render_template("partials/session_table.html", **context)
+    return _fragment_response(html)
+
+
+@app.get("/components/foundation-grid")
+def foundation_grid_component() -> tuple[str, int, dict[str, str]]:
+    html = render_template(
+        "partials/foundation_grid.html",
+        **build_foundation_grid_context(),
+    )
     return _fragment_response(html)
 
 

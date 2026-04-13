@@ -428,6 +428,312 @@ BOOTSTRAP_MACROS = """
   </div>
 {%- endmacro -%}
 
+{%- macro stat_card(title, value, subtitle=None, icon=None, tone="primary",
+                    href=None, trend=None, class_name="", attrs="") -%}
+  {%- set tag = "a" if href else "article" -%}
+  {%- set wrapper_classes = "card shadow-sm h-100 text-decoration-none
+                             jbs-stat-card" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  {%- set trend_label = (
+        trend.label if trend is defined and trend and trend.label is defined
+        else (
+          trend["label"]
+          if trend is mapping and "label" in trend
+          else trend
+        )
+      ) -%}
+  {%- set trend_tone = (
+        trend.tone if trend is defined and trend and trend.tone is defined
+        else (
+          trend["tone"]
+          if trend is mapping and "tone" in trend
+          else tone
+        )
+      ) -%}
+  <{{ tag }} class="{{ wrapper_classes }}"
+    {%- if href %} href="{{ href }}"{% endif -%}
+    {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="card-body">
+      <div class="d-flex align-items-start justify-content-between gap-3">
+        <div class="min-w-0">
+          <div class="text-uppercase small fw-semibold text-body-secondary mb-2">
+            {{ title }}
+          </div>
+          <div class="display-6 fw-semibold mb-1">{{ value }}</div>
+          {%- if subtitle %}
+            <p class="text-body-secondary mb-0">{{ subtitle }}</p>
+          {%- endif %}
+        </div>
+        {%- if icon %}
+          <span class="badge rounded-pill text-bg-{{ tone }}">
+            <i class="{{ icon }}" aria-hidden="true"></i>
+          </span>
+        {%- endif %}
+      </div>
+    </div>
+    {%- if trend_label %}
+      <div class="card-footer bg-body border-0 pt-0">
+        <span class="badge text-bg-{{ trend_tone }}">
+          {{ trend_label }}
+        </span>
+      </div>
+    {%- endif %}
+  </{{ tag }}>
+{%- endmacro -%}
+
+{%- macro empty_state(title, message, icon=None, action_html=None, compact=False,
+                      class_name="", attrs="") -%}
+  {%- set wrapper_classes = "jbs-empty-state text-center border rounded-3
+                             bg-body-tertiary" -%}
+  {%- if compact -%}
+    {%- set wrapper_classes = wrapper_classes ~ " p-3" -%}
+  {%- else -%}
+    {%- set wrapper_classes = wrapper_classes ~ " p-4 p-lg-5" -%}
+  {%- endif -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section class="{{ wrapper_classes }}"
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    {%- if icon %}
+      <div class="mb-3 text-body-secondary fs-2">
+        <i class="{{ icon }}" aria-hidden="true"></i>
+      </div>
+    {%- endif %}
+    <h3 class="{% if compact %}h6{% else %}h5{% endif %} mb-2">{{ title }}</h3>
+    <p class="text-body-secondary mb-{% if action_html %}3{% else %}0{% endif %}">
+      {{ message }}
+    </p>
+    {%- if action_html %}
+      <div class="d-flex flex-wrap align-items-center justify-content-center gap-2">
+        {{ action_html|safe }}
+      </div>
+    {%- endif %}
+  </section>
+{%- endmacro -%}
+
+{%- macro detail_list(items, columns=1, striped=False, compact=False,
+                      class_name="", attrs="") -%}
+  {%- set items = items or [] -%}
+  {%- set wrapper_classes = "row g-3 jbs-detail-list" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  {%- if columns|int <= 1 -%}
+    {%- set item_column_class = "col-12" -%}
+  {%- elif columns|int == 2 -%}
+    {%- set item_column_class = "col-12 col-lg-6" -%}
+  {%- else -%}
+    {%- set item_column_class = "col-12 col-md-6 col-xl-4" -%}
+  {%- endif -%}
+  <div class="{{ wrapper_classes }}"
+       {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    {%- for item in items %}
+      {%- set item_label = (
+            item.label if item.label is defined
+            else (item["label"] if item is mapping else "")
+          ) -%}
+      {%- set item_value = (
+            item.value if item.value is defined
+            else (
+              item["value"]
+              if item is mapping and "value" in item
+              else none
+            )
+          ) -%}
+      {%- set item_value_html = (
+            item.value_html if item.value_html is defined
+            else (
+              item["value_html"]
+              if item is mapping and "value_html" in item
+              else none
+            )
+          ) -%}
+      {%- set item_class_name = (
+            item.class_name if item.class_name is defined
+            else (
+              item["class_name"]
+              if item is mapping and "class_name" in item
+              else ""
+            )
+          ) -%}
+      <div class="{{ item_column_class }}">
+        <div class="border rounded-3 h-100
+                    {% if compact %} p-2{% else %} p-3{% endif %}
+                    {% if striped and
+                          loop.index0 % 2 == 1 %} bg-body-tertiary{% endif %}
+                    {% if item_class_name %} {{ item_class_name }}{% endif %}">
+          <dt class="text-uppercase small text-body-secondary mb-1">
+            {{ item_label }}
+          </dt>
+          <dd class="mb-0">
+            {%- if item_value_html %}
+              {{ item_value_html|safe }}
+            {% else %}
+              <span class="fw-semibold">{{ item_value }}</span>
+            {% endif -%}
+          </dd>
+        </div>
+      </div>
+    {%- endfor %}
+  </div>
+{%- endmacro -%}
+
+{%- macro key_value_panel(items, columns=1, striped=False, compact=False,
+                          class_name="", attrs="") -%}
+  {{-
+    detail_list(
+      items=items,
+      columns=columns,
+      striped=striped,
+      compact=compact,
+      class_name=class_name,
+      attrs=attrs
+    )
+  -}}
+{%- endmacro -%}
+
+{%- macro callout(title=None, message="", message_html=None, tone="info",
+                  icon=None, dismissible=False, class_name="", attrs="") -%}
+  {%- set wrapper_classes = "alert alert-" ~ tone ~ " shadow-sm jbs-callout" -%}
+  {%- if dismissible -%}
+    {%- set wrapper_classes = wrapper_classes ~ " alert-dismissible" -%}
+  {%- endif -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <aside class="{{ wrapper_classes }}"
+         role="note"
+         {%- if dismissible %} data-jbs-status-region{% endif -%}
+         {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="d-flex align-items-start gap-3">
+      {%- if icon %}
+        <div class="fs-5">
+          <i class="{{ icon }}" aria-hidden="true"></i>
+        </div>
+      {%- endif %}
+      <div class="min-w-0 flex-grow-1">
+        {%- if title %}
+          <h3 class="h6 mb-1">{{ title }}</h3>
+        {%- endif %}
+        <div>
+          {%- if message_html %}
+            {{ message_html|safe }}
+          {% else %}
+            {{ message }}
+          {% endif -%}
+        </div>
+      </div>
+      {%- if dismissible %}
+        <button type="button"
+                class="btn-close"
+                aria-label="Dismiss"
+                data-jbs-status-dismiss></button>
+      {%- endif %}
+    </div>
+  </aside>
+{%- endmacro -%}
+
+{%- macro chart_shell(chart_id, title=None, subtitle=None, badges=None,
+                      actions_html=None, footer_html=None, empty_html=None,
+                      error_html=None, class_name="", attrs="") -%}
+  {%- set badges = badges or [] -%}
+  {%- set wrapper_classes = "card shadow-sm jbs-chart-shell" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  {%- set body_html = caller() if caller is defined else none -%}
+  <section id="{{ chart_id }}"
+           class="{{ wrapper_classes }}"
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="card-header bg-body">
+      <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+        <div class="min-w-0">
+          {%- if title %}
+            <h3 class="h5 mb-1">{{ title }}</h3>
+          {%- endif %}
+          {%- if subtitle %}
+            <p class="text-body-secondary mb-0">{{ subtitle }}</p>
+          {%- endif %}
+          {%- if badges %}
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+              {%- for badge in badges %}
+                {%- set badge_label = (
+                      badge.label if badge.label is defined
+                      else (
+                        badge["label"]
+                        if badge is mapping and "label" in badge
+                        else badge
+                      )
+                    ) -%}
+                {%- set badge_variant = (
+                      badge.variant if badge.variant is defined
+                      else (
+                        badge["variant"]
+                        if badge is mapping and "variant" in badge
+                        else "secondary"
+                      )
+                    ) -%}
+                <span class="badge text-bg-{{ badge_variant }}">{{ badge_label }}</span>
+              {%- endfor %}
+            </div>
+          {%- endif %}
+        </div>
+        {%- if actions_html %}
+          <div class="ms-auto d-flex flex-wrap align-items-center gap-2">
+            {{ actions_html|safe }}
+          </div>
+        {%- endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      {%- if body_html %}
+        {{ body_html|safe }}
+      {%- elif empty_html %}
+        {{ empty_html|safe }}
+      {%- else %}
+        <div class="ratio ratio-16x9 border rounded-3 bg-body-tertiary">
+          <div class="d-flex align-items-center justify-content-center
+                      text-body-secondary">
+            Chart render target
+          </div>
+        </div>
+      {%- endif %}
+      {%- if empty_html %}
+        <div class="d-none" data-jbs-empty-template>{{ empty_html|safe }}</div>
+      {%- endif %}
+      {%- if error_html %}
+        <div class="d-none" data-jbs-error-template>{{ error_html|safe }}</div>
+      {%- endif %}
+    </div>
+    {%- if footer_html %}
+      <div class="card-footer bg-body">{{ footer_html|safe }}</div>
+    {%- endif %}
+  </section>
+{%- endmacro -%}
+
+{%- macro split_panel(direction="horizontal", ratio="1/1",
+                      collapse_on_mobile=True, class_name="", attrs="") -%}
+  {%- set ratio_parts = ratio.split("/") if "/" in ratio else ["1", "1"] -%}
+  {%- set primary_size = ratio_parts[0]|trim if ratio_parts|length > 0 else "1" -%}
+  {%- set secondary_size = ratio_parts[1]|trim if ratio_parts|length > 1 else "1" -%}
+  {%- set wrapper_classes = "jbs-split-panel" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section class="{{ wrapper_classes }}"
+           data-jbs-split-panel
+           data-jbs-direction="{{ direction }}"
+           data-jbs-collapse-on-mobile="{{ 'true' if collapse_on_mobile else 'false' }}"
+           style="--jbs-split-primary: minmax(0, {{ primary_size }}fr);
+                  --jbs-split-secondary: minmax(0, {{ secondary_size }}fr);"
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    {{ caller() if caller is defined else "" }}
+  </section>
+{%- endmacro -%}
+
 {%- macro modal(overlay_id, title=None, body="", footer=None, size="lg",
                 close_label="Close", class_name="", attrs="") -%}
   {%- set dialog_classes = "card shadow-lg border-0 w-100" -%}
@@ -534,6 +840,64 @@ BOOTSTRAP_MACROS = """
   </div>
 {%- endmacro -%}
 
+{%- macro workspace_modal(overlay_id, title=None, body="", footer_html=None,
+                          size="xl", sticky_header=True, sticky_footer=True,
+                          close_label="Close", class_name="", attrs="") -%}
+  {%- set dialog_classes = "card shadow-lg border-0 w-100 jbs-workspace-modal" -%}
+  {%- if size == "lg" -%}
+    {%- set dialog_classes = dialog_classes ~ " col-12 col-xl-10" -%}
+  {%- elif size == "xxl" -%}
+    {%- set dialog_classes = dialog_classes ~ " col-12" -%}
+  {%- else -%}
+    {%- set dialog_classes = dialog_classes ~ " col-12 col-xxl-11" -%}
+  {%- endif -%}
+  {%- if class_name -%}
+    {%- set dialog_classes = dialog_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  {%- set content = caller() if caller is defined else body -%}
+  <div id="{{ overlay_id }}"
+       class="jbs-overlay position-fixed top-0 start-0 w-100 h-100 z-3"
+       data-jbs-overlay="modal"
+       role="dialog"
+       aria-modal="true"
+       aria-hidden="true"
+       hidden
+       {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="position-absolute top-0 start-0 w-100 h-100 bg-dark
+                bg-opacity-50"></div>
+    <div class="position-relative w-100 h-100 d-flex align-items-center
+                justify-content-center p-3">
+      <div class="position-relative {{ dialog_classes }}"
+           data-jbs-overlay-panel
+           tabindex="-1">
+        <div class="card-header bg-body d-flex align-items-center
+                    justify-content-between gap-3
+                    {% if sticky_header %} position-sticky top-0 z-1{% endif %}">
+          <div class="min-w-0">
+            {%- if title %}
+              <h2 class="h4 mb-0">{{ title }}</h2>
+            {%- endif %}
+          </div>
+          <button type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  data-jbs-overlay-close>
+            {{ close_label }}
+          </button>
+        </div>
+        <div class="card-body overflow-auto" style="max-height: min(75vh, 960px);">
+          {{ content|safe }}
+        </div>
+        {%- if footer_html %}
+          <div class="card-footer bg-body
+                      {% if sticky_footer %} position-sticky bottom-0 z-1{% endif %}">
+            {{ footer_html|safe }}
+          </div>
+        {%- endif %}
+      </div>
+    </div>
+  </div>
+{%- endmacro -%}
+
 {%- macro status_region(region_id=None, title=None, message="", variant="info",
                         dismissible=True, class_name="", attrs="") -%}
   {%- set region_classes = "alert alert-" ~ variant -%}
@@ -589,6 +953,55 @@ BOOTSTRAP_MACROS = """
       {%- endif %}
     </div>
   </aside>
+{%- endmacro -%}
+
+{%- macro stream_status(status_id=None, state="idle", label=None, buffered_count=0,
+                        updated_at=None, controls_html=None, compact=False,
+                        class_name="", attrs="") -%}
+  {%- if state == "live" -%}
+    {%- set variant = "success" -%}
+  {%- elif state == "connecting" -%}
+    {%- set variant = "info" -%}
+  {%- elif state == "paused" or state == "buffered" -%}
+    {%- set variant = "warning" -%}
+  {%- elif state == "error" -%}
+    {%- set variant = "danger" -%}
+  {%- elif state == "stale" -%}
+    {%- set variant = "secondary" -%}
+  {%- else -%}
+    {%- set variant = "secondary" -%}
+  {%- endif -%}
+  {%- set wrapper_classes = "alert alert-" ~ variant ~ " mb-0 jbs-stream-status" -%}
+  {%- if compact -%}
+    {%- set wrapper_classes = wrapper_classes ~ " py-2 px-3" -%}
+  {%- endif -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section class="{{ wrapper_classes }}"
+           role="status"
+           aria-live="polite"
+           data-jbs-stream-status
+           data-jbs-stream-state="{{ state }}"
+           {%- if status_id %} id="{{ status_id }}"{% endif -%}
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="fw-semibold">{{ label or state|replace("_", " ")|title }}</span>
+        {%- if buffered_count %}
+          <span class="badge text-bg-dark">{{ buffered_count }} buffered</span>
+        {%- endif %}
+        {%- if updated_at %}
+          <span class="small text-body-secondary">Updated {{ updated_at }}</span>
+        {%- endif %}
+      </div>
+      {%- if controls_html %}
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          {{ controls_html|safe }}
+        </div>
+      {%- endif %}
+    </div>
+  </section>
 {%- endmacro -%}
 
 {%- macro filter_accordion(
@@ -1133,6 +1546,315 @@ BOOTSTRAP_MACROS = """
   {%- else -%}
     <span aria-hidden="true"><i class="bi bi-arrow-up"></i></span>
   {%- endif -%}
+{%- endmacro -%}
+
+{%- macro data_grid(component_id, endpoint, columns, rows, state=None,
+                    caption=None, subtitle=None, count_label=None,
+                    empty_html=None, loading_html=None, error_html=None,
+                    toolbar_html=None, row_actions_slot=False,
+                    mobile_labels=True, persist="header", state_keys=None,
+                    sse_endpoint=None, sse_event="refresh",
+                    stream_mode="replace", stream_max_rows=None,
+                    stream_pause_when_hidden=False, stream_buffer_max=100,
+                    lazy=False, class_name="", attrs="") -%}
+  {%- set state = state or {} -%}
+  {%- set state_keys = (
+        state_keys or ["page", "page_size", "sort_by", "sort_dir", "query"]
+      ) -%}
+  {%- set page = state.page or 1 -%}
+  {%- set page_size = state.page_size or 10 -%}
+  {%- set total_rows = rows|length -%}
+  {%- set current_sort_by = state.sort_by or "" -%}
+  {%- set current_sort_dir = state.sort_dir or "asc" -%}
+  {%- set page_count = ((total_rows - 1) // page_size) + 1 if total_rows > 0 else 1 -%}
+  {%- set pause_stream = 'true' if stream_pause_when_hidden else 'false' -%}
+  {%- set wrapper_classes = "card shadow-sm jbs-data-grid" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  {%- set resolved_empty_html = empty_html or empty_state(
+        "No results",
+        "Try adjusting the current filters or source query.",
+        icon="bi bi-inbox",
+        compact=True
+      ) -%}
+  {%- set resolved_loading_html = loading_html or
+        '<div class="d-flex align-items-center gap-2">
+           <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+           <span>Refreshing grid…</span>
+         </div>' -%}
+  {%- set resolved_error_html = error_html or callout(
+        title="Grid refresh failed",
+        message="The server could not return fresh rows.",
+        tone="danger",
+        icon="bi bi-exclamation-triangle"
+      ) -%}
+  <section id="{{ component_id }}"
+           class="{{ wrapper_classes }}"
+           data-jbs-component="table"
+           data-jbs-endpoint="{{ endpoint }}"
+           data-jbs-target="#{{ component_id }}"
+           data-jbs-key="{{ component_id }}"
+           data-jbs-swap="outerHTML"
+           data-jbs-persist="{{ persist }}"
+           data-jbs-state-keys="{{ state_keys|join(',') }}"
+           data-jbs-mobile-labels="{{ 'true' if mobile_labels else 'false' }}"
+           data-jbs-row-actions-slot="{{ 'true' if row_actions_slot else 'false' }}"
+           {%- if sse_endpoint %} data-jbs-sse="{{ sse_endpoint }}"{% endif -%}
+           {%- if sse_endpoint %} data-jbs-sse-event="{{ sse_event }}"{% endif -%}
+           data-jbs-stream-mode="{{ stream_mode }}"
+           {%- if stream_max_rows is not none %}
+             data-jbs-stream-max-rows="{{ stream_max_rows }}"
+           {% endif -%}
+           data-jbs-stream-pause-when-hidden="{{ pause_stream }}"
+           data-jbs-stream-buffer-max="{{ stream_buffer_max }}"
+           {%- if lazy %} data-jbs-lazy="true"{% endif -%}
+           data-jbs-state='{{ state|tojson }}'
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="card-header bg-body">
+      <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+        <div class="min-w-0">
+          {%- if caption %}
+            <h3 class="h5 mb-1">{{ caption }}</h3>
+          {%- endif %}
+          {%- if subtitle %}
+            <p class="text-body-secondary mb-0">{{ subtitle }}</p>
+          {%- endif %}
+        </div>
+        {%- if toolbar_html %}
+          <div class="ms-auto d-flex flex-wrap align-items-center gap-2">
+            {{ toolbar_html|safe }}
+          </div>
+        {%- endif %}
+      </div>
+    </div>
+    <div class="card-body p-0">
+      {%- if rows %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                {%- for column in columns %}
+                  <th scope="col"
+                      {%- if column.header_class %}
+                        class="{{ column.header_class }}"
+                      {%- endif %}>
+                    {%- if column.sortable %}
+                      {%- set is_active = current_sort_by == column.key -%}
+                      {%- set next_direction = (
+                            "desc" if is_active and current_sort_dir == "asc" else "asc"
+                          ) -%}
+                      <button type="button"
+                              class="btn btn-link px-0 py-0 text-decoration-none
+                                     fw-semibold text-body"
+                              data-jbs-action="sort"
+                              data-jbs-sort-key="{{ column.key }}"
+                              data-jbs-sort-direction="{{ next_direction }}">
+                        {{ column.label }}
+                        {{ sort_indicator(is_active, current_sort_dir) }}
+                      </button>
+                    {%- else %}
+                      {{ column.label }}
+                    {%- endif %}
+                  </th>
+                {%- endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {%- for row in rows %}
+                <tr
+                  {%- if row.id is defined %}
+                    data-jbs-row-id="{{ row.id }}"
+                  {% endif -%}>
+                  {%- for column in columns %}
+                    {%- set cell = row[column.key] -%}
+                    <td
+                      {%- if column.cell_class %}
+                        class="{{ column.cell_class }}"
+                      {%- endif %}>
+                      {%- if column.html %}
+                        {{ cell|safe }}
+                      {% else %}
+                        {{ cell }}
+                      {% endif -%}
+                    </td>
+                  {%- endfor %}
+                </tr>
+              {%- endfor %}
+            </tbody>
+          </table>
+        </div>
+      {%- else %}
+        <div class="p-3 p-lg-4">
+          {{ resolved_empty_html|safe }}
+        </div>
+      {%- endif %}
+      <div class="d-none" data-jbs-loading-template>
+        {{ resolved_loading_html|safe }}
+      </div>
+      <div class="d-none" data-jbs-error-template>{{ resolved_error_html|safe }}</div>
+      <div class="d-none" data-jbs-empty-template>{{ resolved_empty_html|safe }}</div>
+    </div>
+    <div class="card-footer bg-body d-flex flex-wrap align-items-center
+                justify-content-between gap-3">
+      <small class="text-body-secondary">
+        {{ count_label or ('Showing ' ~ rows|length ~ ' of ' ~ total_rows ~ ' rows') }}
+      </small>
+      <div class="btn-group" role="group" aria-label="Pagination">
+        {{ button(
+          "Previous",
+          variant="outline-secondary",
+          size="sm",
+          disabled=page <= 1,
+          jbs_action="page",
+          jbs_page=page - 1
+        ) }}
+        <span class="btn btn-outline-secondary btn-sm disabled">
+          Page {{ page }} of {{ page_count }}
+        </span>
+        {{ button(
+          "Next",
+          variant="outline-secondary",
+          size="sm",
+          disabled=page >= page_count,
+          jbs_action="page",
+          jbs_page=page + 1
+        ) }}
+      </div>
+    </div>
+  </section>
+{%- endmacro -%}
+
+{%- macro searchable_expandable_list(list_id, items, search_input=True,
+                                     search_placeholder="Search items...",
+                                     empty_title="No matching items",
+                                     empty_message="Try another search term.",
+                                     class_name="", attrs="") -%}
+  {%- set items = items or [] -%}
+  {%- set wrapper_classes = "card shadow-sm jbs-searchable-list" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section id="{{ list_id }}"
+           class="{{ wrapper_classes }}"
+           data-jbs-searchable-list
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    {%- if search_input %}
+      <div class="card-header bg-body">
+        <label class="form-label small text-body-secondary mb-2"
+               for="{{ list_id }}-search">
+          Search
+        </label>
+        <input id="{{ list_id }}-search"
+               type="search"
+               class="form-control form-control-sm"
+               placeholder="{{ search_placeholder }}"
+               data-jbs-searchable-list-input>
+      </div>
+    {%- endif %}
+    <div class="card-body vstack gap-3">
+      {%- for item in items %}
+        {%- set item_label = (
+              item.label if item.label is defined
+              else (item["label"] if item is mapping else "")
+            ) -%}
+        {%- set item_summary = (
+              item.summary if item.summary is defined
+              else (
+                item["summary"]
+                if item is mapping and "summary" in item
+                else none
+              )
+            ) -%}
+        {%- set item_search_text = (
+              item.search_text if item.search_text is defined
+              else (
+                item["search_text"]
+                if item is mapping and "search_text" in item
+                else item_label ~ " " ~ (item_summary or "")
+              )
+            ) -%}
+        {%- set item_tags = (
+              item.tags if item.tags is defined
+              else (
+                item["tags"]
+                if item is mapping and "tags" in item
+                else []
+              )
+            ) -%}
+        {%- set item_open = (
+              item.open if item.open is defined
+              else (
+                item["open"]
+                if item is mapping and "open" in item
+                else false
+              )
+            ) -%}
+        {%- set item_panel_id = list_id ~ "-item-" ~ loop.index -%}
+        <section class="border rounded-3 overflow-hidden"
+                 data-jbs-searchable-item
+                 data-jbs-searchable-text="{{ item_search_text|lower }}">
+          <div data-jbs-disclosure>
+            <button type="button"
+                    class="btn btn-link text-start text-decoration-none
+                           w-100 px-3 py-3 text-body"
+                    data-jbs-disclosure-trigger
+                    aria-expanded="{{ 'true' if item_open else 'false' }}"
+                    aria-controls="{{ item_panel_id }}">
+              <span class="d-flex flex-wrap align-items-start
+                           justify-content-between gap-3 w-100">
+                <span class="min-w-0">
+                  <span class="fw-semibold d-block">{{ item_label }}</span>
+                  {%- if item_summary %}
+                    <span class="small text-body-secondary d-block mt-1">
+                      {{ item_summary }}
+                    </span>
+                  {%- endif %}
+                  {%- if item_tags %}
+                    <span class="d-flex flex-wrap gap-1 mt-2">
+                      {%- for tag in item_tags %}
+                        <span class="badge text-bg-light border">{{ tag }}</span>
+                      {%- endfor %}
+                    </span>
+                  {%- endif %}
+                </span>
+                <span class="ms-auto text-body-secondary"
+                      data-jbs-disclosure-icon
+                      aria-hidden="true">
+                  <i class="bi bi-chevron-down"></i>
+                </span>
+              </span>
+            </button>
+            <div id="{{ item_panel_id }}"
+                 class="border-top px-3 py-3"
+                 data-jbs-disclosure-panel
+                 role="region"
+                 {%- if not item_open %} hidden{% endif -%}>
+              {%- if caller is defined %}
+                {{ caller(item) }}
+              {%- else %}
+                {{
+                  item.body_html|safe
+                  if item.body_html is defined
+                  else ""
+                }}
+              {%- endif %}
+            </div>
+          </div>
+        </section>
+      {%- endfor %}
+      <div data-jbs-searchable-list-empty{% if items %} hidden{% endif %}>
+        {{
+          empty_state(
+            empty_title,
+            empty_message,
+            icon="bi bi-search",
+            compact=True
+          )
+        }}
+      </div>
+    </div>
+  </section>
 {%- endmacro -%}
 
 {%- macro table(component_id, endpoint, columns, rows, state=None,

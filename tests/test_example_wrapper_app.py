@@ -85,6 +85,9 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.wait_for_selector("#session-table")
             page.wait_for_selector("#cancel-demo")
             page.wait_for_selector("#lazy-summary")
+            page.wait_for_selector("#foundation-gallery")
+            page.wait_for_selector("#foundation-grid")
+            page.wait_for_selector("#foundation-searchable-list")
             page.wait_for_selector("nav.navbar")
 
             page.get_by_role("button", name="About Runtime").click()
@@ -259,6 +262,50 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.wait_for_function(
                 "() => document.querySelector('#session-table')"
                 "?.textContent?.includes('Showing 4 of 6')"
+            )
+
+            page.locator("#foundation-gallery").scroll_into_view_if_needed()
+            page.wait_for_selector("#foundation-stream-status")
+            page.wait_for_selector("#foundation-toast")
+            page.wait_for_selector("#foundation-chart-shell")
+            foundation_search = page.locator(
+                "#foundation-searchable-list [data-jbs-searchable-list-input]"
+            )
+            foundation_search.fill("workspace")
+            page.wait_for_function(
+                "() => {"
+                "  const items = Array.from(document.querySelectorAll("
+                "    '#foundation-searchable-list [data-jbs-searchable-item]'"
+                "  ));"
+                "  const visible = items.filter((item) => !item.hidden);"
+                "  return visible.length === 1 && "
+                "    visible[0]?.textContent?.includes('Workspace Layout');"
+                "}"
+            )
+            foundation_search.fill("missing-term")
+            page.wait_for_function(
+                "() => !document.querySelector("
+                "  '#foundation-searchable-list [data-jbs-searchable-list-empty]'"
+                ")?.hidden"
+            )
+            foundation_search.fill("")
+            page.wait_for_function(
+                "() => {"
+                "  const items = Array.from(document.querySelectorAll("
+                "    '#foundation-searchable-list [data-jbs-searchable-item]'"
+                "  ));"
+                "  return items.filter((item) => !item.hidden).length === 3;"
+                "}"
+            )
+            page.get_by_role("button", name="Open Workspace Modal").click()
+            page.wait_for_function(
+                "() => !document.getElementById('foundation-workspace-modal')?.hidden"
+            )
+            page.locator("#foundation-workspace-modal").get_by_role(
+                "button", name="Apply Layout"
+            ).click()
+            page.wait_for_function(
+                "() => !!document.getElementById('foundation-workspace-modal')?.hidden"
             )
 
             page.locator("#cancel-demo").get_by_role(

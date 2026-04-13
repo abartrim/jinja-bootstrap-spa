@@ -38,7 +38,7 @@ Prioritize primitives that:
 
 #### `page_header(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 
@@ -79,7 +79,7 @@ Sobs pages unblocked:
 
 #### `toolbar(...)` / `filter_bar_shell(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 
@@ -120,7 +120,7 @@ Sobs pages unblocked:
 
 #### `data_grid(...)`
 
-Status: partial, table base exists
+Status: implemented
 
 Why:
 
@@ -168,7 +168,7 @@ Sobs pages unblocked:
 
 #### `stream_status(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 
@@ -204,7 +204,7 @@ Sobs pages unblocked:
 
 #### `stat_card(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 
@@ -234,7 +234,7 @@ Sobs pages unblocked:
 
 #### `empty_state(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 
@@ -265,7 +265,7 @@ Sobs pages unblocked:
 
 #### `detail_list(...)` / `key_value_panel(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 
@@ -294,7 +294,7 @@ Sobs pages unblocked:
 
 #### `callout(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 
@@ -324,7 +324,7 @@ Sobs pages unblocked:
 
 #### `searchable_expandable_list(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 
@@ -358,7 +358,7 @@ Sobs pages unblocked:
 
 #### `chart_shell(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 
@@ -395,7 +395,7 @@ Sobs pages unblocked:
 
 #### `workspace_modal(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 
@@ -426,7 +426,7 @@ Sobs pages unblocked:
 
 #### `split_panel(...)`
 
-Status: missing
+Status: implemented
 
 Why:
 

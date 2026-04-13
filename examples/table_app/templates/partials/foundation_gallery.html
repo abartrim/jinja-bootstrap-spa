@@ -1,0 +1,299 @@
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{% set foundation_actions %}
+  {{ ui.button("Open Workspace Modal",
+      variant="primary",
+      size="sm",
+      attrs='data-jbs-overlay-open="foundation-workspace-modal"') 
+  }}
+  {{ ui.action_menu("foundation-toolbar-actions",
+      label="Resources",
+      items=[
+      {"label": "README", "href": "https://github.com/abartrim/jinja-bootstrap-spa#readme"},
+      {"label": "Backlog", "href": "https://github.com/abartrim/jinja-bootstrap-spa/blob/main/docs/framework_backlog.md"},
+      ]) 
+  }}
+{% endset %}
+{% set foundation_tabs = [
+  {"label": "Foundations", "href": "#foundation-gallery", "active": true},
+  {"label": "Data Grid", "href": "#foundation-grid"},
+  {"label": "Explorer", "href": "#foundation-searchable-list"},
+] %}
+{% set stream_controls %}
+  {{ ui.button("Reconnect", variant="outline-secondary", size="sm") }}
+  {{ ui.button("Pause", variant="outline-secondary", size="sm") }}
+{% endset %}
+{% set chart_footer %}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span class="small text-body-secondary">Chart libraries stay app-level; this shell standardizes the card chrome.</span>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge text-bg-secondary">Footer Slot</span>
+      <span class="badge text-bg-primary">Actions Slot</span>
+    </div>
+  </div>
+{% endset %}
+{% set foundation_form %}
+  <form class="vstack gap-0">
+    {{ ui.form_select("macro-tone",
+        [
+        {"value": "primary", "label": "Primary"},
+        {"value": "success", "label": "Success"},
+        {"value": "warning", "label": "Warning"},
+        ],
+        label="Preferred Tone",
+        value="primary",
+        help_text="Ship generic shells here, then let consuming apps add domain semantics.") 
+    }}
+    {{ ui.textarea("macro-notes",
+        label="Author Notes",
+        value="Keep the framework generic, opinionated, and composable. Build app-specific macros on top.",
+        rows=5,
+        help_text="Textarea and select are visible here so the wrapper exercises every shipped form primitive.") 
+    }}
+    <div class="d-flex flex-wrap gap-2">
+      {{ ui.button("Save Draft", size="sm") }}
+      {{ ui.button("Preview", variant="outline-secondary", size="sm") }}
+    </div>
+  </form>
+{% endset %}
+{% set explorer_items = [
+  {
+    "label": "Data Presentation",
+    "summary": "Tables, grids, empty states, stream status, and stat cards.",
+    "search_text": "grid table stream status stat card list",
+    "tags": ["grid", "status", "metrics"],
+    "body": "Compose data-rich pages without inventing new view chrome for every app.",
+    "open": true,
+  },
+  {
+    "label": "Detail & Guidance",
+    "summary": "Callouts, key-value panels, and chart shells.",
+    "search_text": "callout detail list key value chart shell",
+    "tags": ["details", "chart", "callout"],
+    "body": "Use these when the app needs metadata, guidance, or a consistent analytics shell.",
+  },
+  {
+    "label": "Workspace Layout",
+    "summary": "Split panels, workspace modals, and editor scaffolding.",
+    "search_text": "split panel workspace modal editor inspector drawer",
+    "tags": ["layout", "modal", "editor"],
+    "body": "These primitives keep builder-style pages consistent while leaving business logic in the consuming app.",
+  },
+] %}
+{% set workspace_footer %}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <span class="small text-body-secondary">Workspace overlays are for inspectors, editors, and side-by-side task flows.</span>
+    <div class="d-flex flex-wrap gap-2">
+      {{ ui.button("Cancel",
+          variant="outline-secondary",
+          size="sm",
+          attrs='data-jbs-overlay-close') 
+      }}
+      {{ ui.button("Apply Layout",
+          variant="primary",
+          size="sm",
+          attrs='data-jbs-overlay-close') 
+      }}
+    </div>
+  </div>
+{% endset %}
+
+<section id="foundation-gallery" class="mt-5">
+  {{ ui.page_header(title="Foundation Component Gallery",
+      subtitle="These are the generic shells consuming apps can layer into product-specific macros and templates.",
+      icon="bi bi-grid-1x2",
+      eyebrow="Framework Surface",
+      meta_html='<span class="badge text-bg-success">Backlog tranche</span><span class="badge text-bg-secondary">Generic primitives</span>',
+      actions_html=foundation_actions,
+      class_name="mb-4") 
+  }}
+  <div class="mb-4">
+    {{ ui.tabs("foundation-gallery-tabs", foundation_tabs, active="Foundations", variant="tabs") }}
+  </div>
+  {{ ui.callout(title="Opinionated by Design",
+      message="The framework owns structural primitives and the replacement/runtime contract. Consuming apps own product language, workflows, and domain composition.",
+      tone="primary",
+      icon="bi bi-lightbulb",
+      class_name="mb-4") 
+  }}
+
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+      {{ ui.stat_card("Published Macros",
+          "25+",
+          subtitle="Buttons, forms, shells, overlays, and SPA-like data surfaces.",
+          icon="bi bi-boxes",
+          tone="primary",
+          trend={"label": "Growing backlog", "tone": "primary"}) 
+      }}
+    </div>
+    <div class="col-12 col-md-4">
+      {{ ui.stat_card("Runtime Contract",
+          "Stable",
+          subtitle="Header/query/session persistence with swap, cache, and SSE semantics.",
+          icon="bi bi-arrow-repeat",
+          tone="success",
+          trend={"label": "SSE ready", "tone": "success"}) 
+      }}
+    </div>
+    <div class="col-12 col-md-4">
+      {{ ui.stat_card("App Strategy",
+          "Compose",
+          subtitle="Build local macros on top of these primitives instead of forking the runtime.",
+          icon="bi bi-layers",
+          tone="warning",
+          trend={"label": "Generic first", "tone": "warning"}) 
+      }}
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-12">
+      {{ ui.stream_status("foundation-stream-status",
+          state="buffered",
+          label="Live stream paused while tab is hidden",
+          buffered_count=4,
+          updated_at="just now",
+          controls_html=stream_controls) 
+      }}
+    </div>
+    <div class="col-12 col-lg-7">
+      {{ ui.status_region("foundation-status-region",
+          title="Status Region",
+          message="Use this for inline, dismissible page status messages that should remain in flow.",
+          variant="info",
+          dismissible=false) 
+      }}
+    </div>
+    <div class="col-12 col-lg-5">
+      {{ ui.toast("foundation-toast",
+          title="Toast Primitive",
+          message="Use this for compact notices when the page needs a lighter-weight status surface.",
+          variant="warning",
+          dismissible=false) 
+      }}
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-6">
+      {{ ui.card(title="Detail List",
+          body=ui.detail_list(
+            [
+              {"label": "Primary Goal", "value": "Reusable generic shells"},
+              {"label": "Transport", "value_html": "<span class=\"badge text-bg-secondary\">HTML fragments + headers</span>"},
+              {"label": "Progressive UX", "value": "Replacement, SSE, cache, and lazy hydration"},
+              {"label": "Authoring Style", "value": "Jinja macros + Bootstrap classes"},
+            ],
+            columns=2,
+            striped=true
+          ),
+          class_name="h-100 shadow-sm") 
+      }}
+    </div>
+    <div class="col-12 col-lg-6">
+      {{ ui.card(title="Form Controls",
+          body=foundation_form,
+          class_name="h-100 shadow-sm") 
+      }}
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-7">
+      {% call ui.chart_shell(
+        "foundation-chart-shell",
+        title="Chart Shell",
+        subtitle="The shell is standardized here; the actual chart implementation can vary by app.",
+        badges=[{"label": "Shell", "variant": "primary"}, {"label": "Bring your own chart", "variant": "secondary"}],
+        actions_html=ui.button("Refresh", variant="outline-secondary", size="sm"),
+        footer_html=chart_footer
+      ) %}
+        <div class="ratio ratio-16x9 border rounded-3 bg-body-tertiary">
+          <div class="d-flex flex-column justify-content-center px-4">
+            <div class="progress mb-3" role="presentation">
+              <div class="progress-bar bg-primary" style="width: 76%;">Requests</div>
+            </div>
+            <div class="progress mb-3" role="presentation">
+              <div class="progress-bar bg-success" style="width: 58%;">Latency</div>
+            </div>
+            <div class="progress" role="presentation">
+              <div class="progress-bar bg-warning text-dark" style="width: 31%;">Errors</div>
+            </div>
+          </div>
+        </div>
+      {% endcall %}
+    </div>
+    <div class="col-12 col-lg-5">
+      {{ ui.empty_state("No custom macros yet",
+          "This is the generic baseline. Consuming apps should compose domain-specific macros on top of it.",
+          icon="bi bi-braces-asterisk",
+          action_html=ui.button("Read Contribution Guide", href="https://github.com/abartrim/jinja-bootstrap-spa#contributing", variant="outline-primary", size="sm"),
+          class_name="h-100") 
+      }}
+    </div>
+  </div>
+
+  {% call ui.split_panel(direction="horizontal", ratio="3/2", class_name="mb-4") %}
+    <section data-jbs-pane="primary" class="vstack gap-3">
+      {% include "partials/foundation_grid.html" %}
+    </section>
+    <section data-jbs-pane="secondary" class="vstack gap-3">
+      {% call(item) ui.searchable_expandable_list(
+        "foundation-searchable-list",
+        explorer_items,
+        search_placeholder="Filter foundation primitives..."
+      ) %}
+        <p class="small text-body-secondary mb-2">{{ item.body }}</p>
+        <div class="d-flex flex-wrap gap-2">
+          {% for tag in item.tags %}
+            <span class="badge text-bg-light border">{{ tag }}</span>
+          {% endfor %}
+        </div>
+      {% endcall %}
+    </section>
+  {% endcall %}
+
+  {% call ui.workspace_modal(
+    "foundation-workspace-modal",
+    title="Workspace Modal Primitive",
+    footer_html=workspace_footer,
+    size="xl"
+  ) %}
+    {% call ui.split_panel(direction="horizontal", ratio="2/1", collapse_on_mobile=true) %}
+      <section data-jbs-pane="primary" class="vstack gap-3">
+        {{ ui.callout(title="Editor Workspace",
+            message="Use this overlay when the user needs a focused editing or inspection surface without leaving the current page.",
+            tone="info",
+            icon="bi bi-window-fullscreen") 
+        }}
+        {{ ui.card(title="Workspace Notes",
+            body=ui.textarea(
+              "workspace-notes",
+              label="Implementation Direction",
+              value="Keep workflows app-specific. Reuse foundation shells for structure, not business logic.",
+              rows=8
+            )) 
+        }}
+      </section>
+      <section data-jbs-pane="secondary" class="vstack gap-3">
+        {{ ui.key_value_panel(
+            [
+              {"label": "Overlay Type", "value": "Modal"},
+              {"label": "Sticky Header", "value": "Supported"},
+              {"label": "Sticky Footer", "value": "Supported"},
+              {"label": "Best Fit", "value": "Editors, inspectors, builders"},
+            ],
+            compact=true
+          ) 
+        }}
+        {{ ui.empty_state(
+            "Secondary Preview",
+            "Use the secondary pane for contextual help, previews, or validation summaries.",
+            icon="bi bi-layout-text-window-reverse",
+            compact=true
+          ) 
+        }}
+      </section>
+    {% endcall %}
+  {% endcall %}
+</section>

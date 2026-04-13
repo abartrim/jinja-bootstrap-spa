@@ -666,6 +666,7 @@ export class JBSRuntime {
     this.hydrateDisclosures(root);
     this.hydrateMultiSelects(root);
     this.hydrateDateRangePickers(root);
+    this.hydrateSearchableLists(root);
 
     const components = root.querySelectorAll<HTMLElement>(
       "[data-jbs-component][data-jbs-endpoint]",
@@ -2247,6 +2248,50 @@ export class JBSRuntime {
     }
   }
 
+  private searchableListElements(wrapper: Element): {
+    input: HTMLInputElement | null;
+    empty: HTMLElement | null;
+    items: HTMLElement[];
+  } {
+    return {
+      input: wrapper.querySelector<HTMLInputElement>("[data-jbs-searchable-list-input]"),
+      empty: wrapper.querySelector<HTMLElement>("[data-jbs-searchable-list-empty]"),
+      items: Array.from(
+        wrapper.querySelectorAll<HTMLElement>("[data-jbs-searchable-item]"),
+      ),
+    };
+  }
+
+  private hydrateSearchableLists(root: ParentNode): void {
+    const wrappers = root.querySelectorAll<HTMLElement>("[data-jbs-searchable-list]");
+    for (const wrapper of wrappers) {
+      this.filterSearchableList(wrapper);
+    }
+  }
+
+  private filterSearchableList(wrapper: HTMLElement): void {
+    const { input, empty, items } = this.searchableListElements(wrapper);
+    const query = (input?.value ?? "").trim().toLowerCase();
+    let visibleCount = 0;
+
+    for (const item of items) {
+      const haystack = (
+        item.dataset.jbsSearchableText ||
+        item.textContent ||
+        ""
+      ).toLowerCase();
+      const matches = query.length === 0 || haystack.includes(query);
+      item.hidden = !matches;
+      if (matches) {
+        visibleCount += 1;
+      }
+    }
+
+    if (empty) {
+      empty.hidden = visibleCount > 0;
+    }
+  }
+
   private dateRangeElements(wrapper: Element): {
     fromInput: HTMLInputElement | null;
     toInput: HTMLInputElement | null;
@@ -3054,6 +3099,15 @@ export class JBSRuntime {
   private handleInput = (event: Event): void => {
     const input = event.target instanceof HTMLInputElement ? event.target : null;
     if (!input) {
+      return;
+    }
+
+    if (input.hasAttribute("data-jbs-searchable-list-input")) {
+      const wrapper = input.closest<HTMLElement>("[data-jbs-searchable-list]");
+      if (!wrapper) {
+        return;
+      }
+      this.filterSearchableList(wrapper);
       return;
     }
 
