@@ -1410,6 +1410,29 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
                 "[data-jbs-ms-input-name='status'] "
                 "[data-jbs-ms-option][data-jbs-ms-value='queued']"
             ).click()
+            page.wait_for_function(
+                """
+                () => {
+                    const table = document.getElementById("orders-table");
+                    if (!(table instanceof HTMLElement)) {
+                        return false;
+                    }
+                    const rawState = table.dataset.jbsState;
+                    if (!rawState) {
+                        return false;
+                    }
+                    try {
+                        const state = JSON.parse(rawState);
+                        return (
+                            table.getAttribute("aria-busy") !== "true"
+                            && state.status === "queued"
+                        );
+                    } catch (_error) {
+                        return false;
+                    }
+                }
+                """
+            )
 
             page.locator(
                 "#orders-table [data-jbs-ms-input-name='page_size'] "
@@ -1424,6 +1447,29 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
                 "#orders-table [data-jbs-ms-input-name='page_size'] "
                 "[data-jbs-ms-option][data-jbs-ms-value='8']"
             ).click()
+            page.wait_for_function(
+                """
+                () => {
+                    const table = document.getElementById("orders-table");
+                    if (!(table instanceof HTMLElement)) {
+                        return false;
+                    }
+                    const rawState = table.dataset.jbsState;
+                    if (!rawState) {
+                        return false;
+                    }
+                    try {
+                        const state = JSON.parse(rawState);
+                        return (
+                            table.getAttribute("aria-busy") !== "true"
+                            && Number(state.page_size) === 8
+                        );
+                    } catch (_error) {
+                        return false;
+                    }
+                }
+                """
+            )
 
             page.locator("[data-jbs-date-range] [data-jbs-drp-toggle]").click()
             page.locator(
