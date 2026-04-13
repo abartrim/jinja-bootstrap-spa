@@ -273,8 +273,8 @@ def test_page_header_macro_renders_breadcrumbs_meta_and_actions() -> None:
     assert "Operations" in rendered
     assert "Monitor the latest order activity." in rendered
     assert 'class="bi bi-box-seam"' in rendered
-    assert 'badge text-bg-success' in rendered
-    assert 'btn btn-sm btn-primary' in rendered
+    assert "badge text-bg-success" in rendered
+    assert "btn btn-sm btn-primary" in rendered
 
 
 def test_toolbar_macro_supports_badges_call_blocks_and_disclosure() -> None:
@@ -308,12 +308,12 @@ def test_toolbar_macro_supports_badges_call_blocks_and_disclosure() -> None:
     assert 'id="orders-toolbar"' in rendered
     assert "jbs-toolbar" in rendered
     assert "data-jbs-disclosure" in rendered
-    assert 'data-jbs-disclosure-trigger' in rendered
-    assert 'data-jbs-disclosure-panel' in rendered
+    assert "data-jbs-disclosure-trigger" in rendered
+    assert "data-jbs-disclosure-panel" in rendered
     assert 'aria-expanded="false"' in rendered
     assert "Header persistence" in rendered
     assert "SSE ready" in rendered
-    assert 'btn btn-sm btn-outline-primary' in rendered
+    assert "btn btn-sm btn-outline-primary" in rendered
     assert '<form data-jbs-form><input name="query" value="open"></form>' in rendered
 
 

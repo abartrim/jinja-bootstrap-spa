@@ -415,27 +415,23 @@
         </ol>
       </div>
     </section>
-    {{ ui.page_header(
-      title="Jinja Bootstrap SPA Showcase",
-      subtitle="A production-style walkthrough of SPA behaviors built from server-rendered HTML.",
-      icon="bi bi-window-stack",
-      eyebrow="Wrapper Demo",
-      meta_html='<span class="badge text-bg-primary">Bootstrap 5</span><span class="badge text-bg-secondary">Server-rendered</span>',
-      actions_html=showcase_actions,
-      class_name="mb-4"
-    ) }}
-    {{ ui.toolbar(
-      toolbar_id="showcase-journey",
-      title="Guided Feature Journey",
-      subtitle="Jump to a section of the wrapper app and validate each runtime capability in sequence.",
-      badges=[
+    {{ ui.page_header(title="Jinja Bootstrap SPA Showcase",
+        subtitle="A production-style walkthrough of SPA behaviors built from server-rendered HTML.",
+        icon="bi bi-window-stack",
+        eyebrow="Wrapper Demo",
+        meta_html='<span class="badge text-bg-primary">Bootstrap 5</span><span class="badge text-bg-secondary">Server-rendered</span>',
+        actions_html=showcase_actions,
+        class_name="mb-4") }}
+    {{ ui.toolbar(toolbar_id="showcase-journey",
+        title="Guided Feature Journey",
+        subtitle="Jump to a section of the wrapper app and validate each runtime capability in sequence.",
+        badges=[
         {"label": "Tutorial", "variant": "primary"},
         {"label": "Wrapper App", "variant": "secondary"}
-      ],
-      body=journey_body,
-      class_name="jbs-journey-nav mb-4",
-      attrs='aria-label="Guided feature journey"'
-    ) }}
+        ],
+        body=journey_body,
+        class_name="jbs-journey-nav mb-4",
+        attrs='aria-label="Guided feature journey"') }}
     <section class="alert jbs-step border mb-3">
       <h2 class="h6 mb-1 d-flex align-items-center gap-2">
         <i class="bi bi-table" aria-hidden="true"></i>
