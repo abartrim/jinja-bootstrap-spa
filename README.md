@@ -361,7 +361,7 @@ Render a server-driven table component:
         rows=rows,
         state=table_state,
         total_rows=total_rows,
-        persist="querystring",
+        persist="header",
         state_keys=["page", "page_size", "sort_by", "sort_dir", "query", "status"],
         title="Orders",
         subtitle="Server-rendered table with client-side component replacement.",

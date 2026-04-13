@@ -217,6 +217,23 @@ BOOTSTRAP_MACROS = """
   </div>
 {%- endmacro -%}
 
+{%- macro segmented_control(group_id, items, active=None, class_name="", attrs="") -%}
+  {%- set classes = "jbs-segmented-control" -%}
+  {%- if class_name -%}
+    {%- set classes = classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  {{-
+    tabs(
+      group_id,
+      items,
+      active=active,
+      variant="pills",
+      class_name=classes,
+      attrs=attrs
+    )
+  -}}
+{%- endmacro -%}
+
 {%- macro card(title=None, body="", footer=None, class_name="", id=None, attrs="") -%}
   <div class="card{% if class_name %} {{ class_name }}{% endif %}"
        {%- if id %} id="{{ id }}"{% endif -%}
@@ -363,6 +380,35 @@ BOOTSTRAP_MACROS = """
     {%- endif %}
     <div>{{ message }}</div>
   </div>
+{%- endmacro -%}
+
+{%- macro toast(toast_id=None, title=None, message="", variant="info",
+                dismissible=True, class_name="", attrs="") -%}
+  {%- set toast_classes = "alert alert-" ~ variant ~ " shadow-sm mb-0" -%}
+  {%- if class_name -%}
+    {%- set toast_classes = toast_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <aside class="{{ toast_classes }}"
+         role="status"
+         aria-live="polite"
+         data-jbs-status-region
+         {%- if toast_id %} id="{{ toast_id }}"{% endif -%}
+         {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="d-flex align-items-start justify-content-between gap-3">
+      <div>
+        {%- if title %}
+          <h3 class="h6 mb-1">{{ title }}</h3>
+        {%- endif %}
+        <div>{{ message }}</div>
+      </div>
+      {%- if dismissible %}
+        <button type="button"
+                class="btn-close"
+                aria-label="Dismiss"
+                data-jbs-status-dismiss></button>
+      {%- endif %}
+    </div>
+  </aside>
 {%- endmacro -%}
 
 {%- macro filter_accordion(

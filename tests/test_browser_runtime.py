@@ -25,11 +25,12 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 from werkzeug.serving import make_server
 
-from jinja_bootstrap_spa import conditional_fragment_response
-from jinja_bootstrap_spa import parse_table_state
-from jinja_bootstrap_spa import register_bootstrap_macros
-from tests.browser_assertions import assert_no_browser_errors
-from tests.browser_assertions import capture_browser_errors
+from jinja_bootstrap_spa import (
+    conditional_fragment_response,
+    parse_table_state,
+    register_bootstrap_macros,
+)
+from tests.browser_assertions import assert_no_browser_errors, capture_browser_errors
 
 
 def _seed_orders() -> list[dict[str, Any]]:
@@ -272,9 +273,18 @@ TABLE_TEMPLATE = """
           class_name="mb-0"
         )
       }}
+            {{
+                ui.toast(
+                    "orders-status-toast",
+                    title=status_notice.title,
+                    message=status_notice.message,
+                    variant=status_notice.variant,
+                    class_name="mt-2"
+                )
+            }}
     {% endif %}
     {{
-      ui.tabs(
+            ui.segmented_control(
         "orders-status-tabs",
         [
           {
@@ -337,7 +347,7 @@ TABLE_TEMPLATE = """
     rows=rows,
     state=state,
     total_rows=total_rows,
-    persist="querystring",
+    persist="header",
     state_keys=[
       "page",
       "page_size",
@@ -603,6 +613,7 @@ def _render_live_row(row_id: str, entry: str, source: str) -> str:
 def _build_live_table(app: Flask) -> str:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="",
         default_page_size=3,
         allowed_page_sizes=(3,),
@@ -623,6 +634,7 @@ def _build_live_table(app: Flask) -> str:
 def _build_live_append_table(app: Flask) -> str:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="",
         default_page_size=3,
         allowed_page_sizes=(3,),
@@ -643,6 +655,7 @@ def _build_live_append_table(app: Flask) -> str:
 def _build_session_table(app: Flask) -> str:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="name",
         default_page_size=2,
         allowed_page_sizes=(2, 4),
@@ -766,6 +779,7 @@ def _apply_row_action(row_id: str, intent: str) -> str | None:
 def _build_table(app: Flask) -> str:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="number",
         default_page_size=4,
         allowed_page_sizes=(4, 8),
@@ -1309,7 +1323,7 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
                 "'#orders-filters [data-jbs-disclosure-panel]'"
                 ")?.hidden"
             )
-            assert "status=queued" in page.url
+            assert "status=queued" not in page.url
             page.locator("#orders-filters [data-jbs-disclosure-trigger]").click()
             page.wait_for_function(
                 "() => !document.querySelector("
@@ -1322,12 +1336,9 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
 
             page.get_by_role("button", name="Order").click()
             page.wait_for_function(_table_contains("#1012"))
-            assert "sort_dir=desc" in page.url
-            assert "sort_by=number" in page.url
 
             page.locator("#orders-table").get_by_role("button", name="Next").click()
             page.wait_for_function(_table_contains("Page 2 of 3"))
-            assert "page=2" in page.url
 
             page.locator("[data-jbs-autocomplete-input]").fill("Marg")
             page.wait_for_selector("[data-jbs-autocomplete-option]")
@@ -1390,10 +1401,6 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
 
             page.locator("#orders-table").get_by_role("button", name="Apply").click()
             page.wait_for_function(_table_contains("Page 1 of 1"))
-            assert "status=queued" in page.url
-            assert "page=1" in page.url
-            assert "page_size=8" in page.url
-            assert "customer=Margaret+Hamilton" in page.url
             assert "Margaret" in page.locator("#orders-table tbody").text_content()
 
             page.get_by_role("tab", name="All").click()
@@ -1758,6 +1765,42 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
+                                            v: 1,
+                                            seq: 12,
+                                            target: 'live-table',
+                                            ops: [
+                                                {
+                                                    op: 'create',
+                                                    id: 'live-crud',
+                                                    position: 'prepend',
+                                                    html: '<tr data-jbs-row-id="live-crud"><td>crud-created</td><td>v1</td></tr>'
+                                                },
+                                                {
+                                                    op: 'update',
+                                                    id: 'live-crud',
+                                                    html: '<tr data-jbs-row-id="live-crud"><td>crud-updated</td><td>v1</td></tr>'
+                                                },
+                                                {
+                                                    op: 'read',
+                                                    id: 'live-crud'
+                                                }
+                                            ]
+                                        }),
+                                    });
+                                }
+                                """
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#live-table tbody tr:first-child')?.textContent?.includes('crud-updated')"
+            )
+
+            page.evaluate(
+                """
+                                async () => {
+                                    await fetch('/admin/publish-live-payload', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
                                             mode: 'prepend',
                                             target: 'live-table',
                                             row: '<tr data-jbs-row-id="legacy-1"><td>legacy-row</td><td>legacy</td></tr>'
@@ -1788,7 +1831,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
                                             v: 1,
-                                            seq: 12,
+                                            seq: 13,
                                             action: 'refresh',
                                             target: 'live-table',
                                             ops: [{ op: 'upsert' }]

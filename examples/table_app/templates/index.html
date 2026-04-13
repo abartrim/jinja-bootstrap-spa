@@ -59,6 +59,17 @@
 {% endblock %}
 
 {% block content %}
+  {{
+    ui.navbar(
+      brand="Jinja Bootstrap SPA",
+      nav_items=[
+        {"label": "Orders", "href": "#orders-table"},
+        {"label": "Live", "href": "#live-table"},
+        {"label": "Session", "href": "#session-table"},
+      ],
+      class_name="mb-4"
+    )
+  }}
   <main class="container py-4">
     <section class="card border-primary-subtle shadow-sm mb-4">
       <div class="card-body">
@@ -70,8 +81,8 @@
         </p>
         <ol class="mb-0 small">
           <li>
-            Use the <strong>Orders</strong> table to try sorting, filtering, tabs,
-            action menus, and querystring persistence.
+            Use the <strong>Orders</strong> table to try sorting, filtering,
+            segmented controls, action menus, and header-based state persistence.
           </li>
           <li>
             Trigger <strong>SSE refresh / prepend / append</strong> updates from the top
@@ -110,8 +121,8 @@
         <div>
           <h2 class="h6 mb-1">Step 1: Stateful Table Contract</h2>
           <p class="mb-0 small text-body-secondary">
-            Try tabs, sort headers, autocomplete, SQL/regex assist, date range, and row
-            actions. URL query params are part of the state contract.
+            Try segmented controls, sort headers, autocomplete, SQL/regex assist,
+            date range, and row actions. Component state is sent via request headers.
           </p>
         </div>
         <div class="d-flex flex-wrap gap-2">

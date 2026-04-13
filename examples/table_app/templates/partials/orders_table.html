@@ -91,9 +91,18 @@
           class_name="mb-0"
         )
       }}
+      {{
+        ui.toast(
+          "orders-status-toast",
+          title=status_notice.title,
+          message=status_notice.message,
+          variant=status_notice.variant,
+          class_name="mt-2"
+        )
+      }}
     {% endif %}
     {{
-      ui.tabs(
+      ui.segmented_control(
         "orders-status-tabs",
         [
           {"label": "All", "value": "__all__", "jbs_action": "filter", "jbs_patch": {"status": none, "page": 1}},
@@ -132,7 +141,7 @@
     title="Orders",
     subtitle=subtitle,
     toolbar=toolbar,
-    persist="querystring",
+    persist="header",
     state_keys=["page", "page_size", "sort_by", "sort_dir", "query", "customer", "status", "from_ts", "to_ts", "sql", "regex"],
     sse_endpoint="/events/orders"
   )

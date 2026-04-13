@@ -13,8 +13,7 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 from werkzeug.serving import make_server
 
-from tests.browser_assertions import assert_no_browser_errors
-from tests.browser_assertions import capture_browser_errors
+from tests.browser_assertions import assert_no_browser_errors, capture_browser_errors
 
 
 def _load_example_app_module() -> ModuleType:
@@ -86,6 +85,7 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.wait_for_selector("#session-table")
             page.wait_for_selector("#cancel-demo")
             page.wait_for_selector("#lazy-summary")
+            page.wait_for_selector("nav.navbar")
 
             page.get_by_role("button", name="About Runtime").click()
             page.wait_for_function(
@@ -261,6 +261,10 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.get_by_role("button", name="Simulate SSE Update").click()
             page.wait_for_function(
                 "() => document.querySelector('#orders-table')"
+                "?.textContent?.includes('SSE update #1:')"
+            )
+            page.wait_for_function(
+                "() => document.getElementById('orders-status-toast')"
                 "?.textContent?.includes('SSE update #1:')"
             )
 

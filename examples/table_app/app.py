@@ -281,6 +281,7 @@ def _status_summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def build_orders_context() -> dict[str, Any]:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="number",
         default_page_size=10,
         allowed_page_sizes=(5, 10, 20, 50),
@@ -371,6 +372,7 @@ def build_orders_context() -> dict[str, Any]:
 def build_session_context() -> dict[str, Any]:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="name",
         default_page_size=2,
         allowed_page_sizes=(2, 4),
@@ -391,6 +393,7 @@ def build_session_context() -> dict[str, Any]:
 def build_live_table_context() -> dict[str, Any]:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="",
         default_page_size=5,
         allowed_page_sizes=(5,),
@@ -410,6 +413,7 @@ def build_live_table_context() -> dict[str, Any]:
 def build_live_append_context() -> dict[str, Any]:
     state = parse_table_state(
         request.args,
+        request_headers=request.headers,
         default_sort_by="",
         default_page_size=5,
         allowed_page_sizes=(5,),

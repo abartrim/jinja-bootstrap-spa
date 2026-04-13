@@ -19,6 +19,7 @@ export const JBS_HEADERS = {
     marker: "X-JBS-Request",
     component: "X-JBS-Component",
     action: "X-JBS-Action",
+    state: "X-JBS-State",
     ifNoneMatch: "If-None-Match",
     etag: "ETag",
 };
@@ -33,6 +34,7 @@ export const JBS_PERSISTENCE = {
     memory: "memory",
     querystring: "querystring",
     session: "session",
+    header: "header",
 };
 export const JBS_UI_PERSISTENCE = {
     memory: "memory",
@@ -948,7 +950,9 @@ export class JBSRuntime {
     }
     persistStrategy(component) {
         const persist = component.dataset.jbsPersist;
-        if (persist === JBS_PERSISTENCE.querystring || persist === JBS_PERSISTENCE.session) {
+        if (persist === JBS_PERSISTENCE.querystring ||
+            persist === JBS_PERSISTENCE.session ||
+            persist === JBS_PERSISTENCE.header) {
             return persist;
         }
         return JBS_PERSISTENCE.memory;
@@ -1285,6 +1289,9 @@ export class JBSRuntime {
             if (!op || !rowId) {
                 return false;
             }
+            if (op === "read") {
+                continue;
+            }
             if (op === "delete") {
                 this.tableRowById(tableBody, rowId)?.remove();
                 continue;
@@ -1315,6 +1322,56 @@ export class JBSRuntime {
                 this.insertRowByPosition(tableBody, existing, operation.position ?? "append");
                 trimFromStart = (operation.position ?? "append") !== "prepend";
                 touchedRows.push(existing);
+                continue;
+            }
+            if (op === "update") {
+                if (typeof operation.html !== "string") {
+                    return false;
+                }
+                const existing = this.tableRowById(tableBody, rowId);
+                if (!existing) {
+                    return false;
+                }
+                const parsed = this.parseStreamRowHtml(operation.html, rowId);
+                if (!parsed) {
+                    return false;
+                }
+                existing.replaceWith(parsed);
+                touchedRows.push(parsed);
+                continue;
+            }
+            if (op === "create") {
+                if (typeof operation.html !== "string") {
+                    return false;
+                }
+                if (this.tableRowById(tableBody, rowId)) {
+                    continue;
+                }
+                const parsed = this.parseStreamRowHtml(operation.html, rowId);
+                if (!parsed) {
+                    return false;
+                }
+                const beforeId = operation.before_id?.trim();
+                const afterId = operation.after_id?.trim();
+                if (beforeId) {
+                    const beforeRow = this.tableRowById(tableBody, beforeId);
+                    if (beforeRow) {
+                        tableBody.insertBefore(parsed, beforeRow);
+                        touchedRows.push(parsed);
+                        continue;
+                    }
+                }
+                if (afterId) {
+                    const afterRow = this.tableRowById(tableBody, afterId);
+                    if (afterRow) {
+                        tableBody.insertBefore(parsed, afterRow.nextSibling);
+                        touchedRows.push(parsed);
+                        continue;
+                    }
+                }
+                this.insertRowByPosition(tableBody, parsed, operation.position ?? "append");
+                trimFromStart = (operation.position ?? "append") !== "prepend";
+                touchedRows.push(parsed);
                 continue;
             }
             if (op === "upsert") {
@@ -2214,7 +2271,10 @@ export class JBSRuntime {
         this.setComponentPhase(component, JBS_PHASES.loading);
         component.dispatchEvent(new CustomEvent("jbs:before-request", { detail, bubbles: true }));
         const requestUrl = new URL(endpoint, window.location.href);
-        appendStateParams(requestUrl, requestState);
+        const persist = this.persistStrategy(component);
+        if (persist !== JBS_PERSISTENCE.header) {
+            appendStateParams(requestUrl, requestState);
+        }
         this.requestAbortControllers.get(key)?.abort();
         const controller = new AbortController();
         this.requestAbortControllers.set(key, controller);
@@ -2226,6 +2286,9 @@ export class JBSRuntime {
             [JBS_HEADERS.component]: component.dataset.jbsComponent ?? "component",
             [JBS_HEADERS.action]: action,
         };
+        if (persist === JBS_PERSISTENCE.header) {
+            headers[JBS_HEADERS.state] = stableStateString(requestState);
+        }
         const existingEtag = this.componentEtags.get(key) ?? component.dataset.jbsEtag;
         if (existingEtag) {
             headers[JBS_HEADERS.ifNoneMatch] = existingEtag;

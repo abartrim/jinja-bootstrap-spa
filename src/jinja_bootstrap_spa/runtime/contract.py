@@ -7,11 +7,13 @@ for server-rendered components in jinja-bootstrap-spa.
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import Any, Iterable, Mapping
 
 JBS_REQUEST_HEADER = "X-JBS-Request"
 JBS_COMPONENT_HEADER = "X-JBS-Component"
 JBS_ACTION_HEADER = "X-JBS-Action"
+JBS_STATE_HEADER = "X-JBS-State"
 JBS_CONDITIONAL_HEADER = "If-None-Match"
 JBS_ETAG_HEADER = "ETag"
 
@@ -24,6 +26,7 @@ JBS_ACTION_ROW = "row"
 JBS_PERSIST_MEMORY = "memory"
 JBS_PERSIST_QUERYSTRING = "querystring"
 JBS_PERSIST_SESSION = "session"
+JBS_PERSIST_HEADER = "header"
 JBS_SSE_EVENT_REFRESH = "refresh"
 JBS_STREAM_MODE_REPLACE = "replace"
 JBS_STREAM_MODE_APPEND = "append"
@@ -102,6 +105,7 @@ def _coerce_int(value: Any, default: int, minimum: int = 1) -> int:
 def parse_table_state(
     params: Mapping[str, Any],
     *,
+    request_headers: Mapping[str, Any] | None = None,
     default_sort_by: str = "",
     default_page_size: int = TABLE_DEFAULT_PAGE_SIZE,
     allowed_page_sizes: Iterable[int] | None = None,
@@ -113,6 +117,9 @@ def parse_table_state(
     ----------
     params:
         A mapping such as ``request.args``.
+    request_headers:
+        Optional request headers mapping. When it includes ``X-JBS-State`` JSON,
+        those values override query params for state parsing.
     default_sort_by:
         The fallback sort field when ``sort_by`` is missing.
     default_page_size:
@@ -123,16 +130,32 @@ def parse_table_state(
         Additional query keys that should be copied into the returned state.
     """
 
+    header_state: dict[str, Any] = {}
+    if request_headers is not None:
+        raw_header_state = request_headers.get(JBS_STATE_HEADER)
+        if raw_header_state:
+            try:
+                parsed_header_state = json.loads(str(raw_header_state))
+                if isinstance(parsed_header_state, dict):
+                    header_state = parsed_header_state
+            except json.JSONDecodeError:
+                header_state = {}
+
+    def _state_value(key: str, fallback: Any = None) -> Any:
+        if key in header_state:
+            return header_state.get(key)
+        return params.get(key, fallback)
+
     allowed_sizes = set(allowed_page_sizes or ())
 
-    page = _coerce_int(params.get("page"), TABLE_DEFAULT_PAGE)
-    page_size = _coerce_int(params.get("page_size"), default_page_size)
+    page = _coerce_int(_state_value("page"), TABLE_DEFAULT_PAGE)
+    page_size = _coerce_int(_state_value("page_size"), default_page_size)
     if allowed_sizes and page_size not in allowed_sizes:
         page_size = default_page_size
 
-    sort_by = str(params.get("sort_by", default_sort_by) or default_sort_by)
+    sort_by = str(_state_value("sort_by", default_sort_by) or default_sort_by)
     sort_dir = str(
-        params.get("sort_dir", TABLE_DEFAULT_SORT_DIR) or TABLE_DEFAULT_SORT_DIR
+        _state_value("sort_dir", TABLE_DEFAULT_SORT_DIR) or TABLE_DEFAULT_SORT_DIR
     )
     if sort_dir not in TABLE_ALLOWED_SORT_DIRS:
         sort_dir = TABLE_DEFAULT_SORT_DIR
@@ -144,12 +167,12 @@ def parse_table_state(
         "sort_dir": sort_dir,
     }
 
-    query = str(params.get("query", "") or "")
+    query = str(_state_value("query", "") or "")
     if query:
         state["query"] = query
 
     for key in filter_keys:
-        value = params.get(key)
+        value = _state_value(key)
         if value not in (None, ""):
             state[key] = str(value)
 

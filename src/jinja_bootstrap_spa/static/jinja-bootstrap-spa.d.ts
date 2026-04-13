@@ -1,7 +1,7 @@
 export type JBSScalar = string | number | boolean | null;
 export type JBSValue = JBSScalar | JBSScalar[];
 export type JBSState = Record<string, JBSValue>;
-export type JBSPersistStrategy = "memory" | "querystring" | "session";
+export type JBSPersistStrategy = "memory" | "querystring" | "session" | "header";
 export type JBSUiPersistStrategy = "memory" | "session" | "local" | "none";
 export type JBSStreamMode = "replace" | "append" | "prepend";
 export type JBSPhase = "idle" | "loading" | "success" | "unchanged" | "error";
@@ -40,6 +40,7 @@ export declare const JBS_HEADERS: {
     readonly marker: "X-JBS-Request";
     readonly component: "X-JBS-Component";
     readonly action: "X-JBS-Action";
+    readonly state: "X-JBS-State";
     readonly ifNoneMatch: "If-None-Match";
     readonly etag: "ETag";
 };
@@ -54,6 +55,7 @@ export declare const JBS_PERSISTENCE: {
     readonly memory: "memory";
     readonly querystring: "querystring";
     readonly session: "session";
+    readonly header: "header";
 };
 export declare const JBS_UI_PERSISTENCE: {
     readonly memory: "memory";
