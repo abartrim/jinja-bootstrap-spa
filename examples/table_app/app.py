@@ -39,6 +39,7 @@ SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 SUBSCRIBERS_LOCK = Lock()
 PUSH_COUNTER = 0
 LAST_PUSH_MESSAGE = ""
+ORDERS_STREAM_SEQ = 0
 LIVE_SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 LIVE_SUBSCRIBERS_LOCK = Lock()
 LIVE_PUSH_COUNTER = 0
@@ -132,8 +133,18 @@ def _fragment_response(content: str) -> tuple[str, int, dict[str, str]]:
 
 
 def _publish_orders_event(message: str, patch: dict[str, Any] | None = None) -> None:
-    payload = {"action": "refresh", "target": "orders-table", "patch": patch or {}}
+    global ORDERS_STREAM_SEQ
+
     with SUBSCRIBERS_LOCK:
+        ORDERS_STREAM_SEQ += 1
+        payload = {
+            "v": 1,
+            "seq": ORDERS_STREAM_SEQ,
+            "action": "refresh",
+            "target": "orders-table",
+            "patch": patch or {},
+            "snapshot": f"orders-{ORDERS_STREAM_SEQ}",
+        }
         subscribers = list(SUBSCRIBERS)
     for subscriber in subscribers:
         subscriber.put(payload)
@@ -622,7 +633,7 @@ def push_live_row() -> Any:
     LIVE_ROWS.insert(0, row)
     _publish_live_event(
         {
-            "v": 2,
+            "v": 1,
             "seq": LIVE_PUSH_COUNTER,
             "target": "live-table",
             "ops": [
@@ -653,7 +664,7 @@ def push_live_append_row() -> Any:
     page_count = max(1, (len(APPEND_ROWS) + page_size - 1) // page_size)
     _publish_append_event(
         {
-            "v": 2,
+            "v": 1,
             "seq": APPEND_PUSH_COUNTER,
             "target": "live-append-table",
             "ops": [

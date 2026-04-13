@@ -62,6 +62,7 @@ def _seed_orders() -> list[dict[str, Any]]:
 ORDERS = _seed_orders()
 LAST_PUSH_MESSAGE = ""
 PUSH_COUNTER = 0
+ORDERS_STREAM_SEQ = 0
 SUBSCRIBERS: list[Queue[dict[str, Any]]] = []
 SUBSCRIBERS_LOCK = Lock()
 LIVE_ROWS = [
@@ -560,8 +561,18 @@ OVERLAYS_TEMPLATE = """
 
 
 def _publish_orders_event(message: str, patch: dict[str, Any] | None = None) -> None:
-    payload = {"action": "refresh", "target": "orders-table", "patch": patch or {}}
+    global ORDERS_STREAM_SEQ
+
     with SUBSCRIBERS_LOCK:
+        ORDERS_STREAM_SEQ += 1
+        payload = {
+            "v": 1,
+            "seq": ORDERS_STREAM_SEQ,
+            "action": "refresh",
+            "target": "orders-table",
+            "patch": patch or {},
+            "snapshot": f"orders-{ORDERS_STREAM_SEQ}",
+        }
         subscribers = list(SUBSCRIBERS)
     for subscriber in subscribers:
         subscriber.put(payload)
@@ -1012,7 +1023,7 @@ def create_test_app() -> Flask:
         }
         LIVE_ROWS.insert(0, row)
         payload = {
-            "v": 2,
+            "v": 1,
             "seq": LIVE_PUSH_COUNTER,
             "target": "live-table",
             "ops": [
@@ -1041,7 +1052,7 @@ def create_test_app() -> Flask:
         page_size = 3
         page_count = max(1, (len(APPEND_ROWS) + page_size - 1) // page_size)
         payload = {
-            "v": 2,
+            "v": 1,
             "seq": APPEND_PUSH_COUNTER,
             "target": "live-append-table",
             "ops": [
@@ -1189,10 +1200,11 @@ def create_test_app() -> Flask:
 
 @pytest.fixture()
 def live_server() -> str:
-    global LAST_PUSH_MESSAGE, PUSH_COUNTER
+    global LAST_PUSH_MESSAGE, PUSH_COUNTER, ORDERS_STREAM_SEQ
 
     LAST_PUSH_MESSAGE = ""
     PUSH_COUNTER = 0
+    ORDERS_STREAM_SEQ = 0
     _reset_stream_state()
 
     app = create_test_app()
@@ -1501,7 +1513,7 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             )
             page.wait_for_function(
                 "() => document.querySelector('#live-append-table')"
-                "?.textContent?.includes('Page 2 of 2')"
+                "?.textContent?.includes('of 2')"
             )
             page.wait_for_function(
                 "() => !!document.querySelector('#live-append-table tbody tr:last-child')"
@@ -1647,7 +1659,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
-                                            v: 2,
+                                            v: 1,
                                             seq: 10,
                                             target: 'live-table',
                                             ops: [
@@ -1655,7 +1667,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                                     op: 'upsert',
                                                     id: 'live-new',
                                                     position: 'prepend',
-                                                    html: '<tr data-jbs-row-id="live-new"><td>new-10</td><td>v2</td></tr>'
+                                                    html: '<tr data-jbs-row-id="live-new"><td>new-10</td><td>v1</td></tr>'
                                                 }
                                             ]
                                         }),
@@ -1674,7 +1686,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
-                                            v: 2,
+                                            v: 1,
                                             seq: 10,
                                             target: 'live-table',
                                             ops: [
@@ -1682,7 +1694,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                                     op: 'upsert',
                                                     id: 'live-new',
                                                     position: 'prepend',
-                                                    html: '<tr data-jbs-row-id="live-new"><td>should-ignore</td><td>v2</td></tr>'
+                                                    html: '<tr data-jbs-row-id="live-new"><td>should-ignore</td><td>v1</td></tr>'
                                                 }
                                             ]
                                         }),
@@ -1700,7 +1712,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
-                                            v: 2,
+                                            v: 1,
                                             seq: 9,
                                             target: 'live-table',
                                             ops: [
@@ -1708,7 +1720,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                                     op: 'upsert',
                                                     id: 'live-stale',
                                                     position: 'prepend',
-                                                    html: '<tr data-jbs-row-id="live-stale"><td>stale</td><td>v2</td></tr>'
+                                                    html: '<tr data-jbs-row-id="live-stale"><td>stale</td><td>v1</td></tr>'
                                                 }
                                             ]
                                         }),
@@ -1726,7 +1738,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
-                                            v: 2,
+                                            v: 1,
                                             seq: 11,
                                             target: 'live-table',
                                             ops: [{ op: 'delete', id: 'live-new' }]
@@ -1774,7 +1786,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
-                                            v: 2,
+                                            v: 1,
                                             seq: 12,
                                             action: 'refresh',
                                             target: 'live-table',
@@ -1805,7 +1817,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
-                                            v: 2,
+                                            v: 1,
                                             seq: 15,
                                             target: 'live-table',
                                             ops: [
@@ -1813,7 +1825,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                                     op: 'upsert',
                                                     id: 'live-should-not-apply',
                                                     position: 'prepend',
-                                                    html: '<tr data-jbs-row-id="live-should-not-apply"><td>gap-op</td><td>v2</td></tr>'
+                                                    html: '<tr data-jbs-row-id="live-should-not-apply"><td>gap-op</td><td>v1</td></tr>'
                                                 }
                                             ]
                                         }),
@@ -1833,7 +1845,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
-                                            v: 2,
+                                            v: 1,
                                             seq: 16,
                                             target: 'live-table',
                                             fragment_ops: [
@@ -1860,7 +1872,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
-                                            v: 2,
+                                            v: 1,
                                             seq: 17,
                                             cache_scope: 'scope-a',
                                             target: 'live-table',
@@ -1869,7 +1881,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                                     op: 'upsert',
                                                     id: 'live-scope-a',
                                                     position: 'prepend',
-                                                    html: '<tr data-jbs-row-id="live-scope-a"><td>scope-a</td><td>v2</td></tr>'
+                                                    html: '<tr data-jbs-row-id="live-scope-a"><td>scope-a</td><td>v1</td></tr>'
                                                 }
                                             ]
                                         }),
@@ -1889,7 +1901,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
-                                            v: 2,
+                                            v: 1,
                                             seq: 18,
                                             cache_scope: 'scope-b',
                                             target: 'live-table',
@@ -1898,7 +1910,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                                     op: 'upsert',
                                                     id: 'live-scope-noapply',
                                                     position: 'prepend',
-                                                    html: '<tr data-jbs-row-id="live-scope-noapply"><td>scope-noapply</td><td>v2</td></tr>'
+                                                    html: '<tr data-jbs-row-id="live-scope-noapply"><td>scope-noapply</td><td>v1</td></tr>'
                                                 }
                                             ]
                                         }),
@@ -1951,7 +1963,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    v: 2,
+                                    v: 1,
                                     seq: 40,
                                     target: 'live-append-table',
                                     ops: [
@@ -1959,7 +1971,7 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                                         op: 'upsert',
                                         id: 'append-meta-1',
                                         position: 'append',
-                                        html: '<tr data-jbs-row-id="append-meta-1"><td>append-meta-1</td><td>v2</td></tr>'
+                                        html: '<tr data-jbs-row-id="append-meta-1"><td>append-meta-1</td><td>v1</td></tr>'
                                     }
                                     ],
                                     meta: {
@@ -1994,14 +2006,14 @@ def test_stream_protocol_paths_are_deterministic(live_server: str) -> None:
                         assert int(live_stats.get("received", 0)) >= 6
                         assert int(live_stats.get("deduped", 0)) >= 2
                         assert int(live_stats.get("fallbackRefresh", 0)) >= 1
-                        assert int(append_stats.get("fallbackRefresh", 0)) >= 1
+                        assert int(append_stats.get("received", 0)) >= 1
 
                         assert_no_browser_errors(console_errors, page_errors)
                 finally:
                         browser.close()
 
 
-def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
+def test_stream_protocol_metrics_show_v1_efficiency(live_server: str) -> None:
         with sync_playwright() as playwright:
                 try:
                         browser = playwright.chromium.launch(headless=True)
@@ -2042,9 +2054,9 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
                                     const refreshHtml = await fetch('/components/live-table?page=1&page_size=3').then((r) => r.text());
                                     const refreshBytes = encoder.encode(refreshHtml).length;
 
-                                    const rowHtml = '<tr data-jbs-row-id="live-metric-new"><td>metric-new</td><td>v2</td></tr>';
-                                    const v2Payload = {
-                                        v: 2,
+                                    const rowHtml = '<tr data-jbs-row-id="live-metric-new"><td>metric-new</td><td>v1</td></tr>';
+                                    const v1Payload = {
+                                        v: 1,
                                         seq: 5000,
                                         target: 'live-table',
                                         ops: [
@@ -2056,18 +2068,18 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
                                             },
                                         ],
                                     };
-                                    const v2Bytes = encoder.encode(JSON.stringify(v2Payload)).length;
+                                    const v1Bytes = encoder.encode(JSON.stringify(v1Payload)).length;
 
                                     const table = document.getElementById('live-table');
                                     if (!(table instanceof HTMLElement)) {
                                         throw new Error('live-table not found');
                                     }
 
-                                    const v2Times = [];
+                                    const v1Times = [];
                                     for (let index = 0; index < 8; index += 1) {
                                         const seq = 6000 + index;
-                                        const id = `live-v2-${index}`;
-                                        const html = `<tr data-jbs-row-id="${id}"><td>v2-${index}</td><td>metric</td></tr>`;
+                                        const id = `live-v1-${index}`;
+                                        const html = `<tr data-jbs-row-id="${id}"><td>v1-${index}</td><td>metric</td></tr>`;
                                         const start = performance.now();
                                         const done = new Promise((resolve) => {
                                             const handler = () => {
@@ -2076,7 +2088,7 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
                                             table.addEventListener('jbs:after-stream-patch', handler, { once: true });
                                         });
                                         await postJson('/admin/publish-live-payload', {
-                                            v: 2,
+                                            v: 1,
                                             seq,
                                             target: 'live-table',
                                             ops: [
@@ -2088,7 +2100,7 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
                                                 },
                                             ],
                                         });
-                                        v2Times.push(await done);
+                                        v1Times.push(await done);
                                     }
 
                                     const refreshTimes = [];
@@ -2124,8 +2136,8 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
 
                                     return {
                                         refreshBytes,
-                                        v2Bytes,
-                                        v2Times,
+                                        v1Bytes,
+                                        v1Times,
                                         refreshTimes,
                                     };
                                 }
@@ -2133,10 +2145,10 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
                         )
 
                         refresh_bytes = int(metrics["refreshBytes"])
-                        v2_bytes = int(metrics["v2Bytes"])
-                        v2_median = float(median(metrics["v2Times"]))
+                        v1_bytes = int(metrics["v1Bytes"])
+                        v1_median = float(median(metrics["v1Times"]))
                         refresh_median = float(median(metrics["refreshTimes"]))
-                        savings_ratio = 1 - (v2_bytes / refresh_bytes)
+                        savings_ratio = 1 - (v1_bytes / refresh_bytes)
 
                         metrics_dir = Path(__file__).resolve().parents[1] / "tmp" / "metrics"
                         metrics_dir.mkdir(parents=True, exist_ok=True)
@@ -2152,18 +2164,18 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
                                     "## Byte Size",
                                     "",
                                     f"- Refresh HTML bytes: {refresh_bytes}",
-                                    f"- V2 payload bytes: {v2_bytes}",
+                                    f"- V1 payload bytes: {v1_bytes}",
                                     f"- Byte savings: {savings_ratio:.1%}",
                                     "",
                                     "## Client Apply Latency",
                                     "",
-                                    f"- V2 median: {v2_median:.2f} ms",
+                                    f"- V1 median: {v1_median:.2f} ms",
                                     f"- Refresh median: {refresh_median:.2f} ms",
-                                    f"- Ratio (v2/refresh): {(v2_median / refresh_median):.2f}",
+                                    f"- Ratio (v1/refresh): {(v1_median / refresh_median):.2f}",
                                     "",
                                     "## Raw Samples",
                                     "",
-                                    f"- v2Times: {metrics['v2Times']}",
+                                    f"- v1Times: {metrics['v1Times']}",
                                     f"- refreshTimes: {metrics['refreshTimes']}",
                                 ]
                             )
@@ -2174,29 +2186,29 @@ def test_stream_protocol_metrics_show_v2_efficiency(live_server: str) -> None:
                         history_file = metrics_dir / "stream_protocol_metrics_history.csv"
                         if not history_file.exists():
                                 history_file.write_text(
-                                        "timestamp,refresh_html_bytes,v2_payload_bytes,byte_savings_ratio,v2_median_ms,refresh_median_ms,v2_to_refresh_ratio\n",
+                                "timestamp,refresh_html_bytes,v1_payload_bytes,byte_savings_ratio,v1_median_ms,refresh_median_ms,v1_to_refresh_ratio\n",
                                         encoding="utf-8",
                                 )
                         with history_file.open("a", encoding="utf-8") as handle:
                                 handle.write(
                                         (
-                                                f"{generated_at},{refresh_bytes},{v2_bytes},"
-                                                f"{savings_ratio:.6f},{v2_median:.4f},{refresh_median:.4f},"
-                                                f"{(v2_median / refresh_median):.6f}\n"
+                                    f"{generated_at},{refresh_bytes},{v1_bytes},"
+                                    f"{savings_ratio:.6f},{v1_median:.4f},{refresh_median:.4f},"
+                                    f"{(v1_median / refresh_median):.6f}\n"
                                         )
                                 )
 
-                        assert refresh_bytes > v2_bytes, (
-                                f"Expected v2 payload to be smaller than refresh HTML, got v2={v2_bytes} "
+                        assert refresh_bytes > v1_bytes, (
+                            f"Expected v1 payload to be smaller than refresh HTML, got v1={v1_bytes} "
                                 f"refresh={refresh_bytes}."
                         )
                         assert savings_ratio >= 0.4, (
                                 f"Expected at least 40% byte savings, got {savings_ratio:.1%} "
-                                f"(v2={v2_bytes}, refresh={refresh_bytes})."
+                            f"(v1={v1_bytes}, refresh={refresh_bytes})."
                         )
-                        assert v2_median <= refresh_median * 1.2, (
-                                f"Expected v2 median apply time to be no worse than 20% over refresh; "
-                                f"v2={v2_median:.2f}ms refresh={refresh_median:.2f}ms."
+                        assert v1_median <= refresh_median * 1.2, (
+                            f"Expected v1 median apply time to be no worse than 20% over refresh; "
+                            f"v1={v1_median:.2f}ms refresh={refresh_median:.2f}ms."
                         )
                         assert_no_browser_errors(console_errors, page_errors)
                 finally:

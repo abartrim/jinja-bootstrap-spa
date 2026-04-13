@@ -42,6 +42,7 @@ def example_live_server() -> str:
 
     module.LAST_PUSH_MESSAGE = ""
     module.PUSH_COUNTER = 0
+    module.ORDERS_STREAM_SEQ = 0
     module.LIVE_PUSH_COUNTER = 0
     module.LIVE_ROWS = [
         {"id": "live-boot", "entry": "boot complete", "source": "runtime"},

@@ -1456,7 +1456,7 @@ export class JBSRuntime {
       return;
     }
 
-    if (payload.v === 2) {
+    if (payload.v === 1) {
       const fragmentApplied = this.applyFragmentOps(component, key, payload);
       if (fragmentApplied) {
         this.finalizeStreamPatch(component, key, payload, JBS_STREAM_MODES.replace);

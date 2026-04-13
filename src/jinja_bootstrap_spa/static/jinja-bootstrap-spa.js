@@ -1454,7 +1454,7 @@ export class JBSRuntime {
             await this.requestRefreshFromStream(component, key, payload, payload.action ?? JBS_ACTIONS.refresh);
             return;
         }
-        if (payload.v === 2) {
+        if (payload.v === 1) {
             const fragmentApplied = this.applyFragmentOps(component, key, payload);
             if (fragmentApplied) {
                 this.finalizeStreamPatch(component, key, payload, JBS_STREAM_MODES.replace);

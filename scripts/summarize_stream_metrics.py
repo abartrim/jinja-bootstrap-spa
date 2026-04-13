@@ -22,11 +22,11 @@ from typing import Iterable
 class Sample:
     timestamp: str
     refresh_html_bytes: float
-    v2_payload_bytes: float
+    v1_payload_bytes: float
     byte_savings_ratio: float
-    v2_median_ms: float
+    v1_median_ms: float
     refresh_median_ms: float
-    v2_to_refresh_ratio: float
+    v1_to_refresh_ratio: float
 
 
 def parse_args() -> argparse.Namespace:
@@ -54,6 +54,14 @@ def _to_float(value: str, field: str) -> float:
         raise ValueError(f"Invalid {field!r} value: {value!r}") from exc
 
 
+def _row_float(row: dict[str, str], aliases: list[str], field: str) -> float:
+    for alias in aliases:
+        value = row.get(alias)
+        if value is not None and value != "":
+            return _to_float(value, field)
+    raise ValueError(f"Missing {field!r} column (accepted: {', '.join(aliases)})")
+
+
 def load_samples(path: Path) -> list[Sample]:
     if not path.exists():
         raise FileNotFoundError(f"Metrics history file not found: {path}")
@@ -68,20 +76,26 @@ def load_samples(path: Path) -> list[Sample]:
                     refresh_html_bytes=_to_float(
                         row.get("refresh_html_bytes", ""), "refresh_html_bytes"
                     ),
-                    v2_payload_bytes=_to_float(
-                        row.get("v2_payload_bytes", ""), "v2_payload_bytes"
+                    v1_payload_bytes=_row_float(
+                        row,
+                        ["v1_payload_bytes", "v2_payload_bytes"],
+                        "v1_payload_bytes",
                     ),
                     byte_savings_ratio=_to_float(
                         row.get("byte_savings_ratio", ""), "byte_savings_ratio"
                     ),
-                    v2_median_ms=_to_float(
-                        row.get("v2_median_ms", ""), "v2_median_ms"
+                    v1_median_ms=_row_float(
+                        row,
+                        ["v1_median_ms", "v2_median_ms"],
+                        "v1_median_ms",
                     ),
                     refresh_median_ms=_to_float(
                         row.get("refresh_median_ms", ""), "refresh_median_ms"
                     ),
-                    v2_to_refresh_ratio=_to_float(
-                        row.get("v2_to_refresh_ratio", ""), "v2_to_refresh_ratio"
+                    v1_to_refresh_ratio=_row_float(
+                        row,
+                        ["v1_to_refresh_ratio", "v2_to_refresh_ratio"],
+                        "v1_to_refresh_ratio",
                     ),
                 )
             )
@@ -105,19 +119,19 @@ def summarize(samples: list[Sample], window: int) -> str:
 
     active = samples[-window:]
     rolling_savings = rolling_median(active, "byte_savings_ratio")
-    rolling_v2_ms = rolling_median(active, "v2_median_ms")
+    rolling_v1_ms = rolling_median(active, "v1_median_ms")
     rolling_refresh_ms = rolling_median(active, "refresh_median_ms")
-    rolling_ratio = rolling_median(active, "v2_to_refresh_ratio")
+    rolling_ratio = rolling_median(active, "v1_to_refresh_ratio")
 
     delta_prev_savings = (
         latest.byte_savings_ratio - previous.byte_savings_ratio if previous else 0.0
     )
     delta_prev_ratio = (
-        latest.v2_to_refresh_ratio - previous.v2_to_refresh_ratio if previous else 0.0
+        latest.v1_to_refresh_ratio - previous.v1_to_refresh_ratio if previous else 0.0
     )
 
     delta_base_savings = latest.byte_savings_ratio - baseline.byte_savings_ratio
-    delta_base_ratio = latest.v2_to_refresh_ratio - baseline.v2_to_refresh_ratio
+    delta_base_ratio = latest.v1_to_refresh_ratio - baseline.v1_to_refresh_ratio
 
     lines = [
         "Stream Metrics Summary",
@@ -126,21 +140,21 @@ def summarize(samples: list[Sample], window: int) -> str:
         "",
         "Latest",
         f"  Byte savings: {latest.byte_savings_ratio:.1%}",
-        f"  v2 median: {latest.v2_median_ms:.2f} ms",
+        f"  v1 median: {latest.v1_median_ms:.2f} ms",
         f"  refresh median: {latest.refresh_median_ms:.2f} ms",
-        f"  v2/refresh ratio: {latest.v2_to_refresh_ratio:.3f}",
+        f"  v1/refresh ratio: {latest.v1_to_refresh_ratio:.3f}",
         "",
         f"Rolling medians (last {len(active)})",
         f"  Byte savings: {rolling_savings:.1%}",
-        f"  v2 median: {rolling_v2_ms:.2f} ms",
+        f"  v1 median: {rolling_v1_ms:.2f} ms",
         f"  refresh median: {rolling_refresh_ms:.2f} ms",
-        f"  v2/refresh ratio: {rolling_ratio:.3f}",
+        f"  v1/refresh ratio: {rolling_ratio:.3f}",
         "",
         "Deltas",
         f"  vs previous byte savings: {delta_prev_savings:+.2%}",
-        f"  vs previous v2/refresh ratio: {delta_prev_ratio:+.3f}",
+        f"  vs previous v1/refresh ratio: {delta_prev_ratio:+.3f}",
         f"  vs first byte savings: {delta_base_savings:+.2%}",
-        f"  vs first v2/refresh ratio: {delta_base_ratio:+.3f}",
+        f"  vs first v1/refresh ratio: {delta_base_ratio:+.3f}",
     ]
     return "\n".join(lines)
 
