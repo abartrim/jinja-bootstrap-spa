@@ -234,6 +234,186 @@ BOOTSTRAP_MACROS = """
   -}}
 {%- endmacro -%}
 
+{%- macro page_header(title=None, subtitle=None, icon=None, eyebrow=None,
+                      title_html=None, meta_html=None, actions_html=None,
+                      breadcrumbs=None, class_name="", attrs="") -%}
+  {%- set breadcrumbs = breadcrumbs or [] -%}
+  {%- set wrapper_classes = "jbs-page-header" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section class="{{ wrapper_classes }}"
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    {%- if breadcrumbs %}
+      <nav aria-label="Breadcrumb" class="mb-2">
+        <ol class="breadcrumb mb-0 small">
+          {%- for crumb in breadcrumbs %}
+            {%- set crumb_label = (
+                  crumb.label if crumb.label is defined
+                  else (crumb["label"] if crumb is mapping else crumb)
+                ) -%}
+            {%- set crumb_href = (
+                  crumb.href if crumb.href is defined
+                  else (crumb["href"] if crumb is mapping and "href" in crumb else none)
+                ) -%}
+            {%- set crumb_active = (
+                  crumb.active if crumb.active is defined
+                  else (
+                    crumb["active"]
+                    if crumb is mapping and "active" in crumb
+                    else loop.last
+                  )
+                ) -%}
+            <li class="breadcrumb-item{% if crumb_active %} active{% endif %}"
+                {%- if crumb_active %} aria-current="page"{% endif -%}>
+              {%- if crumb_href and not crumb_active %}
+                <a href="{{ crumb_href }}">{{ crumb_label }}</a>
+              {%- else %}
+                {{ crumb_label }}
+              {%- endif %}
+            </li>
+          {%- endfor %}
+        </ol>
+      </nav>
+    {%- endif %}
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+      <div class="min-w-0">
+        {%- if eyebrow %}
+          <div class="text-uppercase small fw-semibold text-body-secondary mb-1">
+            {{ eyebrow }}
+          </div>
+        {%- endif %}
+        {%- if title_html %}
+          {{ title_html|safe }}
+        {%- elif title %}
+          <h1 class="h3 mb-1 d-flex align-items-center gap-2">
+            {%- if icon %}
+              <i class="{{ icon }}" aria-hidden="true"></i>
+            {%- endif %}
+            <span>{{ title }}</span>
+          </h1>
+        {%- endif %}
+        {%- if subtitle %}
+          <p class="text-body-secondary mb-0">{{ subtitle }}</p>
+        {%- endif %}
+      </div>
+      {%- if meta_html or actions_html %}
+        <div class="d-flex flex-wrap align-items-center
+                    justify-content-end gap-2 ms-auto">
+          {%- if meta_html %}
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              {{ meta_html|safe }}
+            </div>
+          {%- endif %}
+          {%- if actions_html %}
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              {{ actions_html|safe }}
+            </div>
+          {%- endif %}
+        </div>
+      {%- endif %}
+    </div>
+  </section>
+{%- endmacro -%}
+
+{%- macro toolbar(toolbar_id=None, title=None, subtitle=None, body="",
+                  badges=None, actions_html=None, collapsible=False,
+                  expanded=True, class_name="", attrs="") -%}
+  {%- set badges = badges or [] -%}
+  {%- set wrapper_classes = "card border-secondary shadow-sm jbs-toolbar" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  {%- set panel_id = toolbar_id ~ "-panel" if toolbar_id else none -%}
+  {%- set trigger_id = toolbar_id ~ "-trigger" if toolbar_id else none -%}
+  {%- set content = caller() if caller is defined else body -%}
+  <section
+    class="{{ wrapper_classes }}"
+    {%- if toolbar_id %} id="{{ toolbar_id }}"{% endif -%}
+    {%- if collapsible %} data-jbs-disclosure{% endif -%}
+    {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="card-header bg-body py-2">
+      <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+        <div class="min-w-0">
+          {%- if title %}
+            <h2 class="h6 mb-1">{{ title }}</h2>
+          {%- endif %}
+          {%- if subtitle %}
+            <p class="text-body-secondary small mb-0">{{ subtitle }}</p>
+          {%- endif %}
+          {%- if badges %}
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+              {%- for badge in badges %}
+                {%- set badge_label = (
+                      badge.label if badge.label is defined
+                      else (
+                        badge["label"]
+                        if badge is mapping and "label" in badge
+                        else badge
+                      )
+                    ) -%}
+                {%- set badge_variant = (
+                      badge.variant if badge.variant is defined
+                      else (
+                        badge["variant"]
+                        if badge is mapping and "variant" in badge
+                        else "secondary"
+                      )
+                    ) -%}
+                {%- set badge_class_name = (
+                      badge.class_name if badge.class_name is defined
+                      else (
+                        badge["class_name"]
+                        if badge is mapping and "class_name" in badge
+                        else ""
+                      )
+                    ) -%}
+                {%- set badge_classes = "badge text-bg-" ~ badge_variant -%}
+                {%- if badge_class_name -%}
+                  {%- set badge_classes = badge_classes ~ " " ~ badge_class_name -%}
+                {%- endif -%}
+                <span class="{{ badge_classes }}">
+                  {{ badge_label }}
+                </span>
+              {%- endfor %}
+            </div>
+          {%- endif %}
+        </div>
+        {%- if actions_html or collapsible %}
+          <div class="d-flex flex-wrap align-items-center
+                      justify-content-end gap-2 ms-auto">
+            {%- if actions_html %}
+              {{ actions_html|safe }}
+            {%- endif %}
+            {%- if collapsible %}
+              <button type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      {%- if trigger_id %} id="{{ trigger_id }}"{% endif -%}
+                      data-jbs-disclosure-trigger
+                      aria-expanded="{{ 'true' if expanded else 'false' }}"
+                      {%- if panel_id %} aria-controls="{{ panel_id }}"{% endif -%}>
+                <span>{{ "Hide" if expanded else "Show" }}</span>
+                <span class="ms-1" data-jbs-disclosure-icon aria-hidden="true">
+                  <i class="bi bi-chevron-down"></i>
+                </span>
+              </button>
+            {%- endif %}
+          </div>
+        {%- endif %}
+      </div>
+    </div>
+    <div class="card-body"
+         {%- if panel_id %} id="{{ panel_id }}"{% endif -%}
+         {%- if collapsible %} data-jbs-disclosure-panel{% endif -%}
+         {%- if collapsible and trigger_id %}
+           aria-labelledby="{{ trigger_id }}"
+         {% endif -%}
+         {%- if collapsible and not expanded %} hidden{% endif -%}>
+      {{ content|safe }}
+    </div>
+  </section>
+{%- endmacro -%}
+
 {%- macro card(title=None, body="", footer=None, class_name="", id=None, attrs="") -%}
   <div class="card{% if class_name %} {{ class_name }}{% endif %}"
        {%- if id %} id="{{ id }}"{% endif -%}

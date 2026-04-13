@@ -237,6 +237,86 @@ def test_segmented_control_macro_renders_pill_tabs_contract() -> None:
     assert 'role="tablist"' in rendered
 
 
+def test_page_header_macro_renders_breadcrumbs_meta_and_actions() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {% set meta_html %}<span class="badge text-bg-success">Live</span>{% endset %}
+        {% set actions_html %}
+          <button class="btn btn-sm btn-primary">Refresh</button>
+        {% endset %}
+        {{
+          ui.page_header(
+            title="Orders",
+            subtitle="Monitor the latest order activity.",
+            icon="bi bi-box-seam",
+            eyebrow="Operations",
+            meta_html=meta_html,
+            actions_html=actions_html,
+            breadcrumbs=[
+              {"label": "Home", "href": "/"},
+              {"label": "Orders", "active": true},
+            ],
+            class_name="mb-4"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert "jbs-page-header" in rendered
+    assert "breadcrumb" in rendered
+    assert 'aria-label="Breadcrumb"' in rendered
+    assert 'href="/"' in rendered
+    assert "Operations" in rendered
+    assert "Monitor the latest order activity." in rendered
+    assert 'class="bi bi-box-seam"' in rendered
+    assert 'badge text-bg-success' in rendered
+    assert 'btn btn-sm btn-primary' in rendered
+
+
+def test_toolbar_macro_supports_badges_call_blocks_and_disclosure() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {% set actions_html %}
+          <button class="btn btn-sm btn-outline-primary">Refresh</button>
+        {% endset %}
+        {% call ui.toolbar(
+          toolbar_id="orders-toolbar",
+          title="Filters",
+          subtitle="Refine the current result set.",
+          badges=[
+            {"label": "Header persistence", "variant": "primary"},
+            "SSE ready"
+          ],
+          actions_html=actions_html,
+          collapsible=true,
+          expanded=false,
+          class_name="mb-3"
+        ) %}
+          <form data-jbs-form><input name="query" value="open"></form>
+        {% endcall %}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="orders-toolbar"' in rendered
+    assert "jbs-toolbar" in rendered
+    assert "data-jbs-disclosure" in rendered
+    assert 'data-jbs-disclosure-trigger' in rendered
+    assert 'data-jbs-disclosure-panel' in rendered
+    assert 'aria-expanded="false"' in rendered
+    assert "Header persistence" in rendered
+    assert "SSE ready" in rendered
+    assert 'btn btn-sm btn-outline-primary' in rendered
+    assert '<form data-jbs-form><input name="query" value="open"></form>' in rendered
+
+
 def test_toast_macro_renders_dismissible_status_notice() -> None:
     environment = build_environment()
     template = environment.from_string(

@@ -328,6 +328,58 @@
     background="dark",
     class_name="mb-4 jbs-site-nav") 
   }}
+  {% set showcase_actions %}
+    <div class="dropdown jbs-theme-toggle">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-2"
+              id="bd-theme"
+              type="button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              aria-label="Toggle theme">
+        <i class="bi bi-circle-half" aria-hidden="true" data-jbs-theme-icon></i>
+        <span>Theme</span>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end shadow"
+          aria-labelledby="bd-theme">
+        <li>
+          <button type="button"
+                  class="dropdown-item d-flex align-items-center gap-2"
+                  data-bs-theme-value="light">
+            <i class="bi bi-sun-fill" aria-hidden="true"></i>
+            Light
+          </button>
+        </li>
+        <li>
+          <button type="button"
+                  class="dropdown-item d-flex align-items-center gap-2"
+                  data-bs-theme-value="dark">
+            <i class="bi bi-moon-stars-fill" aria-hidden="true"></i>
+            Dark
+          </button>
+        </li>
+        <li>
+          <button type="button"
+                  class="dropdown-item d-flex align-items-center gap-2 active"
+                  data-bs-theme-value="auto">
+            <i class="bi bi-circle-half" aria-hidden="true"></i>
+            System
+          </button>
+        </li>
+      </ul>
+    </div>
+    {{ ui.button("About Runtime", variant="outline-secondary", size="sm", attrs='data-jbs-overlay-open="runtime-modal"') }}
+    {{ ui.button("Workbench", variant="outline-secondary", size="sm", attrs='data-jbs-overlay-open="orders-drawer"') }}
+  {% endset %}
+  {% set journey_body %}
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <a class="jbs-journey-link" href="#orders-table"><span class="badge rounded-pill">1</span><i class="bi bi-table" aria-hidden="true"></i>Stateful table</a>
+      <a class="jbs-journey-link" href="#live-table"><span class="badge rounded-pill">2</span><i class="bi bi-lightning-charge" aria-hidden="true"></i>SSE prepend</a>
+      <a class="jbs-journey-link" href="#live-append-table"><span class="badge rounded-pill">3</span><i class="bi bi-arrow-down-square" aria-hidden="true"></i>SSE append</a>
+      <a class="jbs-journey-link" href="#session-table"><span class="badge rounded-pill">4</span><i class="bi bi-device-hdd" aria-hidden="true"></i>Session persist</a>
+      <a class="jbs-journey-link" href="#cancel-demo"><span class="badge rounded-pill">5</span><i class="bi bi-hourglass-split" aria-hidden="true"></i>Cancellation</a>
+      <a class="jbs-journey-link" href="#lazy-summary"><span class="badge rounded-pill">6</span><i class="bi bi-eye" aria-hidden="true"></i>Lazy hydrate</a>
+    </div>
+  {% endset %}
   <main class="container py-4 jbs-shell">
     <section class="card jbs-hero shadow-sm mb-4">
       <div class="card-body">
@@ -363,67 +415,27 @@
         </ol>
       </div>
     </section>
-    <section class="jbs-journey-nav px-3 py-2 mb-4"
-             aria-label="Guided feature journey">
-      <div class="d-flex flex-wrap align-items-center gap-2">
-        <a class="jbs-journey-link" href="#orders-table"><span class="badge rounded-pill">1</span><i class="bi bi-table" aria-hidden="true"></i>Stateful table</a>
-        <a class="jbs-journey-link" href="#live-table"><span class="badge rounded-pill">2</span><i class="bi bi-lightning-charge" aria-hidden="true"></i>SSE prepend</a>
-        <a class="jbs-journey-link" href="#live-append-table"><span class="badge rounded-pill">3</span><i class="bi bi-arrow-down-square" aria-hidden="true"></i>SSE append</a>
-        <a class="jbs-journey-link" href="#session-table"><span class="badge rounded-pill">4</span><i class="bi bi-device-hdd" aria-hidden="true"></i>Session persist</a>
-        <a class="jbs-journey-link" href="#cancel-demo"><span class="badge rounded-pill">5</span><i class="bi bi-hourglass-split" aria-hidden="true"></i>Cancellation</a>
-        <a class="jbs-journey-link" href="#lazy-summary"><span class="badge rounded-pill">6</span><i class="bi bi-eye" aria-hidden="true"></i>Lazy hydrate</a>
-      </div>
-    </section>
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-      <div>
-        <h1 class="display-6 mb-1">Jinja Bootstrap SPA Showcase</h1>
-        <p class="text-body-secondary mb-0">
-          A production-style walkthrough of SPA behaviors built from server-rendered HTML.
-        </p>
-      </div>
-      <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
-        <div class="dropdown jbs-theme-toggle">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-2"
-                  id="bd-theme"
-                  type="button"
-                  data-bs-toggle="dropdown"
-                  aria-expanded="false"
-                  aria-label="Toggle theme">
-            <i class="bi bi-circle-half" aria-hidden="true" data-jbs-theme-icon></i>
-            <span>Theme</span>
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end shadow"
-              aria-labelledby="bd-theme">
-            <li>
-              <button type="button"
-                      class="dropdown-item d-flex align-items-center gap-2"
-                      data-bs-theme-value="light">
-                <i class="bi bi-sun-fill" aria-hidden="true"></i>
-                Light
-              </button>
-            </li>
-            <li>
-              <button type="button"
-                      class="dropdown-item d-flex align-items-center gap-2"
-                      data-bs-theme-value="dark">
-                <i class="bi bi-moon-stars-fill" aria-hidden="true"></i>
-                Dark
-              </button>
-            </li>
-            <li>
-              <button type="button"
-                      class="dropdown-item d-flex align-items-center gap-2 active"
-                      data-bs-theme-value="auto">
-                <i class="bi bi-circle-half" aria-hidden="true"></i>
-                System
-              </button>
-            </li>
-          </ul>
-        </div>
-        {{ ui.button("About Runtime", variant="outline-secondary", size="sm", attrs='data-jbs-overlay-open="runtime-modal"') }}
-        {{ ui.button("Workbench", variant="outline-secondary", size="sm", attrs='data-jbs-overlay-open="orders-drawer"') }}
-      </div>
-    </div>
+    {{ ui.page_header(
+      title="Jinja Bootstrap SPA Showcase",
+      subtitle="A production-style walkthrough of SPA behaviors built from server-rendered HTML.",
+      icon="bi bi-window-stack",
+      eyebrow="Wrapper Demo",
+      meta_html='<span class="badge text-bg-primary">Bootstrap 5</span><span class="badge text-bg-secondary">Server-rendered</span>',
+      actions_html=showcase_actions,
+      class_name="mb-4"
+    ) }}
+    {{ ui.toolbar(
+      toolbar_id="showcase-journey",
+      title="Guided Feature Journey",
+      subtitle="Jump to a section of the wrapper app and validate each runtime capability in sequence.",
+      badges=[
+        {"label": "Tutorial", "variant": "primary"},
+        {"label": "Wrapper App", "variant": "secondary"}
+      ],
+      body=journey_body,
+      class_name="jbs-journey-nav mb-4",
+      attrs='aria-label="Guided feature journey"'
+    ) }}
     <section class="alert jbs-step border mb-3">
       <h2 class="h6 mb-1 d-flex align-items-center gap-2">
         <i class="bi bi-table" aria-hidden="true"></i>
