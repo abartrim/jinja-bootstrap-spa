@@ -160,7 +160,8 @@ The table component is the first fully specified contract in the framework.
 
 ### Request shape
 
-Table requests use normal query params. The reserved keys are:
+Table state can be transported either via query params or the state header.
+The reserved table keys are:
 
 - `page`
 - `page_size`
@@ -171,11 +172,15 @@ Table requests use normal query params. The reserved keys are:
 Additional filter fields are allowed and should be treated as table-specific state.
 For example, a filtered orders table may also send `status=open` and `owner=ops`.
 
+When `persist="header"` is enabled, the runtime sends state as JSON in
+`X-JBS-State` and the server should prefer that over query params.
+
 The runtime also sends these headers:
 
 - `X-JBS-Request: true`
 - `X-JBS-Component: table`
 - `X-JBS-Action: refresh|filter|page|sort|row`
+- `X-JBS-State: { ... }` (when using `persist="header"`)
 - `If-None-Match: W/"jbs-..."` (when the runtime already has an ETag for the component)
 
 On the Python side, use `parse_table_state(...)` to normalize incoming state
@@ -187,6 +192,7 @@ from jinja_bootstrap_spa import parse_table_state
 
 state = parse_table_state(
     request.args,
+    request_headers=request.headers,
     default_sort_by="created_at",
     default_page_size=25,
     allowed_page_sizes=(10, 25, 50, 100),
@@ -254,7 +260,48 @@ Use these attributes on the component root:
 - `data-jbs-stream-pause-when-hidden="true|false"` (buffer when off-screen)
 - `data-jbs-stream-buffer-max="N"` (max buffered stream events)
 
-For append/prepend payloads, send SSE data with `row` or `rows` HTML:
+The runtime supports a v1 delta payload for stream patches:
+
+```json
+{
+  "v": 1,
+  "target": "orders-table",
+  "seq": 42,
+  "snapshot": "orders-42",
+  "cache_scope": "orders:tenant-a",
+  "mode": "replace",
+  "ops": [
+    {"op": "update", "id": "order-1001", "html": "<tr data-jbs-row-id=\"order-1001\">...</tr>"},
+    {"op": "move", "id": "order-1004", "before_id": "order-1002"},
+    {"op": "delete", "id": "order-1007"}
+  ],
+  "meta": {
+    "subtitle": "Filtered to queued",
+    "total_rows": 17,
+    "page": 1,
+    "page_count": 2
+  }
+}
+```
+
+Supported row operations in `ops`:
+
+- `create`
+- `read` (position-only move with no HTML change)
+- `update`
+- `delete`
+- `upsert`
+- `move`
+
+Ordering and safety behavior:
+
+- `seq` deduplicates stale events.
+- Sequence gaps trigger automatic refresh/resync.
+- `resync: true` forces refresh.
+- `cache_scope` changes trigger refresh and snapshot reset.
+- Invalid ops/fragments fall back to full refresh instead of partial corruption.
+
+Legacy append/prepend payloads with `row` or `rows` HTML are still supported:
 
 ```json
 {
@@ -312,6 +359,7 @@ The root component declares persistence with `data-jbs-persist`:
 - `memory`: keep state only in the in-page runtime store
 - `querystring`: mirror declared state keys into the URL query string
 - `session`: persist state in `sessionStorage`
+- `header`: send/read state via `X-JBS-State` request header
 
 Use `data-jbs-state-keys` to define which keys are synchronized when using
 querystring or session persistence. For tables, the macro defaults to:

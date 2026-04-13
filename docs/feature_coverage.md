@@ -15,6 +15,8 @@ Last visual check run: April 12, 2026 (desktop + mobile screenshots via
 | Header persistence | `orders-table` (`persist="header"`) | `tests/test_browser_runtime.py` | Yes |
 | Session persistence | `session-table` (`persist="session"`) | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
 | SSE replace mode | `orders-table` (`/events/orders`) | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
+| Delta stream protocol v1 (`seq`, dedupe/resync, fallback refresh) | `orders-table`, `live-table`, `live-append-table` | `tests/test_browser_runtime.py` | Yes |
+| Stream row CRUD ops (`create/read/update/delete/upsert/move`) | `orders-table` stream updates | `tests/test_browser_runtime.py` | Yes |
 | SSE prepend mode | `live-table` | `tests/test_browser_runtime.py` | Yes |
 | SSE append mode | `live-append-table` | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
 | Hidden stream buffering + flush | `live-table` (`stream_pause_when_hidden=true`) | `tests/test_browser_runtime.py` | Yes |
