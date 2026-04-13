@@ -439,7 +439,9 @@ BOOTSTRAP_MACROS = """
           <span class="badge text-bg-primary ms-1">Active</span>
         {%- endif %}
         {%- if header_suffix %}
-          <span class="ms-auto d-inline-flex align-items-center">{{ header_suffix|safe }}</span>
+          <span class="ms-auto d-inline-flex align-items-center">
+            {{ header_suffix|safe }}
+          </span>
         {%- endif %}
         <span class="ms-2" data-jbs-disclosure-icon aria-hidden="true">
           <i class="bi bi-chevron-down"></i>
