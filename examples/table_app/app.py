@@ -283,8 +283,8 @@ def build_orders_context() -> dict[str, Any]:
         request.args,
         request_headers=request.headers,
         default_sort_by="number",
-        default_page_size=10,
-        allowed_page_sizes=(5, 10, 20, 50),
+        default_page_size=8,
+        allowed_page_sizes=(4, 8, 12, 20),
         filter_keys=(
             "status",
             "customer",

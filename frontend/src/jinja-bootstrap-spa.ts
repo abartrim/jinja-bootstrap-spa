@@ -126,6 +126,8 @@ const JBS_STREAM_ROW_PULSE_CLASS = "jbs-stream-row-pulse";
 const JBS_PULSE_MS = 1800;
 const JBS_DEFAULT_LOADING_LABEL = "Loading...";
 const JBS_TABLE_PAGE_CACHE_MAX = 12;
+const JBS_DEV_EVENT_CLASS = "jbs-dev-event";
+const JBS_DEV_EVENT_STYLE_ID = "jbs-dev-event-style";
 
 export const JBS_HEADERS = {
   accept: "text/html",
@@ -398,6 +400,8 @@ export class JBSRuntime {
   private readonly tablePageCache = new Map<string, JBSTablePageCache>();
   private readonly overlayReturnFocus = new Map<string, HTMLElement>();
   private lazyObserver: IntersectionObserver | null = null;
+  private devModeEnabled = false;
+  private devModeInitialized = false;
   private initialized = false;
 
   constructor(options: JBSRuntimeOptions = {}) {
@@ -502,8 +506,160 @@ export class JBSRuntime {
       );
     }
 
+    this.devModeEnabled = this.isDevModeEnabled();
+    if (this.devModeEnabled) {
+      this.installDevMode();
+    }
+
     this.hydrate(document);
     this.initialized = true;
+  }
+
+  private isDevModeEnabled(): boolean {
+    const htmlFlag = document.documentElement.dataset.jbsDevMode === "true";
+    const globalFlag = window.__JBS_DEV_MODE__ === true;
+    const storageFlag =
+      typeof localStorage !== "undefined" && localStorage.getItem("jbs:dev-mode") === "true";
+    return htmlFlag || globalFlag || storageFlag;
+  }
+
+  private installDevMode(): void {
+    if (this.devModeInitialized) {
+      return;
+    }
+
+    if (!document.getElementById(JBS_DEV_EVENT_STYLE_ID)) {
+      const style = document.createElement("style");
+      style.id = JBS_DEV_EVENT_STYLE_ID;
+      style.textContent = `
+        .${JBS_DEV_EVENT_CLASS} {
+          position: relative;
+          outline: 2px solid rgba(255, 153, 0, 0.75);
+          outline-offset: 2px;
+          transition: outline-color 140ms ease, box-shadow 140ms ease;
+        }
+
+        .${JBS_DEV_EVENT_CLASS}[data-jbs-dev-variant="stream"] {
+          outline-color: rgba(25, 135, 84, 0.75);
+        }
+
+        .${JBS_DEV_EVENT_CLASS}[data-jbs-dev-variant="not-modified"] {
+          outline-color: rgba(13, 202, 240, 0.88);
+        }
+
+        .${JBS_DEV_EVENT_CLASS}[data-jbs-dev-variant="cache"] {
+          outline-color: rgba(13, 110, 253, 0.82);
+        }
+
+        .${JBS_DEV_EVENT_CLASS}[data-jbs-dev-variant="error"] {
+          outline-color: rgba(220, 53, 69, 0.84);
+        }
+
+        .${JBS_DEV_EVENT_CLASS}::after {
+          content: attr(data-jbs-dev-label);
+          position: absolute;
+          top: -0.7rem;
+          right: 0.4rem;
+          z-index: 20;
+          max-width: min(26rem, 95%);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          padding: 0.16rem 0.45rem;
+          border-radius: 999px;
+          font-size: 0.67rem;
+          font-weight: 700;
+          line-height: 1.15;
+          letter-spacing: 0.01em;
+          color: #212529;
+          background: #ffc107;
+          border: 1px solid rgba(33, 37, 41, 0.24);
+          box-shadow: 0 0.2rem 0.65rem rgba(0, 0, 0, 0.18);
+        }
+
+        [data-bs-theme="dark"] .${JBS_DEV_EVENT_CLASS}::after {
+          color: #f8f9fa;
+          background: #0d6efd;
+          border-color: rgba(248, 249, 250, 0.24);
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    document.addEventListener("jbs:before-request", (event) => {
+      const detail = (event as CustomEvent<JBSRequestDetail>).detail;
+      const component = detail?.component;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      this.markDevEvent(component, `Request: ${detail.action}`, "request");
+    });
+
+    document.addEventListener("jbs:after-swap", (event) => {
+      const component = event.target;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      const id = component.id ? `#${component.id}` : "component";
+      this.markDevEvent(component, `Replaced ${id}`, "swap");
+    });
+
+    document.addEventListener("jbs:after-stream-patch", (event) => {
+      const detail = (event as CustomEvent<{ component?: HTMLElement; mode?: string }>).detail;
+      const component = detail?.component;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      this.markDevEvent(component, `Stream patch: ${detail.mode ?? "replace"}`, "stream");
+    });
+
+    document.addEventListener("jbs:not-modified", (event) => {
+      const component = event.target;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      this.markDevEvent(component, "No visual change", "not-modified");
+    });
+
+    document.addEventListener("jbs:table-page-cache-hit", (event) => {
+      const detail = (event as CustomEvent<{ component?: HTMLElement; page?: number }>).detail;
+      const component = detail?.component;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      const page = Number(detail.page ?? 0);
+      this.markDevEvent(component, page > 0 ? `Cache hit: page ${page}` : "Cache hit", "cache");
+    });
+
+    document.addEventListener("jbs:request-error", (event) => {
+      const detail = (event as CustomEvent<JBSRequestDetail>).detail;
+      const component = detail?.component;
+      if (!(component instanceof HTMLElement)) {
+        return;
+      }
+      this.markDevEvent(component, `Request failed: ${detail.action}`, "error");
+    });
+
+    this.devModeInitialized = true;
+  }
+
+  private markDevEvent(
+    component: HTMLElement,
+    label: string,
+    variant: "request" | "swap" | "stream" | "not-modified" | "cache" | "error",
+  ): void {
+    component.classList.add(JBS_DEV_EVENT_CLASS);
+    component.dataset.jbsDevLabel = label;
+    component.dataset.jbsDevVariant = variant;
+
+    window.setTimeout(() => {
+      if (!component.isConnected) {
+        return;
+      }
+      component.classList.remove(JBS_DEV_EVENT_CLASS);
+      delete component.dataset.jbsDevLabel;
+      delete component.dataset.jbsDevVariant;
+    }, 1600);
   }
 
   hydrate(root: ParentNode): void {
@@ -3111,6 +3267,7 @@ if (typeof window !== "undefined") {
 
 declare global {
   interface Window {
+    __JBS_DEV_MODE__?: boolean;
     JinjaBootstrapSpa: JBSRuntime;
   }
 }

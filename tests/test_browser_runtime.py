@@ -106,7 +106,7 @@ def _reset_stream_state() -> None:
 
 PAGE_TEMPLATE = """
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-jbs-dev-mode="true">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1378,6 +1378,10 @@ def test_browser_runtime_handles_overlays_autocomplete_and_table_contract(
             page.wait_for_function(_table_contains("Page 2 of 3"))
             page.locator("#orders-table").get_by_role("button", name="Previous").click()
             page.wait_for_function(_table_contains("Page 1 of 3"))
+            page.wait_for_function(
+                "() => document.getElementById('orders-table')"
+                "?.dataset.jbsDevLabel?.includes('Cache hit')"
+            )
 
             page_cache_stats = page.evaluate(
                 """

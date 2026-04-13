@@ -1,49 +1,156 @@
 {% extends "base.html" %}
 {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
 
-{% block title %}jinja-bootstrap-spa Dev App{% endblock %}
+{% block title %}Jinja Bootstrap SPA Showcase{% endblock %}
 
 {% block head_extra %}
   <style>
+    :root,
+    [data-bs-theme="light"] {
+      --jbs-bd-purple: #4c0bce;
+      --jbs-bd-violet: #712cf9;
+      --jbs-bd-accent: #ffe484;
+      --jbs-bd-violet-rgb: 112, 44, 249;
+      --jbs-app-surface: rgba(255, 255, 255, 0.88);
+      --jbs-app-surface-strong: rgba(255, 255, 255, 0.96);
+      --jbs-app-step-bg: rgba(var(--bs-tertiary-bg-rgb), 0.84);
+      --jbs-app-step-border: rgba(var(--jbs-bd-violet-rgb), 0.28);
+      --jbs-app-shadow: 0 0.45rem 1.2rem rgba(76, 11, 206, 0.08);
+    }
+
+    [data-bs-theme="dark"] {
+      --jbs-bd-violet: #9e77ff;
+      --jbs-bd-violet-rgb: 158, 119, 255;
+      --jbs-app-surface: rgba(33, 37, 41, 0.78);
+      --jbs-app-surface-strong: rgba(33, 37, 41, 0.92);
+      --jbs-app-step-bg: rgba(52, 58, 64, 0.62);
+      --jbs-app-step-border: rgba(var(--jbs-bd-violet-rgb), 0.42);
+      --jbs-app-shadow: 0 0.7rem 1.7rem rgba(0, 0, 0, 0.34);
+    }
+
     body {
       background:
-        radial-gradient(circle at 10% -20%, rgba(var(--bs-primary-rgb), 0.12), transparent 45%),
-        radial-gradient(circle at 100% 0%, rgba(var(--bs-info-rgb), 0.1), transparent 35%),
+        radial-gradient(circle at 0% -25%, rgba(var(--jbs-bd-violet-rgb), 0.1), transparent 44%),
+        radial-gradient(circle at 100% 0%, rgba(var(--bs-info-rgb), 0.08), transparent 32%),
         var(--bs-body-bg);
+    }
+
+    .jbs-site-nav {
+      box-shadow: 0 .5rem 1rem rgba(0, 0, 0, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.2);
+      background-image: linear-gradient(
+        180deg,
+        rgba(var(--jbs-bd-violet-rgb), 1),
+        rgba(var(--jbs-bd-violet-rgb), 0.93)
+      ) !important;
+    }
+
+    .jbs-site-nav .navbar-brand,
+    .jbs-site-nav .nav-link {
+      color: rgba(255, 255, 255, 0.94) !important;
+    }
+
+    .jbs-site-nav .nav-link:hover,
+    .jbs-site-nav .nav-link:focus {
+      color: var(--jbs-bd-accent) !important;
+    }
+
+    .jbs-site-nav .navbar-brand {
+      letter-spacing: 0.01em;
+      font-weight: 700;
     }
 
     .jbs-shell {
       backdrop-filter: saturate(1.04);
     }
 
+    .jbs-journey-nav {
+      position: sticky;
+      top: 0.5rem;
+      z-index: 15;
+      border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.22);
+      border-radius: 0.95rem;
+      background: var(--jbs-app-surface-strong);
+      box-shadow: var(--jbs-app-shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    .jbs-journey-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 999px;
+      color: var(--bs-emphasis-color);
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: background-color 140ms ease, color 140ms ease;
+    }
+
+    .jbs-journey-link:hover,
+    .jbs-journey-link:focus {
+      color: var(--bs-emphasis-color);
+      background: rgba(var(--jbs-bd-violet-rgb), 0.16);
+    }
+
+    .jbs-journey-link .badge {
+      font-size: 0.67rem;
+      background: rgba(var(--jbs-bd-violet-rgb), 0.16);
+      color: var(--bs-emphasis-color);
+      border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.35);
+    }
+
     .jbs-hero {
-      border: 1px solid rgba(var(--bs-primary-rgb), 0.2);
+      border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.28);
       background: linear-gradient(
         135deg,
-        rgba(var(--bs-primary-rgb), 0.08) 0%,
-        rgba(var(--bs-info-rgb), 0.06) 52%,
-        rgba(var(--bs-success-rgb), 0.08) 100%
+        rgba(var(--jbs-bd-violet-rgb), 0.12) 0%,
+        rgba(var(--bs-info-rgb), 0.08) 52%,
+        rgba(var(--bs-pink-rgb), 0.09) 100%
       );
+      box-shadow: var(--jbs-app-shadow);
+    }
+
+    .jbs-hero .lead {
+      max-width: 72ch;
+      color: var(--bs-secondary-color);
     }
 
     .jbs-step {
-      border-color: rgba(var(--bs-secondary-rgb), 0.28) !important;
-      background: rgba(var(--bs-tertiary-bg-rgb), 0.72);
+      border-color: var(--jbs-app-step-border) !important;
+      background: var(--jbs-app-step-bg);
     }
 
-    [data-bs-theme="dark"] .jbs-step {
-      background: rgba(var(--bs-dark-rgb), 0.45);
+    .jbs-step h2 {
+      color: var(--bs-emphasis-color);
+    }
+
+    .jbs-step p {
+      color: var(--bs-secondary-color) !important;
+    }
+
+    .jbs-filter-accordion .card-header {
+      background: rgba(var(--jbs-bd-violet-rgb), 0.06);
+      border-bottom-color: rgba(var(--jbs-bd-violet-rgb), 0.18);
+    }
+
+    .jbs-filter-accordion [data-jbs-disclosure-trigger] {
+      font-size: 0.96rem;
+    }
+
+    .jbs-filter-accordion [data-jbs-disclosure-icon] {
+      transition: transform 140ms ease;
+    }
+
+    .jbs-filter-accordion [data-jbs-disclosure-trigger][aria-expanded="true"] [data-jbs-disclosure-icon] {
+      transform: rotate(180deg);
     }
 
     .jbs-toolbar-card {
-      border: 1px solid rgba(var(--bs-secondary-rgb), 0.2);
+      border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.22);
       border-radius: 0.9rem;
-      background: var(--bs-body-bg);
-      box-shadow: 0 0.45rem 1.2rem rgba(0, 0, 0, 0.06);
-    }
-
-    [data-bs-theme="dark"] .jbs-toolbar-card {
-      box-shadow: 0 0.55rem 1.5rem rgba(0, 0, 0, 0.28);
+      background: var(--jbs-app-surface);
+      box-shadow: var(--jbs-app-shadow);
     }
 
     @keyframes jbsDemoSwapFlash {
@@ -98,10 +205,116 @@
 
     .jbs-theme-toggle .dropdown-menu {
       min-width: 12rem;
+      background: var(--jbs-app-surface-strong);
+      color: var(--bs-body-color);
+      border-color: rgba(var(--jbs-bd-violet-rgb), 0.28);
     }
 
     .jbs-theme-toggle .dropdown-item.active {
       font-weight: 600;
+      background: rgba(var(--jbs-bd-violet-rgb), 0.18);
+      color: var(--bs-emphasis-color);
+    }
+
+    .jbs-theme-toggle .btn,
+    .jbs-theme-toggle .dropdown-item {
+      color: var(--bs-emphasis-color);
+    }
+
+    .jbs-theme-toggle .bi {
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+
+    [data-bs-theme="dark"] .jbs-theme-toggle .btn {
+      border-color: rgba(248, 249, 250, 0.25);
+      color: rgba(248, 249, 250, 0.95);
+    }
+
+    .btn-jbs-violet {
+      --bs-btn-color: #fff;
+      --bs-btn-bg: var(--jbs-bd-violet);
+      --bs-btn-border-color: var(--jbs-bd-violet);
+      --bs-btn-hover-color: #fff;
+      --bs-btn-hover-bg: #6528e0;
+      --bs-btn-hover-border-color: #6528e0;
+      --bs-btn-focus-shadow-rgb: var(--jbs-bd-violet-rgb);
+      --bs-btn-active-color: #fff;
+      --bs-btn-active-bg: #5a23c8;
+      --bs-btn-active-border-color: #5a23c8;
+    }
+
+    .jbs-feature-table {
+      border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.2);
+      box-shadow: var(--jbs-app-shadow);
+    }
+
+    .jbs-feature-table .card-header {
+      background: linear-gradient(
+        180deg,
+        rgba(var(--jbs-bd-violet-rgb), 0.06),
+        rgba(var(--jbs-bd-violet-rgb), 0.01)
+      ) !important;
+      border-bottom-color: rgba(var(--jbs-bd-violet-rgb), 0.16);
+    }
+
+    .jbs-feature-table .table thead.table-light th {
+      background: rgba(var(--jbs-bd-violet-rgb), 0.1);
+      color: var(--bs-emphasis-color);
+      border-bottom-color: rgba(var(--jbs-bd-violet-rgb), 0.25);
+    }
+
+    .jbs-feature-table .table thead.table-light .btn {
+      color: var(--bs-emphasis-color) !important;
+    }
+
+    .jbs-feature-table .table tbody td,
+    .jbs-feature-table .table tbody th {
+      vertical-align: middle;
+    }
+
+    .jbs-feature-table .table > :not(caption) > * > * {
+      padding: 0.45rem 0.75rem;
+      font-size: 0.94rem;
+      line-height: 1.25;
+    }
+
+    .jbs-feature-table .card-footer {
+      padding-top: 0.55rem;
+      padding-bottom: 0.55rem;
+    }
+
+    .jbs-feature-table .btn-group .btn {
+      --bs-btn-padding-y: 0.2rem;
+      --bs-btn-padding-x: 0.55rem;
+    }
+
+    [data-bs-theme="dark"] .jbs-feature-table .table thead.table-light th {
+      background: #dbe2ee;
+      color: #1f2328;
+      border-bottom-color: rgba(31, 35, 40, 0.32);
+    }
+
+    [data-bs-theme="dark"] .jbs-feature-table .table thead.table-light .btn {
+      color: #1f2328 !important;
+    }
+
+    [data-bs-theme="dark"] .jbs-feature-table .table thead.table-light .text-body-tertiary {
+      color: rgba(31, 35, 40, 0.55) !important;
+    }
+
+    @media (max-width: 768px) {
+      .jbs-journey-nav {
+        position: static;
+      }
+
+      .jbs-journey-link {
+        font-size: 0.78rem;
+      }
+
+      .jbs-feature-table .table > :not(caption) > * > * {
+        padding: 0.4rem 0.5rem;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -121,14 +334,19 @@
         {"label": "Live", "href": "#live-table"},
         {"label": "Session", "href": "#session-table"},
       ],
-      class_name="mb-4"
+      theme="dark",
+      background="dark",
+      class_name="mb-4 jbs-site-nav"
     )
   }}
   <main class="container py-4 jbs-shell">
     <section class="card jbs-hero shadow-sm mb-4">
       <div class="card-body">
-        <h2 class="h5 mb-2">Interactive Tutorial Flow</h2>
-        <p class="text-body-secondary mb-2">
+        <h2 class="h5 mb-2 d-flex align-items-center gap-2">
+          <i class="bi bi-stars text-primary" aria-hidden="true"></i>
+          Interactive Tutorial Flow
+        </h2>
+        <p class="lead mb-2">
           This page is both a dev harness and an end-user style walkthrough of the
           runtime contract. Work from top to bottom to see state sync, stream updates,
           cancellation, and lazy hydration in one pass.
@@ -157,11 +375,22 @@
       </div>
     </section>
 
+    <section class="jbs-journey-nav px-3 py-2 mb-4" aria-label="Guided feature journey">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <a class="jbs-journey-link" href="#orders-table"><span class="badge rounded-pill">1</span><i class="bi bi-table" aria-hidden="true"></i>Stateful table</a>
+        <a class="jbs-journey-link" href="#live-table"><span class="badge rounded-pill">2</span><i class="bi bi-lightning-charge" aria-hidden="true"></i>SSE prepend</a>
+        <a class="jbs-journey-link" href="#live-append-table"><span class="badge rounded-pill">3</span><i class="bi bi-arrow-down-square" aria-hidden="true"></i>SSE append</a>
+        <a class="jbs-journey-link" href="#session-table"><span class="badge rounded-pill">4</span><i class="bi bi-device-hdd" aria-hidden="true"></i>Session persist</a>
+        <a class="jbs-journey-link" href="#cancel-demo"><span class="badge rounded-pill">5</span><i class="bi bi-hourglass-split" aria-hidden="true"></i>Cancellation</a>
+        <a class="jbs-journey-link" href="#lazy-summary"><span class="badge rounded-pill">6</span><i class="bi bi-eye" aria-hidden="true"></i>Lazy hydrate</a>
+      </div>
+    </section>
+
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
       <div>
-        <h1 class="display-6 mb-1">Wrapper Dev App</h1>
+        <h1 class="display-6 mb-1">Jinja Bootstrap SPA Showcase</h1>
         <p class="text-body-secondary mb-0">
-          Manual playground for the table runtime contract.
+          A production-style walkthrough of SPA behaviors built from server-rendered HTML.
         </p>
       </div>
       <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
@@ -172,25 +401,25 @@
                   data-bs-toggle="dropdown"
                   aria-expanded="false"
                   aria-label="Toggle theme">
-            <svg class="bi" width="1em" height="1em" aria-hidden="true"><use href="#circle-half"></use></svg>
+            <i class="bi bi-circle-half" aria-hidden="true" data-jbs-theme-icon></i>
             <span>Theme</span>
           </button>
           <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="bd-theme">
             <li>
               <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-bs-theme-value="light">
-                <svg class="bi" width="1em" height="1em" aria-hidden="true"><use href="#sun-fill"></use></svg>
+                <i class="bi bi-sun-fill" aria-hidden="true"></i>
                 Light
               </button>
             </li>
             <li>
               <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-bs-theme-value="dark">
-                <svg class="bi" width="1em" height="1em" aria-hidden="true"><use href="#moon-stars-fill"></use></svg>
+                <i class="bi bi-moon-stars-fill" aria-hidden="true"></i>
                 Dark
               </button>
             </li>
             <li>
               <button type="button" class="dropdown-item d-flex align-items-center gap-2 active" data-bs-theme-value="auto">
-                <svg class="bi" width="1em" height="1em" aria-hidden="true"><use href="#circle-half"></use></svg>
+                <i class="bi bi-circle-half" aria-hidden="true"></i>
                 System
               </button>
             </li>
@@ -202,24 +431,14 @@
     </div>
 
     <section class="alert jbs-step border mb-3">
-      <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
-        <div>
-          <h2 class="h6 mb-1">Step 1: Stateful Table Contract</h2>
-          <p class="mb-0 small text-body-secondary">
-            Try segmented controls, sort headers, autocomplete, SQL/regex assist,
-            date range, and row actions. Component state is sent via request headers.
-          </p>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-          {{ ui.button("Refresh Table", variant="outline-primary", size="sm", jbs_action="refresh", jbs_component_ref="orders-table") }}
-          <button
-            class="btn btn-sm btn-primary"
-            id="simulate-sse-push"
-            type="button">
-            Simulate SSE Update
-          </button>
-        </div>
-      </div>
+      <h2 class="h6 mb-1 d-flex align-items-center gap-2">
+        <i class="bi bi-table" aria-hidden="true"></i>
+        Step 1: Stateful Table Contract
+      </h2>
+      <p class="mb-0 small text-body-secondary">
+        Try segmented controls, sort headers, autocomplete, SQL/regex assist,
+        date range, and row actions. Component state is sent via request headers.
+      </p>
     </section>
     {% include "partials/orders_table.html" %}
 
@@ -285,7 +504,7 @@
     <div class="mt-4">
       {% include "partials/cancel_demo.html" %}
     </div>
-    <div style="height: 1000px;"></div>
+    <div style="height: 360px;"></div>
     <section class="alert jbs-step border mb-3">
       <h2 class="h6 mb-1">Step 6: Lazy Hydration</h2>
       <p class="mb-0 small text-body-secondary">
@@ -330,18 +549,6 @@
 {% endblock %}
 
 {% block spa_runtime %}
-  <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
-    <symbol id="sun-fill" viewBox="0 0 16 16">
-      <path d="M8 4.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 0 0 0-7zm0-3a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 8 1.5zm0 11a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0v-1a.5.5 0 0 1 .5-.5zm5-4.5a.5.5 0 0 1 .5.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1 0-1H13zM1.5 8a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1A.5.5 0 0 1 1.5 8zm9.95-3.536a.5.5 0 0 1 .707 0l.707.707a.5.5 0 0 1-.707.707l-.707-.707a.5.5 0 0 1 0-.707zM3.536 12.364a.5.5 0 0 1 .707 0l.707.707a.5.5 0 0 1-.707.707l-.707-.707a.5.5 0 0 1 0-.707zm9.535.707a.5.5 0 0 1-.707 0l-.707-.707a.5.5 0 1 1 .707-.707l.707.707a.5.5 0 0 1 0 .707zM4.243 4.243a.5.5 0 0 1-.707 0l-.707-.707a.5.5 0 1 1 .707-.707l.707.707a.5.5 0 0 1 0 .707z"/>
-    </symbol>
-    <symbol id="moon-stars-fill" viewBox="0 0 16 16">
-      <path d="M6 .278a.77.77 0 0 1 .08.858A7.2 7.2 0 0 0 5.6 4.596C5.6 8.76 9.044 12.2 13.2 12.2c1.314 0 2.55-.33 3.628-.91a.77.77 0 0 1 1.058.877A8.35 8.35 0 1 1 5.833.198A.77.77 0 0 1 6 .278z"/>
-      <path d="M10.794 3.148a.22.22 0 0 1 .412 0l.387 1.162c.042.128.144.23.272.272l1.162.387a.22.22 0 0 1 0 .412l-1.162.387a.43.43 0 0 0-.272.272l-.387 1.162a.22.22 0 0 1-.412 0l-.387-1.162a.43.43 0 0 0-.272-.272l-1.162-.387a.22.22 0 0 1 0-.412l1.162-.387a.43.43 0 0 0 .272-.272l.387-1.162z"/>
-    </symbol>
-    <symbol id="circle-half" viewBox="0 0 16 16">
-      <path d="M8 15A7 7 0 1 0 8 1v14zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16z"/>
-    </symbol>
-  </svg>
   <script type="module" src="{{ runtime_url }}"></script>
   <script type="module">
     const storedTheme = localStorage.getItem("jbs-theme") || "auto";
@@ -386,14 +593,14 @@
         button.setAttribute("aria-pressed", active ? "true" : "false");
       });
 
-      const iconUse = document.querySelector("#bd-theme use");
-      if (iconUse instanceof SVGUseElement) {
+      const iconUse = document.querySelector("[data-jbs-theme-icon]");
+      if (iconUse instanceof HTMLElement) {
         const iconMap = {
-          light: "#sun-fill",
-          dark: "#moon-stars-fill",
-          auto: "#circle-half",
+          light: "bi-sun-fill",
+          dark: "bi-moon-stars-fill",
+          auto: "bi-circle-half",
         };
-        iconUse.setAttribute("href", iconMap[theme] || "#circle-half");
+        iconUse.className = `bi ${iconMap[theme] || "bi-circle-half"}`;
       }
     };
 

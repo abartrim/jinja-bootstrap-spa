@@ -102,6 +102,8 @@ export declare class JBSRuntime {
     private readonly tablePageCache;
     private readonly overlayReturnFocus;
     private lazyObserver;
+    private devModeEnabled;
+    private devModeInitialized;
     private initialized;
     constructor(options?: JBSRuntimeOptions);
     private isAbortError;
@@ -109,6 +111,9 @@ export declare class JBSRuntime {
     private reportRuntimeError;
     private runTask;
     init(): void;
+    private isDevModeEnabled;
+    private installDevMode;
+    private markDevEvent;
     hydrate(root: ParentNode): void;
     getState(component: HTMLElement): JBSState;
     refresh(componentOrId: string | HTMLElement, patch?: JBSState): Promise<void>;
@@ -225,6 +230,7 @@ export declare class JBSRuntime {
 }
 declare global {
     interface Window {
+        __JBS_DEV_MODE__?: boolean;
         JinjaBootstrapSpa: JBSRuntime;
     }
 }

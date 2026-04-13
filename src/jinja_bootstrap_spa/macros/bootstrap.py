@@ -439,8 +439,11 @@ BOOTSTRAP_MACROS = """
           <span class="badge text-bg-primary ms-1">Active</span>
         {%- endif %}
         {%- if header_suffix %}
-          <span class="ms-auto">{{ header_suffix|safe }}</span>
+          <span class="ms-auto d-inline-flex align-items-center">{{ header_suffix|safe }}</span>
         {%- endif %}
+        <span class="ms-2" data-jbs-disclosure-icon aria-hidden="true">
+          <i class="bi bi-chevron-down"></i>
+        </span>
       </button>
     </header>
     <div id="{{ panel_id }}"
@@ -940,11 +943,13 @@ BOOTSTRAP_MACROS = """
 
 {%- macro sort_indicator(active, direction) -%}
   {%- if not active -%}
-    <span class="text-body-tertiary" aria-hidden="true">&harr;</span>
+    <span class="text-body-tertiary" aria-hidden="true">
+      <i class="bi bi-arrow-down-up"></i>
+    </span>
   {%- elif direction == "desc" -%}
-    <span aria-hidden="true">&darr;</span>
+    <span aria-hidden="true"><i class="bi bi-arrow-down"></i></span>
   {%- else -%}
-    <span aria-hidden="true">&uarr;</span>
+    <span aria-hidden="true"><i class="bi bi-arrow-up"></i></span>
   {%- endif -%}
 {%- endmacro -%}
 

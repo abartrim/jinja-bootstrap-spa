@@ -41,12 +41,12 @@
           "page_size",
           "Page Size",
           [
-            {"value": "5", "label": "5 rows"},
-            {"value": "10", "label": "10 rows"},
+            {"value": "4", "label": "4 rows"},
+            {"value": "8", "label": "8 rows"},
+            {"value": "12", "label": "12 rows"},
             {"value": "20", "label": "20 rows"},
-            {"value": "50", "label": "50 rows"},
           ],
-          selected_value=table_state.page_size or 10,
+          selected_value=table_state.page_size or 8,
           class_name="mb-0"
         )
       }}
@@ -75,12 +75,51 @@
         validate_endpoint="/api/validate-regex"
       )
     }}
-    <button class="btn btn-sm btn-primary align-self-start" type="submit">Apply</button>
+    <div class="d-flex flex-wrap gap-2 pt-1 border-top">
+      <button class="btn btn-sm btn-primary" type="submit">
+        <i class="bi bi-check2-circle me-1" aria-hidden="true"></i>
+        Apply Filters
+      </button>
+      {{
+        ui.button(
+          "Reset",
+          variant="outline-secondary",
+          size="sm",
+          jbs_action="refresh",
+          jbs_component_ref="orders-table",
+          jbs_patch={
+            "query": "",
+            "customer": "",
+            "status": none,
+            "from_ts": "",
+            "to_ts": "",
+            "sql": "",
+            "regex": "",
+            "page": 1,
+          }
+        )
+      }}
+    </div>
   </form>
 {% endset %}
 
 {% set toolbar %}
   <div class="vstack gap-3">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      {{
+        ui.button(
+          "Refresh Table",
+          variant="outline-primary",
+          size="sm",
+          jbs_action="refresh",
+          jbs_component_ref="orders-table"
+        )
+      }}
+      <button class="btn btn-sm btn-primary" id="simulate-sse-push" type="button">
+        <i class="bi bi-broadcast-pin me-1" aria-hidden="true"></i>
+        Simulate SSE Update
+      </button>
+    </div>
     {% if status_notice %}
       {{
         ui.status_region(
@@ -118,6 +157,7 @@
       ui.filter_accordion(
         "orders-filters",
         body=filter_body,
+        icon_class="bi bi-sliders2",
         active_badge=(table_state.status or table_state.query or table_state.customer or table_state.sql or table_state.regex)
       )
     }}
@@ -141,6 +181,7 @@
     title="Orders",
     subtitle=subtitle,
     toolbar=toolbar,
+    class_name="jbs-feature-table",
     persist="header",
     state_keys=["page", "page_size", "sort_by", "sort_dir", "query", "customer", "status", "from_ts", "to_ts", "sql", "regex"],
     sse_endpoint="/events/orders"
