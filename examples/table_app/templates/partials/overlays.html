@@ -1,5 +1,4 @@
 {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
-
 {% set modal_body %}
   <div class="vstack gap-3">
     <p class="mb-0">
@@ -10,12 +9,8 @@
       <div class="col-sm-6">
         <div class="border rounded-3 p-3 h-100">
           <div class="text-uppercase small text-body-secondary mb-2">Active Filters</div>
-          <div class="fw-semibold">
-            {{ table_state.customer or "Any customer" }}
-          </div>
-          <div class="text-body-secondary small">
-            {{ table_state.status or "Any status" }}
-          </div>
+          <div class="fw-semibold">{{ table_state.customer or "Any customer" }}</div>
+          <div class="text-body-secondary small">{{ table_state.status or "Any status" }}</div>
         </div>
       </div>
       <div class="col-sm-6">
@@ -28,20 +23,27 @@
     </div>
   </div>
 {% endset %}
-
 {% set drawer_body %}
   <div class="vstack gap-4">
     <section>
       <div class="text-uppercase small text-body-secondary mb-2">Current View</div>
       <dl class="row mb-0">
         <dt class="col-4 text-body-secondary">Customer</dt>
-        <dd class="col-8">{{ table_state.customer or "Any customer" }}</dd>
+        <dd class="col-8">
+          {{ table_state.customer or "Any customer" }}
+        </dd>
         <dt class="col-4 text-body-secondary">Search</dt>
-        <dd class="col-8">{{ table_state.query or "No free-text search" }}</dd>
+        <dd class="col-8">
+          {{ table_state.query or "No free-text search" }}
+        </dd>
         <dt class="col-4 text-body-secondary">Status</dt>
-        <dd class="col-8">{{ table_state.status or "Any status" }}</dd>
+        <dd class="col-8">
+          {{ table_state.status or "Any status" }}
+        </dd>
         <dt class="col-4 text-body-secondary">Page Size</dt>
-        <dd class="col-8">{{ table_state.page_size }}</dd>
+        <dd class="col-8">
+          {{ table_state.page_size }}
+        </dd>
       </dl>
     </section>
     <section>
@@ -57,21 +59,15 @@
     </section>
   </div>
 {% endset %}
-
-{{
-  ui.modal(
-    "runtime-modal",
-    title="Runtime Notes",
-    body=modal_body,
-    footer='<button class="btn btn-primary" type="button" data-jbs-overlay-close>Close</button>'
-  )
+{{ ui.modal("runtime-modal",
+title="Runtime Notes",
+body=modal_body,
+footer='<button class="btn btn-primary" type="button" data-jbs-overlay-close>Close</button>') 
 }}
-
-{{
-  ui.drawer(
-    "orders-drawer",
-    title="Orders Workbench",
-    body=drawer_body,
-    footer='<button class="btn btn-outline-secondary" type="button" data-jbs-overlay-close>Done</button>'
-  )
+{{ ui.drawer("orders-drawer",
+title="Orders Workbench",
+body=drawer_body,
+footer='<button class="btn btn-outline-secondary"
+        type="button"
+        data-jbs-overlay-close>Done</button>') 
 }}

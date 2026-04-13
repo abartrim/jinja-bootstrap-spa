@@ -1,23 +1,19 @@
 {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
-
-{{
-  ui.table(
-    "live-table",
-    "/components/live-table",
-    columns=[
-      {"key": "entry", "label": "Entry", "sortable": false},
-      {"key": "source", "label": "Source", "sortable": false},
-    ],
-    rows=live_rows,
-    state=live_state,
-    total_rows=live_total_rows,
-    title="Live Stream Table",
-    subtitle="SSE refresh keeps paging stable while newest events remain on top.",
-    class_name="jbs-feature-table",
-    sse_endpoint="/events/live-table",
-    stream_mode="prepend",
-    stream_max_rows=5,
-    stream_pause_when_hidden=true,
-    stream_buffer_max=50
-  )
+{{ ui.table("live-table",
+"/components/live-table",
+columns=[
+{"key": "entry", "label": "Entry", "sortable": false},
+{"key": "source", "label": "Source", "sortable": false},
+],
+rows=live_rows,
+state=live_state,
+total_rows=live_total_rows,
+title="Live Stream Table",
+subtitle="SSE refresh keeps paging stable while newest events remain on top.",
+class_name="jbs-feature-table",
+sse_endpoint="/events/live-table",
+stream_mode="prepend",
+stream_max_rows=5,
+stream_pause_when_hidden=true,
+stream_buffer_max=50) 
 }}

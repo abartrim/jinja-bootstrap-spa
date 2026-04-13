@@ -1,343 +1,332 @@
 {% extends "base.html" %}
 {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
-
 {% block title %}Jinja Bootstrap SPA Showcase{% endblock %}
-
 {% block head_extra %}
   <style>
-    :root,
-    [data-bs-theme="light"] {
-      --jbs-bd-purple: #4c0bce;
-      --jbs-bd-violet: #712cf9;
-      --jbs-bd-accent: #ffe484;
-      --jbs-bd-violet-rgb: 112, 44, 249;
-      --jbs-app-surface: rgba(255, 255, 255, 0.88);
-      --jbs-app-surface-strong: rgba(255, 255, 255, 0.96);
-      --jbs-app-step-bg: rgba(var(--bs-tertiary-bg-rgb), 0.84);
-      --jbs-app-step-border: rgba(var(--jbs-bd-violet-rgb), 0.28);
-      --jbs-app-shadow: 0 0.45rem 1.2rem rgba(76, 11, 206, 0.08);
-    }
-
-    [data-bs-theme="dark"] {
-      --jbs-bd-violet: #9e77ff;
-      --jbs-bd-violet-rgb: 158, 119, 255;
-      --jbs-app-surface: rgba(33, 37, 41, 0.78);
-      --jbs-app-surface-strong: rgba(33, 37, 41, 0.92);
-      --jbs-app-step-bg: rgba(52, 58, 64, 0.62);
-      --jbs-app-step-border: rgba(var(--jbs-bd-violet-rgb), 0.42);
-      --jbs-app-shadow: 0 0.7rem 1.7rem rgba(0, 0, 0, 0.34);
-    }
-
-    body {
-      background:
-        radial-gradient(circle at 0% -25%, rgba(var(--jbs-bd-violet-rgb), 0.1), transparent 44%),
-        radial-gradient(circle at 100% 0%, rgba(var(--bs-info-rgb), 0.08), transparent 32%),
-        var(--bs-body-bg);
-    }
-
-    .jbs-site-nav {
-      box-shadow: 0 .5rem 1rem rgba(0, 0, 0, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.2);
-      background-image: linear-gradient(
-        180deg,
-        rgba(var(--jbs-bd-violet-rgb), 1),
-        rgba(var(--jbs-bd-violet-rgb), 0.93)
-      ) !important;
-    }
-
-    .jbs-site-nav .navbar-brand,
-    .jbs-site-nav .nav-link {
-      color: rgba(255, 255, 255, 0.94) !important;
-    }
-
-    .jbs-site-nav .nav-link:hover,
-    .jbs-site-nav .nav-link:focus {
-      color: var(--jbs-bd-accent) !important;
-    }
-
-    .jbs-site-nav .navbar-brand {
-      letter-spacing: 0.01em;
-      font-weight: 700;
-    }
-
-    .jbs-shell {
-      backdrop-filter: saturate(1.04);
-    }
-
-    .jbs-journey-nav {
-      position: sticky;
-      top: 0.5rem;
-      z-index: 15;
-      border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.22);
-      border-radius: 0.95rem;
-      background: var(--jbs-app-surface-strong);
-      box-shadow: var(--jbs-app-shadow);
-      backdrop-filter: blur(8px);
-    }
-
-    .jbs-journey-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.35rem 0.6rem;
-      border-radius: 999px;
-      color: var(--bs-emphasis-color);
-      text-decoration: none;
-      font-size: 0.82rem;
-      font-weight: 600;
-      transition: background-color 140ms ease, color 140ms ease;
-    }
-
-    .jbs-journey-link:hover,
-    .jbs-journey-link:focus {
-      color: var(--bs-emphasis-color);
-      background: rgba(var(--jbs-bd-violet-rgb), 0.16);
-    }
-
-    .jbs-journey-link .badge {
-      font-size: 0.67rem;
-      background: rgba(var(--jbs-bd-violet-rgb), 0.16);
-      color: var(--bs-emphasis-color);
-      border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.35);
-    }
-
-    .jbs-hero {
-      border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.28);
-      background: linear-gradient(
-        135deg,
-        rgba(var(--jbs-bd-violet-rgb), 0.12) 0%,
-        rgba(var(--bs-info-rgb), 0.08) 52%,
-        rgba(var(--bs-pink-rgb), 0.09) 100%
-      );
-      box-shadow: var(--jbs-app-shadow);
-    }
-
-    .jbs-hero .lead {
-      max-width: 72ch;
-      color: var(--bs-secondary-color);
-    }
-
-    .jbs-step {
-      border-color: var(--jbs-app-step-border) !important;
-      background: var(--jbs-app-step-bg);
-    }
-
-    .jbs-step h2 {
-      color: var(--bs-emphasis-color);
-    }
-
-    .jbs-step p {
-      color: var(--bs-secondary-color) !important;
-    }
-
-    .jbs-filter-accordion .card-header {
-      background: rgba(var(--jbs-bd-violet-rgb), 0.06);
-      border-bottom-color: rgba(var(--jbs-bd-violet-rgb), 0.18);
-    }
-
-    .jbs-filter-accordion [data-jbs-disclosure-trigger] {
-      font-size: 0.96rem;
-    }
-
-    .jbs-filter-accordion [data-jbs-disclosure-icon] {
-      transition: transform 140ms ease;
-    }
-
-    .jbs-filter-accordion [data-jbs-disclosure-trigger][aria-expanded="true"] [data-jbs-disclosure-icon] {
-      transform: rotate(180deg);
-    }
-
-    .jbs-toolbar-card {
-      border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.22);
-      border-radius: 0.9rem;
-      background: var(--jbs-app-surface);
-      box-shadow: var(--jbs-app-shadow);
-    }
-
-    @keyframes jbsDemoSwapFlash {
-      0% {
-        box-shadow: 0 0 0 0 rgba(255, 153, 0, 0.75);
-        background: rgba(255, 193, 7, 0.14);
+      :root,
+      [data-bs-theme="light"] {
+          --jbs-bd-purple: #4c0bce;
+          --jbs-bd-violet: #712cf9;
+          --jbs-bd-accent: #ffe484;
+          --jbs-bd-violet-rgb: 112, 44, 249;
+          --jbs-app-surface: rgba(255, 255, 255, 0.88);
+          --jbs-app-surface-strong: rgba(255, 255, 255, 0.96);
+          --jbs-app-step-bg: rgba(var(--bs-tertiary-bg-rgb), 0.84);
+          --jbs-app-step-border: rgba(var(--jbs-bd-violet-rgb), 0.28);
+          --jbs-app-shadow: 0 0.45rem 1.2rem rgba(76, 11, 206, 0.08);
       }
-      100% {
-        box-shadow: 0 0 0 0 rgba(255, 153, 0, 0);
-        background: transparent;
+
+      [data-bs-theme="dark"] {
+          --jbs-bd-violet: #9e77ff;
+          --jbs-bd-violet-rgb: 158, 119, 255;
+          --jbs-app-surface: rgba(33, 37, 41, 0.78);
+          --jbs-app-surface-strong: rgba(33, 37, 41, 0.92);
+          --jbs-app-step-bg: rgba(52, 58, 64, 0.62);
+          --jbs-app-step-border: rgba(var(--jbs-bd-violet-rgb), 0.42);
+          --jbs-app-shadow: 0 0.7rem 1.7rem rgba(0, 0, 0, 0.34);
       }
-    }
 
-    .jbs-demo-replaced {
-      position: relative;
-      outline: 2px solid rgba(255, 153, 0, 0.65);
-      outline-offset: 2px;
-      animation: jbsDemoSwapFlash 1.35s ease-out;
-    }
+      body {
+          background:
+              radial-gradient(circle at 0% -25%, rgba(var(--jbs-bd-violet-rgb), 0.1), transparent 44%),
+              radial-gradient(circle at 100% 0%, rgba(var(--bs-info-rgb), 0.08), transparent 32%),
+              var(--bs-body-bg);
+      }
 
-    .jbs-demo-replaced.jbs-demo-not-modified {
-      outline-color: rgba(13, 202, 240, 0.8);
-      background: rgba(13, 202, 240, 0.12);
-    }
+      .jbs-site-nav {
+          box-shadow: 0 .5rem 1rem rgba(0, 0, 0, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.2);
+          background-image: linear-gradient(180deg,
+                  rgba(var(--jbs-bd-violet-rgb), 1),
+                  rgba(var(--jbs-bd-violet-rgb), 0.93)) !important;
+      }
 
-    .jbs-demo-replaced.jbs-demo-stream-patch {
-      outline-color: rgba(25, 135, 84, 0.78);
-      background: rgba(25, 135, 84, 0.12);
-    }
+      .jbs-site-nav .navbar-brand,
+      .jbs-site-nav .nav-link {
+          color: rgba(255, 255, 255, 0.94) !important;
+      }
 
-    .jbs-demo-replaced.jbs-demo-cache-hit {
-      outline-color: rgba(13, 110, 253, 0.82);
-      background: rgba(13, 110, 253, 0.14);
-    }
+      .jbs-site-nav .nav-link:hover,
+      .jbs-site-nav .nav-link:focus {
+          color: var(--jbs-bd-accent) !important;
+      }
 
-    .jbs-demo-replaced::after {
-      content: attr(data-jbs-demo-label);
-      position: absolute;
-      top: -10px;
-      right: 8px;
-      z-index: 4;
-      padding: 2px 7px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-      background: #ffc107;
-      color: #212529;
-      border: 1px solid rgba(33, 37, 41, 0.25);
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
-    }
+      .jbs-site-nav .navbar-brand {
+          letter-spacing: 0.01em;
+          font-weight: 700;
+      }
 
-    .jbs-theme-toggle .dropdown-menu {
-      min-width: 12rem;
-      background: var(--jbs-app-surface-strong);
-      color: var(--bs-body-color);
-      border-color: rgba(var(--jbs-bd-violet-rgb), 0.28);
-    }
+      .jbs-shell {
+          backdrop-filter: saturate(1.04);
+      }
 
-    .jbs-theme-toggle .dropdown-item.active {
-      font-weight: 600;
-      background: rgba(var(--jbs-bd-violet-rgb), 0.18);
-      color: var(--bs-emphasis-color);
-    }
-
-    .jbs-theme-toggle .btn,
-    .jbs-theme-toggle .dropdown-item {
-      color: var(--bs-emphasis-color);
-    }
-
-    .jbs-theme-toggle .bi {
-      font-size: 0.95rem;
-      line-height: 1;
-    }
-
-    [data-bs-theme="dark"] .jbs-theme-toggle .btn {
-      border-color: rgba(248, 249, 250, 0.25);
-      color: rgba(248, 249, 250, 0.95);
-    }
-
-    .btn-jbs-violet {
-      --bs-btn-color: #fff;
-      --bs-btn-bg: var(--jbs-bd-violet);
-      --bs-btn-border-color: var(--jbs-bd-violet);
-      --bs-btn-hover-color: #fff;
-      --bs-btn-hover-bg: #6528e0;
-      --bs-btn-hover-border-color: #6528e0;
-      --bs-btn-focus-shadow-rgb: var(--jbs-bd-violet-rgb);
-      --bs-btn-active-color: #fff;
-      --bs-btn-active-bg: #5a23c8;
-      --bs-btn-active-border-color: #5a23c8;
-    }
-
-    .jbs-feature-table {
-      border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.2);
-      box-shadow: var(--jbs-app-shadow);
-    }
-
-    .jbs-feature-table .card-header {
-      background: linear-gradient(
-        180deg,
-        rgba(var(--jbs-bd-violet-rgb), 0.06),
-        rgba(var(--jbs-bd-violet-rgb), 0.01)
-      ) !important;
-      border-bottom-color: rgba(var(--jbs-bd-violet-rgb), 0.16);
-    }
-
-    .jbs-feature-table .table thead.table-light th {
-      background: rgba(var(--jbs-bd-violet-rgb), 0.1);
-      color: var(--bs-emphasis-color);
-      border-bottom-color: rgba(var(--jbs-bd-violet-rgb), 0.25);
-    }
-
-    .jbs-feature-table .table thead.table-light .btn {
-      color: var(--bs-emphasis-color) !important;
-    }
-
-    .jbs-feature-table .table tbody td,
-    .jbs-feature-table .table tbody th {
-      vertical-align: middle;
-    }
-
-    .jbs-feature-table .table > :not(caption) > * > * {
-      padding: 0.45rem 0.75rem;
-      font-size: 0.94rem;
-      line-height: 1.25;
-    }
-
-    .jbs-feature-table .card-footer {
-      padding-top: 0.55rem;
-      padding-bottom: 0.55rem;
-    }
-
-    .jbs-feature-table .btn-group .btn {
-      --bs-btn-padding-y: 0.2rem;
-      --bs-btn-padding-x: 0.55rem;
-    }
-
-    [data-bs-theme="dark"] .jbs-feature-table .table thead.table-light th {
-      background: #dbe2ee;
-      color: #1f2328;
-      border-bottom-color: rgba(31, 35, 40, 0.32);
-    }
-
-    [data-bs-theme="dark"] .jbs-feature-table .table thead.table-light .btn {
-      color: #1f2328 !important;
-    }
-
-    [data-bs-theme="dark"] .jbs-feature-table .table thead.table-light .text-body-tertiary {
-      color: rgba(31, 35, 40, 0.55) !important;
-    }
-
-    @media (max-width: 768px) {
       .jbs-journey-nav {
-        position: static;
+          position: sticky;
+          top: 0.5rem;
+          z-index: 15;
+          border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.22);
+          border-radius: 0.95rem;
+          background: var(--jbs-app-surface-strong);
+          box-shadow: var(--jbs-app-shadow);
+          backdrop-filter: blur(8px);
       }
 
       .jbs-journey-link {
-        font-size: 0.78rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.35rem 0.6rem;
+          border-radius: 999px;
+          color: var(--bs-emphasis-color);
+          text-decoration: none;
+          font-size: 0.82rem;
+          font-weight: 600;
+          transition: background-color 140ms ease, color 140ms ease;
       }
 
-      .jbs-feature-table .table > :not(caption) > * > * {
-        padding: 0.4rem 0.5rem;
+      .jbs-journey-link:hover,
+      .jbs-journey-link:focus {
+          color: var(--bs-emphasis-color);
+          background: rgba(var(--jbs-bd-violet-rgb), 0.16);
       }
-    }
 
-    @media (prefers-reduced-motion: reduce) {
+      .jbs-journey-link .badge {
+          font-size: 0.67rem;
+          background: rgba(var(--jbs-bd-violet-rgb), 0.16);
+          color: var(--bs-emphasis-color);
+          border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.35);
+      }
+
+      .jbs-hero {
+          border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.28);
+          background: linear-gradient(135deg,
+                  rgba(var(--jbs-bd-violet-rgb), 0.12) 0%,
+                  rgba(var(--bs-info-rgb), 0.08) 52%,
+                  rgba(var(--bs-pink-rgb), 0.09) 100%);
+          box-shadow: var(--jbs-app-shadow);
+      }
+
+      .jbs-hero .lead {
+          max-width: 72ch;
+          color: var(--bs-secondary-color);
+      }
+
+      .jbs-step {
+          border-color: var(--jbs-app-step-border) !important;
+          background: var(--jbs-app-step-bg);
+      }
+
+      .jbs-step h2 {
+          color: var(--bs-emphasis-color);
+      }
+
+      .jbs-step p {
+          color: var(--bs-secondary-color) !important;
+      }
+
+      .jbs-filter-accordion .card-header {
+          background: rgba(var(--jbs-bd-violet-rgb), 0.06);
+          border-bottom-color: rgba(var(--jbs-bd-violet-rgb), 0.18);
+      }
+
+      .jbs-filter-accordion [data-jbs-disclosure-trigger] {
+          font-size: 0.96rem;
+      }
+
+      .jbs-filter-accordion [data-jbs-disclosure-icon] {
+          transition: transform 140ms ease;
+      }
+
+      .jbs-filter-accordion [data-jbs-disclosure-trigger][aria-expanded="true"] [data-jbs-disclosure-icon] {
+          transform: rotate(180deg);
+      }
+
+      .jbs-toolbar-card {
+          border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.22);
+          border-radius: 0.9rem;
+          background: var(--jbs-app-surface);
+          box-shadow: var(--jbs-app-shadow);
+      }
+
+      @keyframes jbsDemoSwapFlash {
+          0% {
+              box-shadow: 0 0 0 0 rgba(255, 153, 0, 0.75);
+              background: rgba(255, 193, 7, 0.14);
+          }
+
+          100% {
+              box-shadow: 0 0 0 0 rgba(255, 153, 0, 0);
+              background: transparent;
+          }
+      }
+
       .jbs-demo-replaced {
-        animation: none;
+          position: relative;
+          outline: 2px solid rgba(255, 153, 0, 0.65);
+          outline-offset: 2px;
+          animation: jbsDemoSwapFlash 1.35s ease-out;
       }
-    }
+
+      .jbs-demo-replaced.jbs-demo-not-modified {
+          outline-color: rgba(13, 202, 240, 0.8);
+          background: rgba(13, 202, 240, 0.12);
+      }
+
+      .jbs-demo-replaced.jbs-demo-stream-patch {
+          outline-color: rgba(25, 135, 84, 0.78);
+          background: rgba(25, 135, 84, 0.12);
+      }
+
+      .jbs-demo-replaced.jbs-demo-cache-hit {
+          outline-color: rgba(13, 110, 253, 0.82);
+          background: rgba(13, 110, 253, 0.14);
+      }
+
+      .jbs-demo-replaced::after {
+          content: attr(data-jbs-demo-label);
+          position: absolute;
+          top: -10px;
+          right: 8px;
+          z-index: 4;
+          padding: 2px 7px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          background: #ffc107;
+          color: #212529;
+          border: 1px solid rgba(33, 37, 41, 0.25);
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+      }
+
+      .jbs-theme-toggle .dropdown-menu {
+          min-width: 12rem;
+          background: var(--jbs-app-surface-strong);
+          color: var(--bs-body-color);
+          border-color: rgba(var(--jbs-bd-violet-rgb), 0.28);
+      }
+
+      .jbs-theme-toggle .dropdown-item.active {
+          font-weight: 600;
+          background: rgba(var(--jbs-bd-violet-rgb), 0.18);
+          color: var(--bs-emphasis-color);
+      }
+
+      .jbs-theme-toggle .btn,
+      .jbs-theme-toggle .dropdown-item {
+          color: var(--bs-emphasis-color);
+      }
+
+      .jbs-theme-toggle .bi {
+          font-size: 0.95rem;
+          line-height: 1;
+      }
+
+      [data-bs-theme="dark"] .jbs-theme-toggle .btn {
+          border-color: rgba(248, 249, 250, 0.25);
+          color: rgba(248, 249, 250, 0.95);
+      }
+
+      .btn-jbs-violet {
+          --bs-btn-color: #fff;
+          --bs-btn-bg: var(--jbs-bd-violet);
+          --bs-btn-border-color: var(--jbs-bd-violet);
+          --bs-btn-hover-color: #fff;
+          --bs-btn-hover-bg: #6528e0;
+          --bs-btn-hover-border-color: #6528e0;
+          --bs-btn-focus-shadow-rgb: var(--jbs-bd-violet-rgb);
+          --bs-btn-active-color: #fff;
+          --bs-btn-active-bg: #5a23c8;
+          --bs-btn-active-border-color: #5a23c8;
+      }
+
+      .jbs-feature-table {
+          border: 1px solid rgba(var(--jbs-bd-violet-rgb), 0.2);
+          box-shadow: var(--jbs-app-shadow);
+      }
+
+      .jbs-feature-table .card-header {
+          background: linear-gradient(180deg,
+                  rgba(var(--jbs-bd-violet-rgb), 0.06),
+                  rgba(var(--jbs-bd-violet-rgb), 0.01)) !important;
+          border-bottom-color: rgba(var(--jbs-bd-violet-rgb), 0.16);
+      }
+
+      .jbs-feature-table .table thead.table-light th {
+          background: rgba(var(--jbs-bd-violet-rgb), 0.1);
+          color: var(--bs-emphasis-color);
+          border-bottom-color: rgba(var(--jbs-bd-violet-rgb), 0.25);
+      }
+
+      .jbs-feature-table .table thead.table-light .btn {
+          color: var(--bs-emphasis-color) !important;
+      }
+
+      .jbs-feature-table .table tbody td,
+      .jbs-feature-table .table tbody th {
+          vertical-align: middle;
+      }
+
+      .jbs-feature-table .table> :not(caption)>*>* {
+          padding: 0.45rem 0.75rem;
+          font-size: 0.94rem;
+          line-height: 1.25;
+      }
+
+      .jbs-feature-table .card-footer {
+          padding-top: 0.55rem;
+          padding-bottom: 0.55rem;
+      }
+
+      .jbs-feature-table .btn-group .btn {
+          --bs-btn-padding-y: 0.2rem;
+          --bs-btn-padding-x: 0.55rem;
+      }
+
+      [data-bs-theme="dark"] .jbs-feature-table .table thead.table-light th {
+          background: #dbe2ee;
+          color: #1f2328;
+          border-bottom-color: rgba(31, 35, 40, 0.32);
+      }
+
+      [data-bs-theme="dark"] .jbs-feature-table .table thead.table-light .btn {
+          color: #1f2328 !important;
+      }
+
+      [data-bs-theme="dark"] .jbs-feature-table .table thead.table-light .text-body-tertiary {
+          color: rgba(31, 35, 40, 0.55) !important;
+      }
+
+      @media (max-width: 768px) {
+          .jbs-journey-nav {
+              position: static;
+          }
+
+          .jbs-journey-link {
+              font-size: 0.78rem;
+          }
+
+          .jbs-feature-table .table> :not(caption)>*>* {
+              padding: 0.4rem 0.5rem;
+          }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+          .jbs-demo-replaced {
+              animation: none;
+          }
+      }
   </style>
 {% endblock %}
-
 {% block content %}
-  {{
-    ui.navbar(
-      brand="Jinja Bootstrap SPA",
-      nav_items=[
-        {"label": "Orders", "href": "#orders-table"},
-        {"label": "Live", "href": "#live-table"},
-        {"label": "Session", "href": "#session-table"},
-      ],
-      theme="dark",
-      background="dark",
-      class_name="mb-4 jbs-site-nav"
-    )
+  {{ ui.navbar(brand="Jinja Bootstrap SPA",
+    nav_items=[
+    {"label": "Orders", "href": "#orders-table"},
+    {"label": "Live", "href": "#live-table"},
+    {"label": "Session", "href": "#session-table"},
+    ],
+    theme="dark",
+    background="dark",
+    class_name="mb-4 jbs-site-nav") 
   }}
   <main class="container py-4 jbs-shell">
     <section class="card jbs-hero shadow-sm mb-4">
@@ -374,8 +363,8 @@
         </ol>
       </div>
     </section>
-
-    <section class="jbs-journey-nav px-3 py-2 mb-4" aria-label="Guided feature journey">
+    <section class="jbs-journey-nav px-3 py-2 mb-4"
+             aria-label="Guided feature journey">
       <div class="d-flex flex-wrap align-items-center gap-2">
         <a class="jbs-journey-link" href="#orders-table"><span class="badge rounded-pill">1</span><i class="bi bi-table" aria-hidden="true"></i>Stateful table</a>
         <a class="jbs-journey-link" href="#live-table"><span class="badge rounded-pill">2</span><i class="bi bi-lightning-charge" aria-hidden="true"></i>SSE prepend</a>
@@ -385,7 +374,6 @@
         <a class="jbs-journey-link" href="#lazy-summary"><span class="badge rounded-pill">6</span><i class="bi bi-eye" aria-hidden="true"></i>Lazy hydrate</a>
       </div>
     </section>
-
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
       <div>
         <h1 class="display-6 mb-1">Jinja Bootstrap SPA Showcase</h1>
@@ -404,21 +392,28 @@
             <i class="bi bi-circle-half" aria-hidden="true" data-jbs-theme-icon></i>
             <span>Theme</span>
           </button>
-          <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="bd-theme">
+          <ul class="dropdown-menu dropdown-menu-end shadow"
+              aria-labelledby="bd-theme">
             <li>
-              <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-bs-theme-value="light">
+              <button type="button"
+                      class="dropdown-item d-flex align-items-center gap-2"
+                      data-bs-theme-value="light">
                 <i class="bi bi-sun-fill" aria-hidden="true"></i>
                 Light
               </button>
             </li>
             <li>
-              <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-bs-theme-value="dark">
+              <button type="button"
+                      class="dropdown-item d-flex align-items-center gap-2"
+                      data-bs-theme-value="dark">
                 <i class="bi bi-moon-stars-fill" aria-hidden="true"></i>
                 Dark
               </button>
             </li>
             <li>
-              <button type="button" class="dropdown-item d-flex align-items-center gap-2 active" data-bs-theme-value="auto">
+              <button type="button"
+                      class="dropdown-item d-flex align-items-center gap-2 active"
+                      data-bs-theme-value="auto">
                 <i class="bi bi-circle-half" aria-hidden="true"></i>
                 System
               </button>
@@ -429,7 +424,6 @@
         {{ ui.button("Workbench", variant="outline-secondary", size="sm", attrs='data-jbs-overlay-open="orders-drawer"') }}
       </div>
     </div>
-
     <section class="alert jbs-step border mb-3">
       <h2 class="h6 mb-1 d-flex align-items-center gap-2">
         <i class="bi bi-table" aria-hidden="true"></i>
@@ -441,7 +435,6 @@
       </p>
     </section>
     {% include "partials/orders_table.html" %}
-
     <section class="alert jbs-step border mt-4 mb-3">
       <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <div>
@@ -451,18 +444,12 @@
             is off-screen, stream events buffer and flush on visibility.
           </p>
         </div>
-        <button
-          class="btn btn-sm btn-outline-secondary"
-          id="push-live-row"
-          type="button">
-          Push Prepend Row
-        </button>
+        <button class="btn btn-sm btn-outline-secondary"
+                id="push-live-row"
+                type="button">Push Prepend Row</button>
       </div>
     </section>
-    <div class="mt-4">
-      {% include "partials/live_table.html" %}
-    </div>
-
+    <div class="mt-4">{% include "partials/live_table.html" %}</div>
     <section class="alert jbs-step border mt-4 mb-3">
       <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
         <div>
@@ -472,18 +459,12 @@
             entries land at the bottom.
           </p>
         </div>
-        <button
-          class="btn btn-sm btn-outline-secondary"
-          id="push-live-append-row"
-          type="button">
-          Push Append Row
-        </button>
+        <button class="btn btn-sm btn-outline-secondary"
+                id="push-live-append-row"
+                type="button">Push Append Row</button>
       </div>
     </section>
-    <div class="mt-4">
-      {% include "partials/live_append_table.html" %}
-    </div>
-
+    <div class="mt-4">{% include "partials/live_append_table.html" %}</div>
     <section class="alert jbs-step border mt-4 mb-3">
       <h2 class="h6 mb-1">Step 4: Session Persistence</h2>
       <p class="mb-0 small text-body-secondary">
@@ -491,19 +472,14 @@
         <code>sessionStorage</code>.
       </p>
     </section>
-    <div class="mt-4">
-      {% include "partials/session_table.html" %}
-    </div>
-
+    <div class="mt-4">{% include "partials/session_table.html" %}</div>
     <section class="alert jbs-step border mt-4 mb-3">
       <h2 class="h6 mb-1">Step 5: Request Cancellation</h2>
       <p class="mb-0 small text-body-secondary">
         Click Slow then Fast. The final rendered state should remain Fast.
       </p>
     </section>
-    <div class="mt-4">
-      {% include "partials/cancel_demo.html" %}
-    </div>
+    <div class="mt-4">{% include "partials/cancel_demo.html" %}</div>
     <div style="height: 360px;"></div>
     <section class="alert jbs-step border mb-3">
       <h2 class="h6 mb-1">Step 6: Lazy Hydration</h2>
@@ -534,128 +510,137 @@
           stateful filters, incremental stream updates, session persistence, request
           cancellation, and lazy hydration.
         </p>
-        <p class="small mb-2">
-          Continue with docs and source:
-        </p>
+        <p class="small mb-2">Continue with docs and source:</p>
         <ul class="small mb-0">
-          <li><a href="https://github.com/abartrim/jinja-bootstrap-spa#readme">Project README</a></li>
-          <li><a href="https://github.com/abartrim/jinja-bootstrap-spa/blob/main/docs/feature_coverage.md">Feature Coverage Matrix</a></li>
-          <li><a href="https://github.com/abartrim/jinja-bootstrap-spa/tree/main/examples/table_app">Example App Source</a></li>
+          <li>
+            <a href="https://github.com/abartrim/jinja-bootstrap-spa#readme">Project README</a>
+          </li>
+          <li>
+            <a href="https://github.com/abartrim/jinja-bootstrap-spa/blob/main/docs/feature_coverage.md">Feature Coverage Matrix</a>
+          </li>
+          <li>
+            <a href="https://github.com/abartrim/jinja-bootstrap-spa/tree/main/examples/table_app">Example App Source</a>
+          </li>
         </ul>
       </div>
     </section>
     {% include "partials/overlays.html" %}
   </main>
 {% endblock %}
-
 {% block spa_runtime %}
   <script type="module" src="{{ runtime_url }}"></script>
   <script type="module">
-    const storedTheme = localStorage.getItem("jbs-theme") || "auto";
-    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const resolvedTheme = storedTheme === "auto" ? (systemPrefersDark ? "dark" : "light") : storedTheme;
-    document.documentElement.setAttribute("data-bs-theme", resolvedTheme);
+      const storedTheme = localStorage.getItem("jbs-theme") || "auto";
+      const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const resolvedTheme = storedTheme === "auto" ? (systemPrefersDark ? "dark" : "light") : storedTheme;
+      document.documentElement.setAttribute("data-bs-theme", resolvedTheme);
 
-    const flashReplacedComponent = (component, label, variant = "swap") => {
-      if (!(component instanceof HTMLElement)) return;
-      component.classList.remove("jbs-demo-replaced");
-      component.classList.remove("jbs-demo-not-modified");
-      component.classList.remove("jbs-demo-stream-patch");
-      component.classList.remove("jbs-demo-cache-hit");
-      component.dataset.jbsDemoLabel = label;
-      void component.offsetWidth;
-      component.classList.add("jbs-demo-replaced");
-      if (variant === "not-modified") {
-        component.classList.add("jbs-demo-not-modified");
-      } else if (variant === "stream") {
-        component.classList.add("jbs-demo-stream-patch");
-      } else if (variant === "cache") {
-        component.classList.add("jbs-demo-cache-hit");
-      }
-      window.setTimeout(() => {
-        component.classList.remove("jbs-demo-replaced");
-        component.classList.remove("jbs-demo-not-modified");
-        component.classList.remove("jbs-demo-stream-patch");
-        component.classList.remove("jbs-demo-cache-hit");
-      }, 1500);
-    };
+      const flashReplacedComponent = (component, label, variant = "swap") => {
+          if (!(component instanceof HTMLElement)) return;
+          component.classList.remove("jbs-demo-replaced");
+          component.classList.remove("jbs-demo-not-modified");
+          component.classList.remove("jbs-demo-stream-patch");
+          component.classList.remove("jbs-demo-cache-hit");
+          component.dataset.jbsDemoLabel = label;
+          void component.offsetWidth;
+          component.classList.add("jbs-demo-replaced");
+          if (variant === "not-modified") {
+              component.classList.add("jbs-demo-not-modified");
+          } else if (variant === "stream") {
+              component.classList.add("jbs-demo-stream-patch");
+          } else if (variant === "cache") {
+              component.classList.add("jbs-demo-cache-hit");
+          }
+          window.setTimeout(() => {
+              component.classList.remove("jbs-demo-replaced");
+              component.classList.remove("jbs-demo-not-modified");
+              component.classList.remove("jbs-demo-stream-patch");
+              component.classList.remove("jbs-demo-cache-hit");
+          }, 1500);
+      };
 
-    const setTheme = (theme) => {
-      localStorage.setItem("jbs-theme", theme);
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const nextTheme = theme === "auto" ? (prefersDark ? "dark" : "light") : theme;
-      document.documentElement.setAttribute("data-bs-theme", nextTheme);
+      const setTheme = (theme) => {
+          localStorage.setItem("jbs-theme", theme);
+          const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          const nextTheme = theme === "auto" ? (prefersDark ? "dark" : "light") : theme;
+          document.documentElement.setAttribute("data-bs-theme", nextTheme);
+
+          document.querySelectorAll("[data-bs-theme-value]").forEach((button) => {
+              if (!(button instanceof HTMLElement)) return;
+              const active = button.getAttribute("data-bs-theme-value") === theme;
+              button.classList.toggle("active", active);
+              button.setAttribute("aria-pressed", active ? "true" : "false");
+          });
+
+          const iconUse = document.querySelector("[data-jbs-theme-icon]");
+          if (iconUse instanceof HTMLElement) {
+              const iconMap = {
+                  light: "bi-sun-fill",
+                  dark: "bi-moon-stars-fill",
+                  auto: "bi-circle-half",
+              };
+              iconUse.className = `bi ${iconMap[theme] || "bi-circle-half"}`;
+          }
+      };
 
       document.querySelectorAll("[data-bs-theme-value]").forEach((button) => {
-        if (!(button instanceof HTMLElement)) return;
-        const active = button.getAttribute("data-bs-theme-value") === theme;
-        button.classList.toggle("active", active);
-        button.setAttribute("aria-pressed", active ? "true" : "false");
+          button.addEventListener("click", () => {
+              const value = button.getAttribute("data-bs-theme-value") || "auto";
+              setTheme(value);
+          });
+      });
+      setTheme(storedTheme);
+
+      document.addEventListener("jbs:after-swap", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) return;
+          const label = target.id ? `Replaced: #${target.id}` : "Component replaced";
+          flashReplacedComponent(target, label, "swap");
       });
 
-      const iconUse = document.querySelector("[data-jbs-theme-icon]");
-      if (iconUse instanceof HTMLElement) {
-        const iconMap = {
-          light: "bi-sun-fill",
-          dark: "bi-moon-stars-fill",
-          auto: "bi-circle-half",
-        };
-        iconUse.className = `bi ${iconMap[theme] || "bi-circle-half"}`;
-      }
-    };
-
-    document.querySelectorAll("[data-bs-theme-value]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const value = button.getAttribute("data-bs-theme-value") || "auto";
-        setTheme(value);
+      document.addEventListener("jbs:after-stream-patch", (event) => {
+          const detail = event.detail ?? {};
+          const component = detail.component;
+          const mode = detail.mode || "replace";
+          if (!(component instanceof HTMLElement)) return;
+          flashReplacedComponent(component, `Stream patch: ${mode}`, "stream");
       });
-    });
-    setTheme(storedTheme);
 
-    document.addEventListener("jbs:after-swap", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const label = target.id ? `Replaced: #${target.id}` : "Component replaced";
-      flashReplacedComponent(target, label, "swap");
-    });
+      document.addEventListener("jbs:not-modified", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) return;
+          const label = target.id ? `No change: #${target.id}` : "No visual change";
+          flashReplacedComponent(target, label, "not-modified");
+      });
 
-    document.addEventListener("jbs:after-stream-patch", (event) => {
-      const detail = event.detail ?? {};
-      const component = detail.component;
-      const mode = detail.mode || "replace";
-      if (!(component instanceof HTMLElement)) return;
-      flashReplacedComponent(component, `Stream patch: ${mode}`, "stream");
-    });
+      document.addEventListener("jbs:table-page-cache-hit", (event) => {
+          const detail = event.detail || {};
+          const component = detail.component;
+          const page = Number(detail.page || 0);
+          if (!(component instanceof HTMLElement)) return;
+          const label = page > 0 ? `Cache hit: page ${page}` : "Cache hit";
+          flashReplacedComponent(component, label, "cache");
+      });
 
-    document.addEventListener("jbs:not-modified", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const label = target.id ? `No change: #${target.id}` : "No visual change";
-      flashReplacedComponent(target, label, "not-modified");
-    });
+      const pushButton = document.getElementById("simulate-sse-push");
+      pushButton?.addEventListener("click", async () => {
+          await fetch("{{ push_url }}", {
+              method: "POST"
+          });
+      });
 
-    document.addEventListener("jbs:table-page-cache-hit", (event) => {
-      const detail = event.detail || {};
-      const component = detail.component;
-      const page = Number(detail.page || 0);
-      if (!(component instanceof HTMLElement)) return;
-      const label = page > 0 ? `Cache hit: page ${page}` : "Cache hit";
-      flashReplacedComponent(component, label, "cache");
-    });
+      const pushLiveRow = document.getElementById("push-live-row");
+      pushLiveRow?.addEventListener("click", async () => {
+          await fetch("{{ live_push_url }}", {
+              method: "POST"
+          });
+      });
 
-    const pushButton = document.getElementById("simulate-sse-push");
-    pushButton?.addEventListener("click", async () => {
-      await fetch("{{ push_url }}", { method: "POST" });
-    });
-
-    const pushLiveRow = document.getElementById("push-live-row");
-    pushLiveRow?.addEventListener("click", async () => {
-      await fetch("{{ live_push_url }}", { method: "POST" });
-    });
-
-    const pushAppendRow = document.getElementById("push-live-append-row");
-    pushAppendRow?.addEventListener("click", async () => {
-      await fetch("{{ append_push_url }}", { method: "POST" });
-    });
+      const pushAppendRow = document.getElementById("push-live-append-row");
+      pushAppendRow?.addEventListener("click", async () => {
+          await fetch("{{ append_push_url }}", {
+              method: "POST"
+          });
+      });
   </script>
 {% endblock %}
