@@ -10,7 +10,7 @@ from threading import Thread
 from types import ModuleType
 
 from jinja2 import ChoiceLoader, FileSystemLoader, PackageLoader
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import Locator, Page, sync_playwright
 from werkzeug.serving import make_server
 
 
@@ -134,6 +134,174 @@ def _show_step(
     _pause(page, hold_ms, pace)
 
 
+def _install_recording_mode(page: Page) -> None:
+    page.evaluate(
+        """
+        () => {
+          const styleId = "jbs-demo-recording-style";
+          if (!document.getElementById(styleId)) {
+            const style = document.createElement("style");
+            style.id = styleId;
+            style.textContent = `
+              #showcase-journey {
+                display: none !important;
+              }
+
+              .jbs-hero {
+                margin-bottom: 1rem !important;
+              }
+
+              .jbs-step {
+                padding: 0.7rem 0.9rem !important;
+              }
+
+              #jbs-demo-caption {
+                pointer-events: none;
+              }
+
+              #jbs-demo-pointer,
+              #jbs-demo-pointer-ring {
+                position: fixed;
+                top: 0;
+                left: 0;
+                z-index: 10000;
+                pointer-events: none;
+                transform: translate(-50%, -50%);
+                transition:
+                  left 240ms ease,
+                  top 240ms ease,
+                  opacity 180ms ease,
+                  width 180ms ease,
+                  height 180ms ease;
+              }
+
+              #jbs-demo-pointer {
+                width: 18px;
+                height: 18px;
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.96);
+                border: 3px solid rgba(13, 110, 253, 0.95);
+                box-shadow: 0 0.35rem 1rem rgba(2, 6, 23, 0.28);
+              }
+
+              #jbs-demo-pointer-ring {
+                width: 42px;
+                height: 42px;
+                border-radius: 999px;
+                border: 2px solid rgba(255, 193, 7, 0.85);
+                background: rgba(255, 193, 7, 0.08);
+                box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.25);
+              }
+            `;
+            document.head.appendChild(style);
+          }
+
+          const ensureNode = (id) => {
+            let node = document.getElementById(id);
+            if (!node) {
+              node = document.createElement("div");
+              node.id = id;
+              document.body.appendChild(node);
+            }
+            return node;
+          };
+
+          const pointer = ensureNode("jbs-demo-pointer");
+          const ring = ensureNode("jbs-demo-pointer-ring");
+          pointer.style.opacity = "1";
+          ring.style.opacity = "1";
+
+          window.__jbsDemoPointer = {
+            move(x, y) {
+              pointer.style.left = `${x}px`;
+              pointer.style.top = `${y}px`;
+              ring.style.left = `${x}px`;
+              ring.style.top = `${y}px`;
+            },
+            click() {
+              ring.animate(
+                [
+                  {
+                    transform: "translate(-50%, -50%) scale(0.9)",
+                    opacity: 0.95,
+                  },
+                  {
+                    transform: "translate(-50%, -50%) scale(1.35)",
+                    opacity: 0.1,
+                  },
+                ],
+                {
+                  duration: 450,
+                  easing: "ease-out",
+                },
+              );
+            },
+          };
+        }
+        """
+    )
+
+
+def _focus_locator(
+    page: Page,
+    locator: Locator,
+    pace: float,
+    hold_ms: int = 650,
+    position: str = "center",
+) -> None:
+    locator.evaluate(
+        """
+        (element, position) => {
+          const rect = element.getBoundingClientRect();
+          const absoluteTop = window.scrollY + rect.top;
+          const viewportHeight = window.innerHeight;
+          const elementHeight = Math.max(rect.height, 1);
+          const centeredTop = absoluteTop - ((viewportHeight - elementHeight) / 2);
+          const tallElementTop = absoluteTop - Math.max(64, viewportHeight * 0.12);
+          const topAnchored = absoluteTop - Math.max(40, viewportHeight * 0.14);
+          const bottomAnchored = absoluteTop - Math.max(220, viewportHeight * 0.58);
+          let targetTop = elementHeight > viewportHeight * 0.72
+            ? tallElementTop
+            : centeredTop;
+
+          if (position === "top") {
+            targetTop = topAnchored;
+          } else if (position === "bottom") {
+            targetTop = bottomAnchored;
+          }
+
+          window.scrollTo({
+            top: Math.max(0, targetTop),
+            behavior: "instant",
+          });
+        }
+        """,
+        position,
+    )
+    _pause(page, hold_ms, pace)
+
+
+def _move_pointer_to(page: Page, locator: Locator, pace: float, hold_ms: int = 420) -> None:
+    box = locator.bounding_box()
+    if box is None:
+        raise RuntimeError("Unable to resolve bounding box for demo pointer movement.")
+    x = box["x"] + (box["width"] / 2)
+    y = box["y"] + (box["height"] / 2)
+    page.mouse.move(x, y, steps=max(24, int(36 * pace)))
+    page.evaluate(
+        "({ x, y }) => window.__jbsDemoPointer?.move(x, y)",
+        {"x": x, "y": y},
+    )
+    _pause(page, hold_ms, pace)
+
+
+def _guided_click(page: Page, locator: Locator, pace: float, hold_ms: int = 420) -> None:
+    _move_pointer_to(page, locator, pace, hold_ms=hold_ms)
+    locator.click()
+    page.evaluate("() => window.__jbsDemoPointer?.click()")
+    _pause(page, 320, pace)
+
+
 def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     record_dir = output_path.parent / "raw"
@@ -141,7 +309,7 @@ def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
         shutil.rmtree(record_dir)
     record_dir.mkdir(parents=True, exist_ok=True)
 
-    total_steps = 8
+    total_steps = 10
     video_path: Path | None = None
 
     with sync_playwright() as playwright:
@@ -158,6 +326,9 @@ def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
             "() => document.getElementById('orders-table')"
             "?.dataset.jbsHydrated === 'true'"
         )
+        _install_recording_mode(page)
+        page.mouse.move(120, 120)
+        page.evaluate("() => window.__jbsDemoPointer?.move(120, 120)")
         _pause(page, 700, pace)
 
         _show_step(
@@ -166,10 +337,12 @@ def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
             body=(
                 "A guided pass through the jinja-bootstrap-spa runtime:\n"
                 "1) table state + filters,\n"
-                "2) SSE refresh/append/prepend,\n"
-                "3) session persistence,\n"
-                "4) stale-request cancellation,\n"
-                "5) lazy hydration."
+                "2) page caching,\n"
+                "3) SSE refresh/append/prepend,\n"
+                "4) session persistence,\n"
+                "5) stale-request cancellation,\n"
+                "6) lazy hydration,\n"
+                "7) the new foundation component gallery."
             ),
             hold_ms=3600,
             pace=pace,
@@ -179,130 +352,278 @@ def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
             page,
             title="Step 1: Runtime Overlays and Table State",
             body=(
-                "Open modal/drawer, then use tabs and filters to trigger "
-                "component swaps."
+                "Open modal and drawer, then use segmented controls and row "
+                "menus to show the server-driven table surface."
             ),
             hold_ms=1700,
             pace=pace,
             step=1,
             total_steps=total_steps,
         )
-        page.get_by_role("button", name="About Runtime").click()
+        _focus_locator(
+            page,
+            page.get_by_role("button", name="About Runtime"),
+            pace,
+            position="top",
+        )
+        _guided_click(page, page.get_by_role("button", name="About Runtime"), pace)
         _pause(page, 1500, pace)
         page.keyboard.press("Escape")
         _pause(page, 650, pace)
-        page.get_by_role("button", name="Workbench").click()
+        _guided_click(page, page.get_by_role("button", name="Workbench"), pace)
         _pause(page, 1500, pace)
-        page.locator("#orders-drawer").get_by_role("button", name="Close").click()
+        _guided_click(
+            page,
+            page.locator("#orders-drawer").get_by_role("button", name="Close"),
+            pace,
+        )
         _pause(page, 700, pace)
-        page.get_by_role("tab", name="Queued").click()
+        _focus_locator(page, page.locator("#orders-status-tabs"), pace)
+        _guided_click(page, page.get_by_role("tab", name="Queued"), pace)
         _pause(page, 1200, pace)
-        page.get_by_role("tab", name="All").click()
-        _pause(page, 900, pace)
-        regex_input = page.locator("#orders-table input[name='regex']")
-        regex_input.fill("Ada")
-        _pause(page, 650, pace)
-        page.locator("#orders-table").get_by_role("button", name="Apply").click()
+        _guided_click(page, page.get_by_role("tab", name="All"), pace)
+        _pause(page, 700, pace)
+        _focus_locator(
+            page,
+            page.locator("#orders-table [data-jbs-menu-trigger]").first,
+            pace,
+        )
+        _guided_click(
+            page,
+            page.locator("#orders-table [data-jbs-menu-trigger]").first,
+            pace,
+        )
         _pause(page, 1400, pace)
+        page.keyboard.press("Escape")
+        _pause(page, 500, pace)
 
         _show_step(
             page,
-            title="Step 2: SSE Refresh on Main Table",
+            title="Step 2: Cached Table Paging",
             body=(
-                "A server-side update triggers a targeted table refresh without "
-                "full-page reload."
+                "Move forward, back, then forward again. Returning to a known "
+                "page shows the cache-hit cue instead of a full visible reload."
             ),
             hold_ms=1300,
             pace=pace,
             step=2,
             total_steps=total_steps,
         )
-        page.get_by_role("button", name="Simulate SSE Update").click()
-        _pause(page, 1600, pace)
+        _focus_locator(page, page.locator("#orders-table .card-footer"), pace)
+        next_button = page.locator("#orders-table").get_by_role("button", name="Next")
+        previous_button = page.locator("#orders-table").get_by_role(
+            "button", name="Previous"
+        )
+        _guided_click(page, next_button, pace)
+        page.wait_for_function(
+            "() => document.querySelector('#orders-table')"
+            "?.textContent?.includes('Page 2 of')"
+        )
+        _pause(page, 900, pace)
+        _guided_click(page, previous_button, pace)
+        page.wait_for_function(
+            "() => document.querySelector('#orders-table')"
+            "?.textContent?.includes('Page 1 of')"
+        )
+        _pause(page, 900, pace)
+        _guided_click(page, next_button, pace)
+        page.wait_for_function(
+            "() => document.getElementById('orders-table')"
+            "?.dataset.jbsDemoLabel?.includes('Cache hit')"
+        )
+        _pause(page, 1500, pace)
 
         _show_step(
             page,
-            title="Step 3: Prepend and Append Stream Modes",
-            body="Watch new rows animate into place in the live stream tables.",
+            title="Step 3: SSE Refresh on Main Table",
+            body=(
+                "A server-side update triggers a targeted table refresh without "
+                "reloading the full page."
+            ),
             hold_ms=1300,
             pace=pace,
             step=3,
             total_steps=total_steps,
         )
-        page.locator("#live-table").scroll_into_view_if_needed()
+        _focus_locator(
+            page,
+            page.locator("#orders-table > .card-header"),
+            pace,
+        )
+        _guided_click(page, page.get_by_role("button", name="Simulate SSE Update"), pace)
+        _pause(page, 1600, pace)
+
+        _show_step(
+            page,
+            title="Step 4: Prepend and Append Stream Modes",
+            body="Watch new rows animate into place in the live stream tables.",
+            hold_ms=1300,
+            pace=pace,
+            step=4,
+            total_steps=total_steps,
+        )
+        _focus_locator(page, page.locator("#push-live-row"), pace)
         _pause(page, 700, pace)
-        page.get_by_role("button", name="Push Prepend Row").click()
+        _guided_click(page, page.get_by_role("button", name="Push Prepend Row"), pace)
         _pause(page, 1500, pace)
-        page.get_by_role("button", name="Push Append Row").click()
+        _focus_locator(page, page.locator("#push-live-append-row"), pace)
+        _guided_click(page, page.get_by_role("button", name="Push Append Row"), pace)
         _pause(page, 1500, pace)
 
         _show_step(
             page,
-            title="Step 4: Session Persistence",
+            title="Step 5: Session Persistence",
             body=(
                 "Change table page size and apply. This state survives page "
                 "reload via sessionStorage."
             ),
             hold_ms=1200,
             pace=pace,
-            step=4,
+            step=5,
             total_steps=total_steps,
         )
-        page.locator(
-            "#session-table [data-jbs-ms-input-name='page_size'] [data-jbs-ms-toggle]"
-        ).click()
+        _focus_locator(page, page.locator("#session-table"), pace)
+        _guided_click(
+            page,
+            page.locator(
+                "#session-table [data-jbs-ms-input-name='page_size'] [data-jbs-ms-toggle]"
+            ),
+            pace,
+        )
         _pause(page, 450, pace)
-        page.locator(
-            "#session-table [data-jbs-ms-input-name='page_size'] "
-            "[data-jbs-ms-option][data-jbs-ms-value='4']"
-        ).click()
-        page.locator("#session-table").get_by_role("button", name="Apply").click()
+        _guided_click(
+            page,
+            page.locator(
+                "#session-table [data-jbs-ms-input-name='page_size'] "
+                "[data-jbs-ms-option][data-jbs-ms-value='4']"
+            ),
+            pace,
+        )
+        _guided_click(page, page.locator("#session-table").get_by_role("button", name="Apply"), pace)
         _pause(page, 1500, pace)
 
         _show_step(
             page,
-            title="Step 5: Request Cancellation Guard",
+            title="Step 6: Request Cancellation Guard",
             body=(
                 "Slow request starts first, then fast request wins and stale "
                 "response is ignored."
             ),
             hold_ms=1200,
             pace=pace,
-            step=5,
-            total_steps=total_steps,
-        )
-        page.locator("#cancel-demo").get_by_role("button", name="Slow Request").click()
-        _pause(page, 250, pace)
-        page.locator("#cancel-demo").get_by_role("button", name="Fast Request").click()
-        _pause(page, 1700, pace)
-
-        _show_step(
-            page,
-            title="Step 6: Lazy Hydration",
-            body=(
-                "Scroll to the lazy component. The server fetch happens on first "
-                "viewport entry."
-            ),
-            hold_ms=1200,
-            pace=pace,
             step=6,
             total_steps=total_steps,
         )
-        page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
-        _pause(page, 2200, pace)
+        _focus_locator(page, page.locator("#cancel-demo"), pace)
+        _guided_click(
+            page,
+            page.locator("#cancel-demo").get_by_role("button", name="Slow Request"),
+            pace,
+        )
+        _pause(page, 250, pace)
+        _guided_click(
+            page,
+            page.locator("#cancel-demo").get_by_role("button", name="Fast Request"),
+            pace,
+        )
+        _pause(page, 1700, pace)
 
+        page.goto(base_url, wait_until="domcontentloaded")
+        page.wait_for_function(
+            "() => document.getElementById('orders-table')"
+            "?.dataset.jbsHydrated === 'true'"
+        )
+        page.wait_for_function(
+            "() => document.getElementById('lazy-summary')"
+            "?.dataset.jbsHydrated !== 'true'"
+        )
+        _install_recording_mode(page)
+        page.evaluate("() => window.__jbsDemoPointer?.move(120, 120)")
         _show_step(
             page,
-            title="Step 7: Animated Repaint Cues",
+            title="Step 7: Lazy Hydration",
             body=(
-                "Updated components and incoming stream rows pulse briefly to make "
-                "repainted areas obvious during demos and debugging."
+                "On a fresh page state, this component stays dormant until it "
+                "enters the viewport for the first time."
             ),
-            hold_ms=2000,
+            hold_ms=1200,
             pace=pace,
             step=7,
             total_steps=total_steps,
         )
+        _focus_locator(
+            page,
+            page.locator("#lazy-summary"),
+            pace,
+            hold_ms=900,
+            position="bottom",
+        )
+        _pause(page, 2200, pace)
+
+        _show_step(
+            page,
+            title="Step 8: Foundation Component Gallery",
+            body=(
+                "The wrapper now shows the generic shells: stat cards, stream "
+                "status, detail lists, chart shell, data grid, searchable list, "
+                "split panels, and workspace modal."
+            ),
+            hold_ms=2000,
+            pace=pace,
+            step=8,
+            total_steps=total_steps,
+        )
+        _focus_locator(
+            page,
+            page.locator("#foundation-gallery"),
+            pace,
+            hold_ms=900,
+            position="top",
+        )
+        _pause(page, 1200, pace)
+        foundation_search = page.locator(
+            "#foundation-searchable-list [data-jbs-searchable-list-input]"
+        )
+        _guided_click(page, foundation_search, pace)
+        foundation_search.fill("workspace")
+        _pause(page, 1200, pace)
+        foundation_search.fill("")
+        _pause(page, 700, pace)
+        _guided_click(page, page.get_by_role("button", name="Open Workspace Modal"), pace)
+        _pause(page, 1800, pace)
+        _guided_click(
+            page,
+            page.locator("#foundation-workspace-modal").get_by_role(
+                "button", name="Apply Layout"
+            ),
+            pace,
+        )
+        _pause(page, 900, pace)
+
+        _show_step(
+            page,
+            title="Step 9: Animated Repaint Cues",
+            body=(
+                "Two quick refreshes show both the swap and the no-change cue, so "
+                "watchers can tell whether the component actually repainted."
+            ),
+            hold_ms=2000,
+            pace=pace,
+            step=9,
+            total_steps=total_steps,
+        )
+        _focus_locator(
+            page,
+            page.locator("#orders-table > .card-header"),
+            pace,
+        )
+        refresh_button = page.locator("#orders-table").get_by_role(
+            "button", name="Refresh Table"
+        )
+        _guided_click(page, refresh_button, pace)
+        _pause(page, 1400, pace)
+        _guided_click(page, refresh_button, pace)
+        _pause(page, 1800, pace)
 
         _show_step(
             page,
@@ -310,12 +631,12 @@ def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
             body=(
                 "You saw server-rendered components behave like an SPA with "
                 "predictable state,\n"
-                "incremental updates, and explicit UX cues.\n"
+                "incremental updates, cache-aware paging, and explicit UX cues.\n"
                 "More info: github.com/abartrim/jinja-bootstrap-spa"
             ),
             hold_ms=4200,
             pace=pace,
-            step=8,
+            step=10,
             total_steps=total_steps,
         )
 
