@@ -468,6 +468,21 @@ def build_foundation_grid_context() -> dict[str, Any]:
                 "purpose": "Structured snippet/config surface for docs, query output, and operator hints.",
                 "status": '<span class="badge text-bg-success">New</span>',
             },
+            {
+                "primitive": "facet_bar",
+                "purpose": "Active-filter chip row with clear/remove affordances for tables and explorers.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "master_detail_shell",
+                "purpose": "Generic master/detail layout for inspector, review, and explorer pages.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "result_panel",
+                "purpose": "Consistent output surface for generated results, previews, and validation summaries.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
         ],
         "foundation_grid_state": {
             "page": 1,

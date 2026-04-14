@@ -498,6 +498,9 @@ above the runtime contract without becoming app-specific workflows:
 - `stacked_list(...)`: compact queue/result/review rows
 - `tree_nav(...)`: hierarchical explorer navigation
 - `code_block(...)`: snippet, query, and operator config surface
+- `facet_bar(...)`: active-filter chip row
+- `master_detail_shell(...)`: inspector and explorer layout shell
+- `result_panel(...)`: generic output and validation surface
 
 These primitives are demonstrated in the wrapper app foundation gallery and
 covered by macro/example tests.

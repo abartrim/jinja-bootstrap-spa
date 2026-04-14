@@ -620,6 +620,67 @@ def test_timeline_stacked_list_tree_nav_and_code_block_render_generic_surfaces()
     assert "SELECT *" in rendered
 
 
+def test_facet_bar_master_detail_and_result_panel_render_generic_workflow_shells() -> (
+    None
+):
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.facet_bar(
+            "active-facets",
+            [
+              {
+                "label": "Status",
+                "value": "Queued",
+                "tone": "primary",
+                "remove_html": "<button type='button'>x</button>"
+              }
+            ],
+            title="Active Filters",
+            clear_action_html="<button type='button'>Clear</button>"
+          )
+        }}
+        {{
+          ui.master_detail_shell(
+            "review-shell",
+            master_html="<div>Master list</div>",
+            detail_html="<div>Detail pane</div>",
+            title="Review Shell",
+            subtitle="Generic master/detail layout.",
+            header_actions_html="<button type='button'>Open</button>"
+          )
+        }}
+        {{
+          ui.result_panel(
+            "query-result",
+            title="Result",
+            subtitle="Generated output.",
+            status_badge="<span class='badge text-bg-success'>Ready</span>",
+            actions_html="<button type='button'>Copy</button>",
+            body="<pre>output</pre>",
+            footer="<small>Footer</small>"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="active-facets"' in rendered
+    assert "jbs-facet-bar" in rendered
+    assert "Queued" in rendered
+    assert 'id="review-shell"' in rendered
+    assert "jbs-master-detail-shell" in rendered
+    assert 'data-jbs-pane="master"' in rendered
+    assert 'data-jbs-pane="detail"' in rendered
+    assert 'id="query-result"' in rendered
+    assert "jbs-result-panel" in rendered
+    assert "Generated output." in rendered
+    assert "<pre>output</pre>" in rendered
+
+
 def test_toast_macro_renders_dismissible_status_notice() -> None:
     environment = build_environment()
     template = environment.from_string(

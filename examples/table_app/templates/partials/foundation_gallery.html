@@ -34,6 +34,10 @@
   {
     "label": "Tree",
     "href": "#foundation-tree-nav"
+  },
+  {
+    "label": "Workflow",
+    "href": "#foundation-master-detail"
   }
 ] %}
 {% set stream_controls %}
@@ -263,6 +267,94 @@
   "    )",
   "    return render_template(\"partials/orders_table.html\", table_state=state)",
 ] | join("\n") %}
+{% set facet_items = [
+  {
+    "label": "Status",
+    "value": "Queued",
+    "tone": "primary",
+    "remove_html": '<button class="btn btn-sm btn-link p-0 text-reset text-decoration-none"
+        type="button">×</button>'
+  },
+  {
+    "label": "Owner",
+    "value": "Ops",
+    "tone": "success",
+    "remove_html": '<button class="btn btn-sm btn-link p-0 text-reset text-decoration-none"
+        type="button">×</button>'
+  },
+  {
+    "label": "Page Size",
+    "value": "20",
+    "tone": "secondary"
+  }
+] %}
+{% set master_items = [
+  {
+    "title": "Order #1009",
+    "subtitle": "Queued · awaiting ops review",
+    "meta": "2m ago",
+    "badges": [
+      {
+        "label": "Queued",
+        "variant": "warning"
+      }
+    ],
+    "active": true
+  },
+  {
+    "title": "Order #1010",
+    "subtitle": "Open · assigned to runtime",
+    "meta": "5m ago",
+    "badges": [
+      {
+        "label": "Open",
+        "variant": "primary"
+      }
+    ]
+  },
+  {
+    "title": "Order #1011",
+    "subtitle": "Archived · ready for export",
+    "meta": "19m ago",
+    "badges": [
+      {
+        "label": "Archived",
+        "variant": "secondary"
+      }
+    ]
+  }
+] %}
+{% set master_list_html %}
+  {{ ui.stacked_list("foundation-master-list",
+    master_items,
+    title="Master List",
+    subtitle="Use any generic list shell in the master pane.",
+    class_name="border-0 shadow-none") 
+  }}
+{% endset %}
+{% set result_panel_footer %}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span class="small text-body-secondary">Result panels can host code, tables, charts, or validation summaries.</span>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge text-bg-success">Success</span>
+      <span class="badge text-bg-secondary">Server rendered</span>
+    </div>
+  </div>
+{% endset %}
+{% set result_panel_body %}
+  <div class="vstack gap-3">
+    {{ ui.callout(title="Query Result",
+        message="Use this shell when the app needs a consistent output surface for previews, generated content, or operator results.",
+        tone="success",
+        icon="bi bi-check2-circle") 
+    }}
+    {{ ui.code_block("foundation-result-snippet",
+        "SELECT number, customer, status FROM orders WHERE status = 'queued';",
+        language="sql",
+        class_name="shadow-none border") 
+    }}
+  </div>
+{% endset %}
 <section id="foundation-gallery" class="mt-5">
   {{ ui.page_header(title="Foundation Component Gallery",
     subtitle="These are the generic shells consuming apps can layer into product-specific macros and templates.",
@@ -409,6 +501,16 @@
       }}
     </div>
   </div>
+  <div class="row g-3 mb-4">
+    <div class="col-12">
+      {{ ui.facet_bar("foundation-facet-bar",
+            facet_items,
+            title="Facet Bar Primitive",
+            clear_action_html=ui.button("Clear all", variant="outline-secondary", size="sm") ,
+      compact=true)
+      }}
+    </div>
+  </div>
   {% call ui.split_panel(direction="horizontal", ratio="3/2", class_name="mb-4") %}
     <section data-jbs-pane="primary" class="vstack gap-3">
       {% include "partials/foundation_grid.html" %}
@@ -447,6 +549,34 @@
       }}
     </div>
   </div>
+  {% call ui.master_detail_shell(
+    "foundation-master-detail",
+    master_html=master_list_html,
+    title="Master Detail Shell",
+    subtitle="Use this for inspector and explorer pages where a selected record drives the right-hand detail pane.",
+    header_actions_html=ui.button("Open Detail", variant="outline-secondary", size="sm")
+    ) %}
+    <div class="vstack gap-3">
+      {{ ui.detail_list([
+            {"label": "Order", "value": "#1009"},
+            {"label": "Owner", "value": "Ops"},
+            {"label": "Status", "value_html": "<span class=\"badge text-bg-warning\">Queued</span>"},
+            {"label": "Updated", "value": "2 minutes ago"},
+            ],
+            columns=2,
+            striped=true) 
+      }}
+      {{ ui.result_panel("foundation-result-panel",
+            title="Result Panel Primitive",
+            subtitle="A generic surface for query results, previews, generated output, or validation summaries.",
+            status_badge='<span class="badge text-bg-success">Ready</span>',
+            actions_html=ui.button("Copy Output", variant="outline-secondary", size="sm") ,
+      body=result_panel_body,
+      footer=result_panel_footer,
+      class_name="shadow-none border")
+      }}
+    </div>
+  {% endcall %}
   {% call ui.workspace_modal(
     "foundation-workspace-modal",
     title="Workspace Modal Primitive",
