@@ -487,3 +487,17 @@ Examples of what the framework should enable, but not own:
 - Do not add framework JS unless the behavior is truly generic and repeated.
 - Reuse the existing `data-jbs-*` runtime model instead of inventing separate
   interaction channels for each new primitive.
+
+## Post-Foundation Tranche
+
+The initial foundation backlog above is now implemented in the repo. The next
+generic tranche focuses on migration-unblocking presentation surfaces that sit
+above the runtime contract without becoming app-specific workflows:
+
+- `timeline(...)`: ordered event and audit history surface
+- `stacked_list(...)`: compact queue/result/review rows
+- `tree_nav(...)`: hierarchical explorer navigation
+- `code_block(...)`: snippet, query, and operator config surface
+
+These primitives are demonstrated in the wrapper app foundation gallery and
+covered by macro/example tests.

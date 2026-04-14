@@ -530,6 +530,96 @@ def test_searchable_expandable_list_renders_search_and_disclosure_contract() -> 
     assert "item-body" in rendered
 
 
+def test_timeline_stacked_list_tree_nav_and_code_block_render_generic_surfaces() -> (
+    None
+):
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.timeline(
+            "deploy-timeline",
+            [
+              {
+                "title": "Build started",
+                "time": "09:14 UTC",
+                "body": "Runtime refresh request issued.",
+                "tone": "primary",
+                "icon": "bi bi-arrow-repeat"
+              },
+              {
+                "title": "SSE update applied",
+                "time": "09:15 UTC",
+                "body": "Row patch landed without a full page reload.",
+                "tone": "success"
+              }
+            ],
+            title="Timeline",
+            subtitle="Ordered change history."
+          )
+        }}
+        {{
+          ui.stacked_list(
+            "review-list",
+            [
+              {
+                "title": "Orders review",
+                "subtitle": "Compact queue row",
+                "meta": "2m ago",
+                "badges": [{"label": "New", "variant": "success"}],
+                "body_html": "<p>Body</p>",
+                "active": true
+              }
+            ],
+            title="Review List"
+          )
+        }}
+        {{
+          ui.tree_nav(
+            "schema-tree",
+            [
+              {
+                "label": "Platform",
+                "open": true,
+                "children": [
+                  {"label": "Runtime", "badge": "stable", "active": true}
+                ]
+              }
+            ],
+            title="Tree"
+          )
+        }}
+        {{
+          ui.code_block(
+            "snippet",
+            "SELECT *\\nFROM orders;",
+            language="sql",
+            title="Snippet",
+            line_numbers=true,
+            caption="Example query"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="deploy-timeline"' in rendered
+    assert "jbs-timeline" in rendered
+    assert "Build started" in rendered
+    assert 'id="review-list"' in rendered
+    assert "jbs-stacked-list" in rendered
+    assert "list-group-item" in rendered
+    assert 'id="schema-tree"' in rendered
+    assert "jbs-tree-nav" in rendered
+    assert "<details" in rendered
+    assert 'id="snippet"' in rendered
+    assert "jbs-code-block" in rendered
+    assert "<ol" in rendered
+    assert "SELECT *" in rendered
+
+
 def test_toast_macro_renders_dismissible_status_notice() -> None:
     environment = build_environment()
     template = environment.from_string(

@@ -93,6 +93,8 @@ The dev app includes:
 - a session-persisted table (`sessionStorage`)
 - a stale-request cancellation demo
 - a lazy-hydrated component loaded on first viewport entry
+- a foundation gallery covering generic shells such as data grids, timelines,
+  stacked lists, tree navigation, code blocks, workspace modals, and explorer surfaces
 
 Use `Simulate SSE Update`, `Push Prepend Row`, and `Push Append Row` to exercise
 all stream modes.
@@ -102,6 +104,14 @@ The feature-to-example coverage map lives in
 
 The generic framework implementation backlog lives in
 [docs/framework_backlog.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/framework_backlog.md).
+
+The current macro surface now includes:
+
+- stateful table and richer `data_grid(...)` shells
+- page framing via `page_header(...)` and `toolbar(...)`
+- overlays via `modal(...)`, `drawer(...)`, and `workspace_modal(...)`
+- form primitives including autocomplete, multi-select, regex/sql assist, and date-range inputs
+- presentation primitives such as `stat_card(...)`, `detail_list(...)`, `callout(...)`, `chart_shell(...)`, `timeline(...)`, `stacked_list(...)`, `tree_nav(...)`, and `code_block(...)`
 
 For manual visual inspection snapshots:
 

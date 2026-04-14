@@ -448,6 +448,26 @@ def build_foundation_grid_context() -> dict[str, Any]:
                 "purpose": "Large overlay for editors, inspectors, and multi-pane flows.",
                 "status": '<span class="badge text-bg-primary">Ready to compose</span>',
             },
+            {
+                "primitive": "timeline",
+                "purpose": "Ordered event/history surface for audit trails and stream summaries.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "stacked_list",
+                "purpose": "Compact stacked rows for queues, review surfaces, and result summaries.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "tree_nav",
+                "purpose": "Hierarchical explorer navigation without a separate JS tree widget.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "code_block",
+                "purpose": "Structured snippet/config surface for docs, query output, and operator hints.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
         ],
         "foundation_grid_state": {
             "page": 1,

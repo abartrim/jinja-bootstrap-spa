@@ -88,6 +88,10 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.wait_for_selector("#foundation-gallery")
             page.wait_for_selector("#foundation-grid")
             page.wait_for_selector("#foundation-searchable-list")
+            page.wait_for_selector("#foundation-timeline")
+            page.wait_for_selector("#foundation-stacked-list")
+            page.wait_for_selector("#foundation-tree-nav")
+            page.wait_for_selector("#foundation-code-block")
             page.wait_for_selector("nav.navbar")
 
             page.get_by_role("button", name="About Runtime").click()
@@ -268,6 +272,17 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.wait_for_selector("#foundation-stream-status")
             page.wait_for_selector("#foundation-toast")
             page.wait_for_selector("#foundation-chart-shell")
+            page.wait_for_function(
+                "() => document.querySelector("
+                "'#foundation-tree-nav details'"
+                ")?.hasAttribute('open')"
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#foundation-code-block')"
+                "?.textContent?.includes('orders_component') || "
+                "document.querySelector('#foundation-code-block')"
+                "?.textContent?.includes('parse_table_state')"
+            )
             foundation_search = page.locator(
                 "#foundation-searchable-list [data-jbs-searchable-list-input]"
             )
