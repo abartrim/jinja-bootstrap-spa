@@ -763,6 +763,88 @@ def test_foundation_inspector_primitives_render() -> None:
     assert 'id="ops-diff-after"' in rendered
 
 
+def test_collection_inline_edit_and_selectable_table_render() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.filterable_card_list(
+            "ops-cards",
+            [
+              {
+                "title": "Review Queue",
+                "subtitle": "Searchable cards",
+                "search_text": "review queue cards"
+              }
+            ],
+            title="Cards"
+          )
+        }}
+        {{
+          ui.inline_edit_shell(
+            "ops-inline-edit",
+            title="Inline Edit",
+            display_html="<p>Current value</p>",
+            editor_html="<form><input name='title'></form>",
+            summary_html="<div>Summary</div>",
+            footer_html="<button type='button'>Save</button>"
+          )
+        }}
+        {{
+          ui.table(
+            "ops-table",
+            "/components/ops-table",
+            columns=[
+              {
+                "key": "service",
+                "label": "Service",
+                "sortable": true,
+                "pinned": "start",
+                "pin_offset": "2.75rem"
+              },
+              {
+                "key": "status",
+                "label": "Status",
+                "sortable": false,
+                "pinned": "end",
+                "pin_offset": "0px"
+              }
+            ],
+            rows=[
+              {"id": "row-1", "service": "orders-api", "status": "Queued"}
+            ],
+            state={"page": 1, "page_size": 10, "selected_ids": ["row-1"]},
+            selectable=true,
+            selection_actions_html=(
+              "<button data-jbs-selection-requires type='button'>Review</button>"
+            ),
+            persist="header",
+            state_keys=["page", "page_size", "sort_by", "sort_dir", "selected_ids"]
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="ops-cards"' in rendered
+    assert "jbs-filterable-card-list" in rendered
+    assert "data-jbs-searchable-list-input" in rendered
+    assert 'id="ops-inline-edit"' in rendered
+    assert "jbs-inline-edit-shell" in rendered
+    assert 'data-jbs-pane="display"' in rendered
+    assert 'data-jbs-pane="editor"' in rendered
+    assert 'id="ops-table"' in rendered
+    assert 'data-jbs-selection-form="ops-table-selection-form"' in rendered
+    assert 'data-jbs-selection-key="selected_ids"' in rendered
+    assert "data-jbs-table-select-all" in rendered
+    assert "data-jbs-table-select-row" in rendered
+    assert "data-jbs-selection-count" in rendered
+    assert "data-jbs-selection-requires" in rendered
+    assert "position: sticky;" in rendered
+
+
 def test_toast_macro_renders_dismissible_status_notice() -> None:
     environment = build_environment()
     template = environment.from_string(
@@ -1102,6 +1184,22 @@ def test_parse_table_state_prefers_header_state_over_query_params() -> None:
         "sort_dir": "desc",
         "status": "open",
     }
+
+
+def test_parse_table_state_preserves_list_filter_values_from_header_state() -> None:
+    state = parse_table_state(
+        {},
+        request_headers={
+            JBS_STATE_HEADER: (
+                '{"page":1,"page_size":10,"sort_by":"service","sort_dir":"asc",'
+                '"selected_ids":["row-1","row-2"]}'
+            )
+        },
+        default_sort_by="service",
+        filter_keys=("selected_ids",),
+    )
+
+    assert state["selected_ids"] == ["row-1", "row-2"]
 
 
 def test_fragment_etag_is_stable_for_identical_content() -> None:

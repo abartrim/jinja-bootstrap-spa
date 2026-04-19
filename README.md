@@ -114,6 +114,8 @@ The current macro surface now includes:
 - presentation primitives such as `stat_card(...)`, `detail_list(...)`, `callout(...)`, `chart_shell(...)`, `timeline(...)`, `stacked_list(...)`, `tree_nav(...)`, and `code_block(...)`
 - workflow/presentation shells such as `facet_bar(...)`, `master_detail_shell(...)`, and `result_panel(...)`
 - inspector/review primitives such as `command_bar(...)`, `metric_grid(...)`, `activity_feed(...)`, `property_editor(...)`, and `diff_view(...)`
+- collection/edit primitives such as `filterable_card_list(...)` and `inline_edit_shell(...)`
+- dense-grid enhancements including row selection and pinned columns in `table(...)` and `data_grid(...)`
 
 For manual visual inspection snapshots:
 
@@ -573,14 +575,14 @@ The initial runtime supports:
 
 ## What Comes Next
 
-The table component is the forcing function, not the final scope. Later components
-should build on the same runtime contract:
+The table component is the forcing function, not the final scope. The next
+generic work should continue building on the same runtime contract without
+becoming app-specific:
 
-- menus and command surfaces
-- filterable card lists
-- detail panels and inline edit flows
-- modal and drawer components
-- richer table features such as row actions, selection, and pinned columns
+- chart/dashboard composition helpers that stay data-library agnostic
+- upload and file-management surfaces for server-driven workflows
+- more opinionated batch-review shells built on the current selection contract
+- additional explorer patterns once a second consumer proves the need
 
 ## Contribution Guidance
 

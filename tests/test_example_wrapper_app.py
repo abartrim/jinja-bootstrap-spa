@@ -100,6 +100,9 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.wait_for_selector("#foundation-activity-feed")
             page.wait_for_selector("#foundation-property-editor")
             page.wait_for_selector("#foundation-diff-view")
+            page.wait_for_selector("#foundation-work-queue")
+            page.wait_for_selector("#foundation-filterable-card-list")
+            page.wait_for_selector("#foundation-inline-edit-shell")
             page.wait_for_selector("nav.navbar")
 
             page.get_by_role("button", name="About Runtime").click()
@@ -304,8 +307,66 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
                 "?.textContent?.includes('Query Result')"
             )
             page.wait_for_function(
+                "() => document.querySelector('#foundation-filterable-card-list')"
+                "?.textContent?.includes('Review Queue')"
+            )
+            page.wait_for_function(
                 "() => document.querySelector('#foundation-diff-view-after')"
                 "?.textContent?.includes(\"status = 'open'\")"
+            )
+            foundation_cards = page.locator(
+                "#foundation-filterable-card-list [data-jbs-searchable-list-input]"
+            )
+            foundation_cards.fill("dashboard")
+            page.wait_for_function(
+                "() => {"
+                "  const items = Array.from(document.querySelectorAll("
+                "    '#foundation-filterable-card-list [data-jbs-searchable-item]'"
+                "  ));"
+                "  const visible = items.filter((item) => !item.hidden);"
+                "  return visible.length === 1 && "
+                "    visible[0]?.textContent?.includes('Migration Dashboard');"
+                "}"
+            )
+            foundation_cards.fill("")
+            page.wait_for_function(
+                "() => {"
+                "  const items = Array.from(document.querySelectorAll("
+                "    '#foundation-filterable-card-list [data-jbs-searchable-item]'"
+                "  ));"
+                "  return items.filter((item) => !item.hidden).length === 3;"
+                "}"
+            )
+            page.locator("#foundation-work-queue").scroll_into_view_if_needed()
+            queue_rows = page.locator(
+                "#foundation-work-queue [data-jbs-table-select-row]"
+            )
+            queue_rows.nth(0).click()
+            queue_rows.nth(1).click()
+            page.wait_for_function(
+                "() => document.querySelector("
+                "'#foundation-work-queue [data-jbs-selection-count]'"
+                ")"
+                "?.textContent?.includes('2 selected')"
+            )
+            page.locator("#foundation-work-queue").get_by_role(
+                "button", name="Next"
+            ).click()
+            page.wait_for_function(
+                "() => document.querySelector('#foundation-work-queue')"
+                "?.textContent?.includes('Page 2 of 2')"
+            )
+            page.wait_for_function(
+                "() => document.querySelector("
+                "'#foundation-work-queue [data-jbs-selection-count]'"
+                ")"
+                "?.textContent?.includes('2 selected')"
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#foundation-work-queue')"
+                "?.textContent?.includes("
+                "'2 selected across refreshes and page changes.'"
+                ")"
             )
             foundation_search = page.locator(
                 "#foundation-searchable-list [data-jbs-searchable-list-input]"

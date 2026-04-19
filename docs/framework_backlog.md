@@ -509,3 +509,20 @@ above the runtime contract without becoming app-specific workflows:
 
 These primitives are demonstrated in the wrapper app foundation gallery and
 covered by macro/example tests.
+
+## Migration-Unblocking Tranche
+
+The next migration-blocking generic gaps identified after the first tranche are
+now implemented as framework features rather than app-specific stopgaps:
+
+- `filterable_card_list(...)`: searchable card-grid surface for dashboards,
+  collections, launch pads, and review queues
+- `inline_edit_shell(...)`: current-state plus editor shell for inline review
+  and edit flows
+- table/data-grid row selection: header-based selection state that survives
+  refresh, sort, and page changes
+- table/data-grid pinned columns: generic sticky start/end columns for dense
+  operational grids
+
+These close the remaining generic gaps that were repeatedly called out in the
+Sobs migration audit without baking Sobs-specific workflows into the framework.

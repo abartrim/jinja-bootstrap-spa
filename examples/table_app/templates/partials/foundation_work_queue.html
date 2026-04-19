@@ -1,0 +1,39 @@
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{% set selection_actions %}
+  {{ ui.button("Refresh Selected",
+        variant="outline-secondary",
+        size="sm",
+        jbs_action="refresh",
+        attrs='data-jbs-selection-requires') 
+  }}
+  {{ ui.button("Review Batch",
+        variant="primary",
+        size="sm",
+        jbs_action="refresh",
+        attrs='data-jbs-selection-requires') 
+  }}
+{% endset %}
+{{ ui.data_grid("foundation-work-queue",
+endpoint="/components/foundation-work-queue",
+columns=[
+{"key": "service", "label": "Service", "sortable": true, "pinned": "start", "pin_offset": "2.75rem", "header_class": "text-nowrap", "cell_class": "text-nowrap fw-semibold"},
+{"key": "owner", "label": "Owner", "sortable": true, "cell_class": "text-nowrap"},
+{"key": "priority", "label": "Priority", "sortable": true, "cell_class": "text-nowrap"},
+{"key": "summary", "label": "Migration Work", "sortable": false},
+{"key": "status", "label": "Status", "sortable": true, "pinned": "end", "pin_offset": "0px", "header_class": "text-nowrap", "cell_class": "text-nowrap"},
+{"key": "window", "label": "Window", "sortable": true, "cell_class": "text-nowrap"},
+],
+rows=foundation_work_queue_rows,
+state=foundation_work_queue_state,
+total_rows=foundation_work_queue_total_rows,
+caption="Advanced Data Grid",
+subtitle=foundation_work_queue_subtitle,
+count_label="Migration-ready work queue",
+persist="header",
+state_keys=["page", "page_size", "sort_by", "sort_dir", "selected_ids"],
+selectable=true,
+selected_ids=foundation_work_queue_selected_ids,
+selection_name="selected_ids",
+selection_actions_html=selection_actions,
+class_name="mb-0") 
+}}

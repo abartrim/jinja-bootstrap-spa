@@ -33,6 +33,9 @@ Last visual check run: April 12, 2026 (desktop + mobile screenshots via
 | Regex assist validation | orders filters | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
 | Autocomplete input | customer filter | `tests/test_browser_runtime.py` | Yes |
 | Request cancellation (stale response protection) | `cancel-demo` | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
+| Filterable card lists | `foundation-filterable-card-list` | `tests/test_example_wrapper_app.py` | Pending rerun |
+| Inline edit shell | `foundation-inline-edit-shell` | `tests/test_bootstrap_macros.py`, `tests/test_example_wrapper_app.py` | Pending rerun |
+| Table row selection + pinned columns | `foundation-work-queue` | `tests/test_bootstrap_macros.py`, `tests/test_example_wrapper_app.py` | Pending rerun |
 
 ## Decisions
 

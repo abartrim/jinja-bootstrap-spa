@@ -173,6 +173,11 @@ def parse_table_state(
 
     for key in filter_keys:
         value = _state_value(key)
+        if isinstance(value, list):
+            values = [str(item) for item in value if item not in (None, "")]
+            if values:
+                state[key] = values
+            continue
         if value not in (None, ""):
             state[key] = str(value)
 

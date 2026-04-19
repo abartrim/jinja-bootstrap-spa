@@ -198,6 +198,10 @@ export declare class JBSRuntime {
     private searchableListElements;
     private hydrateSearchableLists;
     private filterSearchableList;
+    private tableSelectionInputs;
+    private hydrateTableSelections;
+    private syncTableSelection;
+    private formStateById;
     private dateRangeElements;
     private hydrateDateRangePickers;
     private openDateRangePicker;

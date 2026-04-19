@@ -667,6 +667,7 @@ export class JBSRuntime {
     this.hydrateMultiSelects(root);
     this.hydrateDateRangePickers(root);
     this.hydrateSearchableLists(root);
+    this.hydrateTableSelections(root);
 
     const components = root.querySelectorAll<HTMLElement>(
       "[data-jbs-component][data-jbs-endpoint]",
@@ -2292,6 +2293,122 @@ export class JBSRuntime {
     }
   }
 
+  private tableSelectionInputs(component: HTMLElement): {
+    header: HTMLInputElement | null;
+    rows: HTMLInputElement[];
+  } {
+    return {
+      header: component.querySelector<HTMLInputElement>("[data-jbs-table-select-all]"),
+      rows: Array.from(
+        component.querySelectorAll<HTMLInputElement>("[data-jbs-table-select-row]"),
+      ),
+    };
+  }
+
+  private hydrateTableSelections(root: ParentNode): void {
+    const components = root.querySelectorAll<HTMLElement>("[data-jbs-selection-form]");
+    for (const component of components) {
+      this.syncTableSelection(component);
+    }
+  }
+
+  private syncTableSelection(component: HTMLElement): void {
+    const { header, rows } = this.tableSelectionInputs(component);
+    const selectionFormId = component.dataset.jbsSelectionForm ?? null;
+    const selectionKey = component.dataset.jbsSelectionKey ?? "selected_ids";
+    const selectionForm = selectionFormId
+      ? document.getElementById(selectionFormId)
+      : null;
+    const currentState = stripTransientState(this.getState(component));
+    const mergedSelection = new Set(stringListFromUnknown(currentState[selectionKey]));
+
+    for (const input of rows) {
+      if (input.checked) {
+        mergedSelection.add(input.value);
+      } else {
+        mergedSelection.delete(input.value);
+      }
+    }
+
+    if (selectionForm instanceof HTMLFormElement) {
+      selectionForm.innerHTML = "";
+      const visibleChecked = new Set(
+        rows.filter((input) => input.checked).map((input) => input.value),
+      );
+      for (const id of mergedSelection) {
+        if (visibleChecked.has(id)) {
+          continue;
+        }
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = selectionKey;
+        hidden.value = id;
+        hidden.dataset.jbsSelectionHidden = "true";
+        selectionForm.append(hidden);
+      }
+    }
+
+    const checkedRows = rows.filter((input) => input.checked);
+    const checkedCount = checkedRows.length;
+    const selectedCount = mergedSelection.size;
+
+    if (selectedCount > 0) {
+      currentState[selectionKey] = Array.from(mergedSelection);
+    } else {
+      delete currentState[selectionKey];
+    }
+    this.stateStore.set(this.componentKey(component), currentState);
+    component.dataset.jbsState = JSON.stringify(currentState);
+
+    if (header) {
+      header.checked = rows.length > 0 && checkedCount === rows.length;
+      header.indeterminate = checkedCount > 0 && checkedCount < rows.length;
+    }
+
+    for (const input of rows) {
+      const row = input.closest("tr");
+      if (!(row instanceof HTMLTableRowElement)) {
+        continue;
+      }
+      row.dataset.jbsRowSelected = input.checked ? "true" : "false";
+      row.classList.toggle("table-active", input.checked);
+    }
+
+    const countLabel = `${selectedCount} selected`;
+    const counts = component.querySelectorAll<HTMLElement>("[data-jbs-selection-count]");
+    for (const count of counts) {
+      count.textContent = countLabel;
+    }
+
+    const guarded = component.querySelectorAll<HTMLElement>("[data-jbs-selection-requires]");
+    for (const element of guarded) {
+      const disabled = selectedCount === 0;
+      element.toggleAttribute("disabled", disabled);
+      element.setAttribute("aria-disabled", disabled ? "true" : "false");
+      if (
+        element instanceof HTMLButtonElement ||
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLSelectElement ||
+        element instanceof HTMLTextAreaElement
+      ) {
+        element.disabled = disabled;
+      }
+    }
+  }
+
+  private formStateById(formId: string | null): JBSState {
+    if (!formId) {
+      return {};
+    }
+
+    const form = document.getElementById(formId);
+    if (!(form instanceof HTMLFormElement)) {
+      return {};
+    }
+
+    return normalizeFormData(form);
+  }
+
   private dateRangeElements(wrapper: Element): {
     fromInput: HTMLInputElement | null;
     toInput: HTMLInputElement | null;
@@ -2683,7 +2800,25 @@ export class JBSRuntime {
 
   private buildPatchFromTrigger(component: HTMLElement, trigger: HTMLElement, action: string): JBSState {
     let patch = parseState(trigger.dataset.jbsPatch ?? null);
-    const current = stripTransientState(this.getState(component));
+    let current = stripTransientState(this.getState(component));
+    const selectionKey = component.dataset.jbsSelectionKey ?? null;
+    const formIds = new Set<string>();
+
+    if (selectionKey) {
+      delete current[selectionKey];
+    }
+
+    const selectionFormId = component.dataset.jbsSelectionForm ?? null;
+    if (selectionFormId) {
+      formIds.add(selectionFormId);
+    }
+    const actionFormId = trigger.dataset.jbsActionForm ?? null;
+    if (actionFormId) {
+      formIds.add(actionFormId);
+    }
+    for (const formId of formIds) {
+      current = applyStatePatch(current, this.formStateById(formId));
+    }
 
     if (trigger.dataset.jbsRowId) {
       patch = { ...patch, row_id: trigger.dataset.jbsRowId };
@@ -3012,6 +3147,28 @@ export class JBSRuntime {
         if (wrapper) {
           event.preventDefault();
           this.clearDateRange(wrapper);
+        }
+        return;
+      }
+
+      const selectAll = target?.closest<HTMLInputElement>("[data-jbs-table-select-all]");
+      if (selectAll) {
+        const component = this.findComponent(selectAll);
+        if (component) {
+          const { rows } = this.tableSelectionInputs(component);
+          for (const input of rows) {
+            input.checked = selectAll.checked;
+          }
+          this.syncTableSelection(component);
+        }
+        return;
+      }
+
+      const selectRow = target?.closest<HTMLInputElement>("[data-jbs-table-select-row]");
+      if (selectRow) {
+        const component = this.findComponent(selectRow);
+        if (component) {
+          this.syncTableSelection(component);
         }
         return;
       }

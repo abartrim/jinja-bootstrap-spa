@@ -28,6 +28,10 @@
     "href": "#foundation-searchable-list"
   },
   {
+    "label": "Collections",
+    "href": "#foundation-filterable-card-list"
+  },
+  {
     "label": "Flows",
     "href": "#foundation-timeline"
   },
@@ -510,6 +514,93 @@
   "persist = 'session'",
   "stream_mode = 'replace'",
 ] | join("\n") %}
+{% set filterable_card_items = [
+  {
+    "title": "Migration Dashboard",
+    "subtitle": "Track migration surfaces by capability area.",
+    "meta": "Ready",
+    "search_text": "dashboard cards filters metrics review",
+    "badges": [
+      {
+        "label": "Dashboard",
+        "variant": "primary"
+      },
+      {
+        "label": "Metrics",
+        "variant": "secondary"
+      }
+    ],
+    "body_html": "<p class=\"small text-body-secondary mb-0\">Filterable card grids cover summary-heavy pages that do not want table chrome.</p>",
+    "footer_html": "<span class=\"small text-body-secondary\">Best for launch pads and explorer summaries.</span>"
+  },
+  {
+    "title": "Review Queue",
+    "subtitle": "Compact cards with badges, ownership, and quick actions.",
+    "meta": "Queued",
+    "search_text": "review queue cards approvals workbench",
+    "badges": [
+      {
+        "label": "Queue",
+        "variant": "warning"
+      },
+      {
+        "label": "Review",
+        "variant": "secondary"
+      }
+    ],
+    "body_html": "<p class=\"small text-body-secondary mb-0\">Use cards when work items need richer body copy and grouped metadata.</p>",
+    "footer_html": "<span class=\"small text-body-secondary\">Pairs well with action menus and property editors.</span>"
+  },
+  {
+    "title": "Explorer Collection",
+    "subtitle": "Searchable cards for schema, templates, or saved views.",
+    "meta": "Library",
+    "search_text": "explorer collection search schema saved views",
+    "badges": [
+      {
+        "label": "Explorer",
+        "variant": "success"
+      },
+      {
+        "label": "Search",
+        "variant": "secondary"
+      }
+    ],
+    "body_html": "<p class=\"small text-body-secondary mb-0\">This stays local and fast by reusing the runtime searchable-list filtering contract.</p>",
+    "footer_html": "<span class=\"small text-body-secondary\">Useful when a dense explorer should feel lighter than a tree.</span>"
+  }
+] %}
+{% set inline_edit_display %}
+  {{ ui.detail_list([
+    {"label": "Owner", "value": "Platform"},
+    {"label": "Surface", "value": "Migration Work Queue"},
+    {"label": "Mode", "value_html": "<span class=\"badge text-bg-warning\">Draft</span>"},
+    {"label": "Updated", "value": "moments ago"},
+    ], columns=2, striped=true) }}
+{% endset %}
+{% set inline_edit_editor %}
+  <form class="vstack gap-0">
+    {{ ui.form_input("inline-edit-name",
+        label="Configuration Name",
+        value="Queue Review Defaults") }}
+    {{ ui.textarea("inline-edit-notes",
+        label="Notes",
+        value="This shell is for side-by-side review and edit flows where the current state must stay visible.",
+        rows=5) }}
+  </form>
+{% endset %}
+{% set inline_edit_summary %}
+  {{ ui.callout(title="Why this exists",
+    message="Consuming apps often need current-state context next to an editor without opening a separate overlay.",
+    tone="info",
+    icon="bi bi-pencil-square") }}
+{% endset %}
+{% set inline_edit_footer %}
+  <div class="d-flex flex-wrap justify-content-end gap-2">
+    {{ ui.button("Discard", variant="outline-secondary", size="sm") }}
+    {{ ui.button("Save Draft", size="sm") }}
+  </div>
+{% endset %}
 <section id="foundation-gallery" class="mt-5">
   {{ ui.page_header(title="Foundation Component Gallery",
     subtitle="These are the generic shells consuming apps can layer into product-specific macros and templates.",
@@ -681,6 +772,12 @@
     title="Metric Grid Primitive",
     subtitle="Use this when a page needs a standardized summary band rather than hand-built stat rows.",
     class_name="mb-4") }}
+  {% include "partials/foundation_work_queue.html" %}
+  {{ ui.filterable_card_list("foundation-filterable-card-list",
+    filterable_card_items,
+    title="Filterable Card List Primitive",
+    subtitle="Use this for dashboards, launch pads, saved views, and search-first collections that want cards instead of rows.",
+    class_name="mb-4") }}
   {% call ui.split_panel(direction="horizontal", ratio="3/2", class_name="mb-4") %}
     <section data-jbs-pane="primary" class="vstack gap-3">
       {% include "partials/foundation_grid.html" %}
@@ -770,6 +867,16 @@
     subtitle="Use this for config reviews, saved-query changes, and before/after inspector comparisons.",
     language="ini",
     class_name="mb-4") }}
+  {{ ui.inline_edit_shell("foundation-inline-edit-shell",
+    title="Inline Edit Shell",
+    subtitle="Use this when a review surface needs the current state visible beside an editor.",
+    status_badge='<span class="badge text-bg-warning">Draft</span>',
+    actions_html=ui.button("Preview Changes", variant="outline-secondary", size="sm") ,
+  display_html=inline_edit_display,
+  editor_html=inline_edit_editor,
+  summary_html=inline_edit_summary,
+  footer_html=inline_edit_footer,
+  class_name="mb-4") }}
   {% call ui.workspace_modal(
     "foundation-workspace-modal",
     title="Workspace Modal Primitive",

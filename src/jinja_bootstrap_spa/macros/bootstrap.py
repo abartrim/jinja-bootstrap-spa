@@ -1549,9 +1549,13 @@ BOOTSTRAP_MACROS = """
 {%- endmacro -%}
 
 {%- macro data_grid(component_id, endpoint, columns, rows, state=None,
+                    total_rows=None,
                     caption=None, subtitle=None, count_label=None,
                     empty_html=None, loading_html=None, error_html=None,
                     toolbar_html=None, row_actions_slot=False,
+                    selectable=False, selected_ids=None,
+                    selection_name="selected_ids",
+                    selection_actions_html=None,
                     mobile_labels=True, persist="header", state_keys=None,
                     sse_endpoint=None, sse_event="refresh",
                     stream_mode="replace", stream_max_rows=None,
@@ -1563,9 +1567,21 @@ BOOTSTRAP_MACROS = """
       ) -%}
   {%- set page = state.page or 1 -%}
   {%- set page_size = state.page_size or 10 -%}
-  {%- set total_rows = rows|length -%}
+  {%- set total_rows = total_rows if total_rows is not none else rows|length -%}
   {%- set current_sort_by = state.sort_by or "" -%}
   {%- set current_sort_dir = state.sort_dir or "asc" -%}
+  {%- set selected_ids = (
+        selected_ids if selected_ids is not none
+        else (
+          state[selection_name]
+          if state is mapping and selection_name in state
+          else []
+        )
+      ) -%}
+  {%- if selected_ids is string -%}
+    {%- set selected_ids = [selected_ids] -%}
+  {%- endif -%}
+  {%- set selected_count = selected_ids|length -%}
   {%- set page_count = ((total_rows - 1) // page_size) + 1 if total_rows > 0 else 1 -%}
   {%- set pause_stream = 'true' if stream_pause_when_hidden else 'false' -%}
   {%- set wrapper_classes = "card shadow-sm jbs-data-grid" -%}
@@ -1600,6 +1616,10 @@ BOOTSTRAP_MACROS = """
            data-jbs-state-keys="{{ state_keys|join(',') }}"
            data-jbs-mobile-labels="{{ 'true' if mobile_labels else 'false' }}"
            data-jbs-row-actions-slot="{{ 'true' if row_actions_slot else 'false' }}"
+           {%- if selectable %}
+             data-jbs-selection-form="{{ component_id }}-selection-form"
+             data-jbs-selection-key="{{ selection_name }}"
+           {% endif -%}
            {%- if sse_endpoint %} data-jbs-sse="{{ sse_endpoint }}"{% endif -%}
            {%- if sse_endpoint %} data-jbs-sse-event="{{ sse_event }}"{% endif -%}
            data-jbs-stream-mode="{{ stream_mode }}"
@@ -1629,16 +1649,59 @@ BOOTSTRAP_MACROS = """
       </div>
     </div>
     <div class="card-body p-0">
+      {%- if selectable %}
+        <form id="{{ component_id }}-selection-form" class="d-none"></form>
+      {%- endif %}
       {%- if rows %}
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
+                {%- if selectable %}
+                  <th scope="col"
+                      class="text-center align-middle"
+                      style="width: 2.75rem; position: sticky; left: 0; z-index: 5;
+                             background: var(--bs-tertiary-bg);">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           data-jbs-table-select-all
+                           aria-label="Select all rows">
+                  </th>
+                {%- endif %}
                 {%- for column in columns %}
+                  {%- set pinned_side = (
+                        column.pinned if column.pinned is defined
+                        else (
+                          column["pinned"]
+                          if column is mapping and "pinned" in column
+                          else none
+                        )
+                      ) -%}
+                  {%- set pin_offset = (
+                        column.pin_offset if column.pin_offset is defined
+                        else (
+                          column["pin_offset"]
+                          if column is mapping and "pin_offset" in column
+                          else "0px"
+                        )
+                      ) -%}
+                  {%- set header_style = (
+                        "position: sticky; " ~
+                        ("left" if pinned_side == "start" else "right") ~
+                        ": " ~ pin_offset ~ "; z-index: 4; background: " ~
+                        "var(--bs-tertiary-bg);"
+                        if pinned_side
+                        else none
+                      ) -%}
                   <th scope="col"
                       {%- if column.header_class %}
                         class="{{ column.header_class }}"
-                      {%- endif %}>
+                      {% elif pinned_side %}
+                        class="jbs-pinned-column jbs-pinned-{{ pinned_side }}"
+                      {%- endif %}
+                      {%- if header_style %}
+                        style="{{ header_style }}"
+                      {% endif -%}>
                     {%- if column.sortable %}
                       {%- set is_active = current_sort_by == column.key -%}
                       {%- set next_direction = (
@@ -1662,16 +1725,69 @@ BOOTSTRAP_MACROS = """
             </thead>
             <tbody>
               {%- for row in rows %}
+                {%- set row_id = (
+                      row.id if row.id is defined
+                      else (
+                        row["id"]
+                        if row is mapping and "id" in row
+                        else loop.index
+                      )
+                    ) -%}
+                {%- set row_selected = row_id in selected_ids -%}
                 <tr
                   {%- if row.id is defined %}
                     data-jbs-row-id="{{ row.id }}"
-                  {% endif -%}>
+                  {% endif -%}
+                  data-jbs-row-selected="{{ 'true' if row_selected else 'false' }}">
+                  {%- if selectable %}
+                    <td class="text-center align-middle"
+                        style="position: sticky; left: 0; z-index: 3;
+                               background: var(--bs-body-bg);">
+                      <input class="form-check-input"
+                             type="checkbox"
+                             name="{{ selection_name }}"
+                             value="{{ row_id }}"
+                             form="{{ component_id }}-selection-form"
+                             data-jbs-table-select-row
+                             aria-label="Select row {{ row_id }}"
+                             {%- if row_selected %} checked{% endif -%}>
+                    </td>
+                  {%- endif %}
                   {%- for column in columns %}
                     {%- set cell = row[column.key] -%}
+                    {%- set pinned_side = (
+                          column.pinned if column.pinned is defined
+                          else (
+                            column["pinned"]
+                            if column is mapping and "pinned" in column
+                            else none
+                          )
+                        ) -%}
+                    {%- set pin_offset = (
+                          column.pin_offset if column.pin_offset is defined
+                          else (
+                            column["pin_offset"]
+                            if column is mapping and "pin_offset" in column
+                            else "0px"
+                          )
+                        ) -%}
+                    {%- set cell_style = (
+                          "position: sticky; " ~
+                          ("left" if pinned_side == "start" else "right") ~
+                          ": " ~ pin_offset ~ "; z-index: 2; background: " ~
+                          "var(--bs-body-bg);"
+                          if pinned_side
+                          else none
+                        ) -%}
                     <td
                       {%- if column.cell_class %}
                         class="{{ column.cell_class }}"
-                      {%- endif %}>
+                      {% elif pinned_side %}
+                        class="jbs-pinned-column jbs-pinned-{{ pinned_side }}"
+                      {%- endif %}
+                      {%- if cell_style %}
+                        style="{{ cell_style }}"
+                      {% endif -%}>
                       {%- if column.html %}
                         {{ cell|safe }}
                       {% else %}
@@ -1697,9 +1813,24 @@ BOOTSTRAP_MACROS = """
     </div>
     <div class="card-footer bg-body d-flex flex-wrap align-items-center
                 justify-content-between gap-3">
-      <small class="text-body-secondary">
-        {{ count_label or ('Showing ' ~ rows|length ~ ' of ' ~ total_rows ~ ' rows') }}
-      </small>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <small class="text-body-secondary">
+          {{
+            count_label or
+            ('Showing ' ~ rows|length ~ ' of ' ~ total_rows ~ ' rows')
+          }}
+        </small>
+        {%- if selectable %}
+          <span class="badge text-bg-secondary" data-jbs-selection-count>
+            {{ selected_count }} selected
+          </span>
+        {%- endif %}
+        {%- if selection_actions_html %}
+          <div class="d-flex flex-wrap gap-2">
+            {{ selection_actions_html|safe }}
+          </div>
+        {%- endif %}
+      </div>
       <div class="btn-group" role="group" aria-label="Pagination">
         {{ button(
           "Previous",
@@ -1852,6 +1983,180 @@ BOOTSTRAP_MACROS = """
             compact=True
           )
         }}
+      </div>
+    </div>
+  </section>
+{%- endmacro -%}
+
+{%- macro filterable_card_list(list_id, items, title=None, subtitle=None,
+                               search_placeholder="Search cards...",
+                               empty_title="No matching cards",
+                               empty_message="Try another search term.",
+                               column_class="col-12 col-md-6 col-xl-4",
+                               class_name="", attrs="") -%}
+  {%- set items = items or [] -%}
+  {%- set wrapper_classes = "card shadow-sm jbs-filterable-card-list" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section id="{{ list_id }}"
+           class="{{ wrapper_classes }}"
+           data-jbs-searchable-list
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="card-header bg-body d-flex flex-wrap align-items-end
+                justify-content-between gap-3">
+      <div class="min-w-0">
+        {%- if title %}
+          <h2 class="h6 mb-1">{{ title }}</h2>
+        {%- endif %}
+        {%- if subtitle %}
+          <p class="text-body-secondary mb-0">{{ subtitle }}</p>
+        {%- endif %}
+      </div>
+      <div class="ms-auto" style="min-width: min(20rem, 100%);">
+        <label class="form-label small text-body-secondary mb-2"
+               for="{{ list_id }}-search">
+          Search
+        </label>
+        <input id="{{ list_id }}-search"
+               type="search"
+               class="form-control form-control-sm"
+               placeholder="{{ search_placeholder }}"
+               data-jbs-searchable-list-input>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        {%- for item in items %}
+          {%- set item_title = (
+                item.title if item.title is defined
+                else (
+                  item["title"]
+                  if item is mapping and "title" in item
+                  else ""
+                )
+              ) -%}
+          {%- set item_subtitle = (
+                item.subtitle if item.subtitle is defined
+                else (
+                  item["subtitle"]
+                  if item is mapping and "subtitle" in item
+                  else none
+                )
+              ) -%}
+          {%- set item_meta = (
+                item.meta if item.meta is defined
+                else (
+                  item["meta"]
+                  if item is mapping and "meta" in item
+                  else none
+                )
+              ) -%}
+          {%- set item_search_text = (
+                item.search_text if item.search_text is defined
+                else (
+                  item["search_text"]
+                  if item is mapping and "search_text" in item
+                  else (
+                    item_title ~ " " ~ (item_subtitle or "") ~
+                    " " ~ (item_meta or "")
+                  )
+                )
+              ) -%}
+          {%- set item_badges = (
+                item.badges if item.badges is defined
+                else (
+                  item["badges"]
+                  if item is mapping and "badges" in item
+                  else []
+                )
+              ) -%}
+          {%- set item_actions_html = (
+                item.actions_html if item.actions_html is defined
+                else (
+                  item["actions_html"]
+                  if item is mapping and "actions_html" in item
+                  else none
+                )
+              ) -%}
+          {%- set item_footer_html = (
+                item.footer_html if item.footer_html is defined
+                else (
+                  item["footer_html"]
+                  if item is mapping and "footer_html" in item
+                  else none
+                )
+              ) -%}
+          <article class="{{ column_class }}"
+                   data-jbs-searchable-item
+                   data-jbs-searchable-text="{{ item_search_text|lower }}">
+            <section class="card h-100 border-0 bg-body-tertiary">
+              <div class="card-body d-flex flex-column gap-3">
+                <div class="d-flex flex-wrap align-items-start
+                            justify-content-between gap-3">
+                  <div class="min-w-0">
+                    <h3 class="h6 mb-1">{{ item_title }}</h3>
+                    {%- if item_subtitle %}
+                      <p class="text-body-secondary mb-0">{{ item_subtitle }}</p>
+                    {%- endif %}
+                  </div>
+                  {%- if item_meta %}
+                    <span class="small text-body-secondary">{{ item_meta }}</span>
+                  {%- endif %}
+                </div>
+                {%- if item_badges %}
+                  <div class="d-flex flex-wrap gap-2">
+                    {%- for badge in item_badges %}
+                      {%- set badge_label = (
+                            badge.label if badge.label is defined
+                            else (
+                              badge["label"]
+                              if badge is mapping and "label" in badge
+                              else badge
+                            )
+                          ) -%}
+                      {%- set badge_variant = (
+                            badge.variant if badge.variant is defined
+                            else (
+                              badge["variant"]
+                              if badge is mapping and "variant" in badge
+                              else "light"
+                            )
+                          ) -%}
+                      <span class="badge text-bg-{{ badge_variant }}">
+                        {{ badge_label }}
+                      </span>
+                    {%- endfor %}
+                  </div>
+                {%- endif %}
+                <div class="flex-grow-1">
+                  {%- if caller is defined %}
+                    {{ caller(item) }}
+                  {%- else %}
+                    {{
+                      item.body_html|safe
+                      if item.body_html is defined
+                      else ""
+                    }}
+                  {%- endif %}
+                </div>
+                {%- if item_actions_html %}
+                  <div class="d-flex flex-wrap gap-2">
+                    {{ item_actions_html|safe }}
+                  </div>
+                {%- endif %}
+              </div>
+              {%- if item_footer_html %}
+                <div class="card-footer bg-body border-0 pt-0">
+                  {{ item_footer_html|safe }}
+                </div>
+              {%- endif %}
+            </section>
+          </article>
+        {%- endfor %}
+      </div>
+      <div class="mt-3" data-jbs-searchable-list-empty{% if items %} hidden{% endif %}>
+        {{ empty_state(empty_title, empty_message, icon="bi bi-search", compact=True) }}
       </div>
     </div>
   </section>
@@ -2513,6 +2818,72 @@ BOOTSTRAP_MACROS = """
   </section>
 {%- endmacro -%}
 
+{%- macro inline_edit_shell(shell_id, title=None, subtitle=None,
+                            status_badge=None, actions_html=None,
+                            display_title="Current",
+                            editor_title="Edit",
+                            display_html="", editor_html="",
+                            summary_html=None, footer_html=None,
+                            display_col_class="col-12 col-xl-5",
+                            editor_col_class="col-12 col-xl-7",
+                            class_name="", attrs="") -%}
+  {%- set wrapper_classes = "card shadow-sm jbs-inline-edit-shell" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section id="{{ shell_id }}"
+           class="{{ wrapper_classes }}"
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    {%- if title or subtitle or status_badge or actions_html %}
+      <div class="card-header bg-body d-flex flex-wrap align-items-start
+                  justify-content-between gap-3">
+        <div>
+          {%- if title %}
+            <h2 class="h6 mb-1 d-flex flex-wrap align-items-center gap-2">
+              <span>{{ title }}</span>
+              {%- if status_badge %}
+                {{ status_badge|safe }}
+              {%- endif %}
+            </h2>
+          {%- elif status_badge %}
+            <div>{{ status_badge|safe }}</div>
+          {%- endif %}
+          {%- if subtitle %}
+            <p class="text-body-secondary mb-0">{{ subtitle }}</p>
+          {%- endif %}
+        </div>
+        {%- if actions_html %}
+          <div class="ms-auto">{{ actions_html|safe }}</div>
+        {%- endif %}
+      </div>
+    {%- endif %}
+    <div class="card-body">
+      <div class="row g-3 align-items-stretch">
+        <section class="{{ display_col_class }}" data-jbs-pane="display">
+          <div class="border rounded-3 h-100 p-3 bg-body-tertiary">
+            <h3 class="h6 mb-3">{{ display_title }}</h3>
+            {{ display_html|safe }}
+            {%- if summary_html %}
+              <div class="border-top pt-3 mt-3">
+                {{ summary_html|safe }}
+              </div>
+            {%- endif %}
+          </div>
+        </section>
+        <section class="{{ editor_col_class }}" data-jbs-pane="editor">
+          <div class="border rounded-3 h-100 p-3 bg-body">
+            <h3 class="h6 mb-3">{{ editor_title }}</h3>
+            {{ editor_html|safe }}
+          </div>
+        </section>
+      </div>
+    </div>
+    {%- if footer_html %}
+      <div class="card-footer bg-body">{{ footer_html|safe }}</div>
+    {%- endif %}
+  </section>
+{%- endmacro -%}
+
 {%- macro command_bar(bar_id=None, title=None, subtitle=None,
                       badges=None, leading_html=None, trailing_html=None,
                       compact=False, class_name="", attrs="") -%}
@@ -2886,6 +3257,9 @@ BOOTSTRAP_MACROS = """
 {%- macro table(component_id, endpoint, columns, rows, state=None,
                  total_rows=None, title=None, subtitle=None, toolbar=None,
                  empty_message="No rows found.", persist="memory",
+                 selectable=False, selected_ids=None,
+                 selection_name="selected_ids",
+                 selection_actions_html=None,
                  state_keys=None, sse_endpoint=None, sse_event="refresh",
                  stream_mode="replace", stream_max_rows=None,
                  stream_pause_when_hidden=False, stream_buffer_max=100,
@@ -2900,6 +3274,18 @@ BOOTSTRAP_MACROS = """
   {%- set total_rows = total_rows if total_rows is not none else rows|length -%}
   {%- set current_sort_by = state.sort_by or "" -%}
   {%- set current_sort_dir = state.sort_dir or "asc" -%}
+  {%- set selected_ids = (
+        selected_ids if selected_ids is not none
+        else (
+          state[selection_name]
+          if state is mapping and selection_name in state
+          else []
+        )
+      ) -%}
+  {%- if selected_ids is string -%}
+    {%- set selected_ids = [selected_ids] -%}
+  {%- endif -%}
+  {%- set selected_count = selected_ids|length -%}
   {%- set page_count = ((total_rows - 1) // page_size) + 1 if total_rows > 0 else 1 -%}
   {%- set pause_stream = 'true' if stream_pause_when_hidden else 'false' -%}
   <section id="{{ component_id }}"
@@ -2911,6 +3297,10 @@ BOOTSTRAP_MACROS = """
            data-jbs-swap="outerHTML"
            data-jbs-persist="{{ persist }}"
            data-jbs-state-keys="{{ state_keys|join(',') }}"
+           {%- if selectable %}
+             data-jbs-selection-form="{{ component_id }}-selection-form"
+             data-jbs-selection-key="{{ selection_name }}"
+           {% endif -%}
            {%- if sse_endpoint %} data-jbs-sse="{{ sse_endpoint }}"{% endif -%}
            {%- if sse_endpoint %} data-jbs-sse-event="{{ sse_event }}"{% endif -%}
            data-jbs-stream-mode="{{ stream_mode }}"
@@ -2940,16 +3330,59 @@ BOOTSTRAP_MACROS = """
         </div>
       </div>
     {%- endif %}
+    {%- if selectable %}
+      <form id="{{ component_id }}-selection-form" class="d-none"></form>
+    {%- endif %}
     <div class="table-responsive">
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
           <tr>
+            {%- if selectable %}
+              <th scope="col"
+                  class="text-center align-middle"
+                  style="width: 2.75rem; position: sticky; left: 0; z-index: 5;
+                         background: var(--bs-tertiary-bg);">
+                <input class="form-check-input"
+                       type="checkbox"
+                       data-jbs-table-select-all
+                       aria-label="Select all rows">
+              </th>
+            {%- endif %}
             {%- for column in columns %}
+              {%- set pinned_side = (
+                    column.pinned if column.pinned is defined
+                    else (
+                      column["pinned"]
+                      if column is mapping and "pinned" in column
+                      else none
+                    )
+                  ) -%}
+              {%- set pin_offset = (
+                    column.pin_offset if column.pin_offset is defined
+                    else (
+                      column["pin_offset"]
+                      if column is mapping and "pin_offset" in column
+                      else "0px"
+                    )
+                  ) -%}
+              {%- set header_style = (
+                    "position: sticky; " ~
+                    ("left" if pinned_side == "start" else "right") ~
+                    ": " ~ pin_offset ~ "; z-index: 4; background: " ~
+                    "var(--bs-tertiary-bg);"
+                    if pinned_side
+                    else none
+                  ) -%}
               <th
                 scope="col"
                 {%- if column.header_class %}
                   class="{{ column.header_class }}"
-                {%- endif %}>
+                {% elif pinned_side %}
+                  class="jbs-pinned-column jbs-pinned-{{ pinned_side }}"
+                {%- endif %}
+                {%- if header_style %}
+                  style="{{ header_style }}"
+                {% endif -%}>
                 {%- if column.sortable %}
                   {%- set is_active = current_sort_by == column.key -%}
                   {%- set next_direction = (
@@ -2974,13 +3407,66 @@ BOOTSTRAP_MACROS = """
         <tbody>
           {%- if rows %}
             {%- for row in rows %}
-              <tr{%- if row.id is defined %} data-jbs-row-id="{{ row.id }}"{% endif -%}>
+              {%- set row_id = (
+                    row.id if row.id is defined
+                    else (
+                      row["id"]
+                      if row is mapping and "id" in row
+                      else loop.index
+                    )
+                  ) -%}
+              {%- set row_selected = row_id in selected_ids -%}
+              <tr{%- if row.id is defined %} data-jbs-row-id="{{ row.id }}"{% endif -%}
+                  data-jbs-row-selected="{{ 'true' if row_selected else 'false' }}">
+                {%- if selectable %}
+                  <td class="text-center align-middle"
+                      style="position: sticky; left: 0; z-index: 3;
+                             background: var(--bs-body-bg);">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           name="{{ selection_name }}"
+                           value="{{ row_id }}"
+                           form="{{ component_id }}-selection-form"
+                           data-jbs-table-select-row
+                           aria-label="Select row {{ row_id }}"
+                           {%- if row_selected %} checked{% endif -%}>
+                  </td>
+                {%- endif %}
                 {%- for column in columns %}
                   {%- set cell = row[column.key] -%}
+                  {%- set pinned_side = (
+                        column.pinned if column.pinned is defined
+                        else (
+                          column["pinned"]
+                          if column is mapping and "pinned" in column
+                          else none
+                        )
+                      ) -%}
+                  {%- set pin_offset = (
+                        column.pin_offset if column.pin_offset is defined
+                        else (
+                          column["pin_offset"]
+                          if column is mapping and "pin_offset" in column
+                          else "0px"
+                        )
+                      ) -%}
+                  {%- set cell_style = (
+                        "position: sticky; " ~
+                        ("left" if pinned_side == "start" else "right") ~
+                        ": " ~ pin_offset ~ "; z-index: 2; background: " ~
+                        "var(--bs-body-bg);"
+                        if pinned_side
+                        else none
+                      ) -%}
                   <td
                     {%- if column.cell_class %}
                       class="{{ column.cell_class }}"
-                    {%- endif %}>
+                    {% elif pinned_side %}
+                      class="jbs-pinned-column jbs-pinned-{{ pinned_side }}"
+                    {%- endif %}
+                    {%- if cell_style %}
+                      style="{{ cell_style }}"
+                    {% endif -%}>
                     {%- if column.html %}{{ cell|safe }}{% else %}{{ cell }}{% endif %}
                   </td>
                 {%- endfor %}
@@ -2988,7 +3474,7 @@ BOOTSTRAP_MACROS = """
             {%- endfor %}
           {%- else %}
             <tr>
-              <td colspan="{{ columns|length }}"
+              <td colspan="{{ columns|length + (1 if selectable else 0) }}"
                   class="text-center text-body-secondary py-4">
                 {{ empty_message }}
               </td>
@@ -2999,10 +3485,22 @@ BOOTSTRAP_MACROS = """
     </div>
     <div class="card-footer bg-body d-flex flex-wrap align-items-center
                 justify-content-between gap-3">
-      <small class="text-body-secondary">
-        Showing {{ rows|length }} of {{ total_rows }}
-        {{- " result" -}}{%- if total_rows != 1 %}s{% endif %}
-      </small>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <small class="text-body-secondary">
+          Showing {{ rows|length }} of {{ total_rows }}
+          {{- " result" -}}{%- if total_rows != 1 %}s{% endif %}
+        </small>
+        {%- if selectable %}
+          <span class="badge text-bg-secondary" data-jbs-selection-count>
+            {{ selected_count }} selected
+          </span>
+        {%- endif %}
+        {%- if selection_actions_html %}
+          <div class="d-flex flex-wrap gap-2">
+            {{ selection_actions_html|safe }}
+          </div>
+        {%- endif %}
+      </div>
       <div class="btn-group" role="group" aria-label="Pagination">
         {{ button(
           "Previous",
