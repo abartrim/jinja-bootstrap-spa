@@ -470,7 +470,7 @@ def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
         shutil.rmtree(record_dir)
     record_dir.mkdir(parents=True, exist_ok=True)
 
-    total_steps = 10
+    total_steps = 11
     video_path: Path | None = None
 
     with sync_playwright() as playwright:
@@ -503,7 +503,9 @@ def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
                 "4) session persistence,\n"
                 "5) stale-request cancellation,\n"
                 "6) lazy hydration,\n"
-                "7) the new foundation component gallery."
+                "7) the expanded foundation gallery,\n"
+                "8) advanced grid selection + pinned columns,\n"
+                "9) filterable cards and inline edit flows."
             ),
             hold_ms=3600,
             pace=pace,
@@ -804,8 +806,8 @@ def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
             title="Step 8: Foundation Component Gallery",
             body=(
                 "The wrapper now shows the generic shells: stat cards, stream "
-                "status, detail lists, chart shell, data grid, searchable list, "
-                "split panels, and workspace modal."
+                "status, detail lists, chart shell, explorer surfaces, and "
+                "review-ready layout primitives."
             ),
             hold_ms=2000,
             pace=pace,
@@ -849,14 +851,99 @@ def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
 
         _show_step(
             page,
-            title="Step 9: Animated Repaint Cues",
+            title="Step 9: Advanced Grid Selection",
+            body=(
+                "This grid keeps selected rows across paging, and it carries "
+                "bulk-selection state through the same fragment request contract."
+            ),
+            hold_ms=1800,
+            pace=pace,
+            step=9,
+            total_steps=total_steps,
+        )
+        _open_stage(
+            page,
+            title="Advanced data grid",
+            selectors=["#foundation-work-queue"],
+            compact=True,
+        )
+        _pause(page, 500, pace)
+        queue_table = page.locator("#jbs-demo-stage-panel #foundation-work-queue").first
+        _focus_locator(page, queue_table, pace, position="top")
+        queue_rows = queue_table.locator("[data-jbs-table-select-row]")
+        _guided_click(page, queue_rows.nth(0), pace)
+        _guided_click(page, queue_rows.nth(1), pace)
+        _pause(page, 1200, pace)
+        queue_scroller = queue_table.locator(".table-responsive").first
+        queue_scroller.evaluate(
+            """
+            (element) => {
+              if (!(element instanceof HTMLElement)) {
+                return;
+              }
+              element.scrollTo({ left: element.scrollWidth, behavior: "instant" });
+            }
+            """
+        )
+        _pause(page, 1200, pace)
+        _guided_click(
+            page,
+            queue_table.get_by_role("button", name="Next"),
+            pace,
+        )
+        _pause(page, 1500, pace)
+        _close_stage(page)
+
+        _show_step(
+            page,
+            title="Step 10: Cards and Inline Edit",
+            body=(
+                "Search-first card collections and side-by-side edit shells "
+                "cover the non-table surfaces most apps still need."
+            ),
+            hold_ms=1800,
+            pace=pace,
+            step=10,
+            total_steps=total_steps,
+        )
+        _open_stage(
+            page,
+            title="Collection and inline edit primitives",
+            selectors=[
+                "#foundation-filterable-card-list",
+                "#foundation-inline-edit-shell",
+            ],
+            compact=False,
+        )
+        _pause(page, 500, pace)
+        cards_search = page.locator(
+            "#jbs-demo-stage-panel #foundation-filterable-card-list "
+            "[data-jbs-searchable-list-input]"
+        )
+        _focus_locator(page, cards_search, pace, position="top")
+        _guided_click(page, cards_search, pace)
+        cards_search.fill("dashboard")
+        _pause(page, 1400, pace)
+        cards_search.fill("")
+        _pause(page, 700, pace)
+        _focus_locator(
+            page,
+            page.locator("#jbs-demo-stage-panel #foundation-inline-edit-shell"),
+            pace,
+        )
+        _pause(page, 1800, pace)
+        _close_stage(page)
+
+        _show_step(
+            page,
+            title="Step 11: Animated Repaint Cues",
             body=(
                 "Two quick refreshes show both the swap and the no-change cue, so "
                 "watchers can tell whether the component actually repainted."
             ),
             hold_ms=2000,
             pace=pace,
-            step=9,
+            step=11,
             total_steps=total_steps,
         )
         _open_stage(
@@ -886,13 +973,11 @@ def _record_walkthrough(base_url: str, output_path: Path, pace: float) -> None:
             body=(
                 "You saw server-rendered components behave like an SPA with "
                 "predictable state,\n"
-                "incremental updates, cache-aware paging, and explicit UX cues.\n"
+                "incremental updates, cache-aware paging, selection state, and explicit UX cues.\n"
                 "More info: github.com/abartrim/jinja-bootstrap-spa"
             ),
             hold_ms=4200,
             pace=pace,
-            step=10,
-            total_steps=total_steps,
         )
 
         video = page.video
