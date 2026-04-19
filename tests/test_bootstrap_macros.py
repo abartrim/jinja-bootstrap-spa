@@ -41,6 +41,27 @@ def test_button_macro_renders_bootstrap_button_markup() -> None:
     assert ">Save</button>" in rendered
 
 
+def test_register_bootstrap_macros_also_registers_packaged_base_template() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% extends "jinja_bootstrap_spa/base.html" %}
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {% block title %}Orders{% endblock %}
+        {% block content %}
+          <main class="container py-4">{{ ui.button("Save") }}</main>
+        {% endblock %}
+        """
+    )
+
+    rendered = template.render()
+
+    assert "<!DOCTYPE html>" in rendered
+    assert "<title>" in rendered
+    assert "Orders" in rendered
+    assert 'class="btn btn-primary"' in rendered
+
+
 def test_button_macro_supports_runtime_action_attributes() -> None:
     environment = build_environment()
     template = environment.from_string(

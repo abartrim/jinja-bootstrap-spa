@@ -2,6 +2,9 @@
 
 `jinja-bootstrap-spa` is a Python-first UI framework for building server-rendered
 applications with consistent Bootstrap styling and a lightweight SPA-like runtime.
+It also includes an experimental Go companion built on
+[`minijinja-go`](https://github.com/mitsuhiko/minijinja/tree/main/minijinja-go)
+for teams that want to reuse the same packaged Jinja templates outside Python.
 
 The framework is opinionated on purpose:
 
@@ -28,6 +31,12 @@ paging, refresh, and state preservation across fragment swaps.
 pip install jinja-bootstrap-spa
 ```
 
+For the Go companion:
+
+```bash
+go get github.com/abartrim/jinja-bootstrap-spa
+```
+
 For framework development:
 
 ```bash
@@ -44,6 +53,8 @@ black --check src tests
 isort --check-only src tests
 mypy src
 djlint src/jinja_bootstrap_spa/templates --check
+test -z "$(gofmt -l assets.go environment.go environment_test.go)"
+GOSUMDB=off go test ./...
 npm run build:js
 npm run typecheck:js
 pytest
@@ -69,6 +80,7 @@ Two Playwright suites are included:
 
 - `tests/test_browser_runtime.py`: runtime contract tests against an in-test Flask app.
 - `tests/test_example_wrapper_app.py`: smoke/regression tests against the real wrapper app.
+- `tests/test_go_example_app.py`: the same wrapper smoke flow against the Go MiniJinja example app.
 
 ## Wrapper Dev App
 
@@ -84,6 +96,19 @@ npm run build:js
 ```
 
 Then open [http://127.0.0.1:5000](http://127.0.0.1:5000).
+
+A matching Go wrapper app lives in
+[examples/go_table_app](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/examples/go_table_app).
+It renders the same example templates without modification through MiniJinja-Go.
+
+Run it with:
+
+```bash
+npm run build:js
+GOCACHE=/tmp/jbs-go-build go run ./examples/go_table_app
+```
+
+Then open [http://127.0.0.1:5001](http://127.0.0.1:5001).
 
 The dev app includes:
 
@@ -448,6 +473,68 @@ Render a server-driven table component:
   ></script>
 {% endblock %}
 ```
+
+### Go MiniJinja Quickstart
+
+The Go companion exposes the same packaged template names:
+
+- `jinja_bootstrap_spa/bootstrap_macros.html`
+- `jinja_bootstrap_spa/base.html`
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"testing/fstest"
+
+	jbs "github.com/abartrim/jinja-bootstrap-spa"
+)
+
+func main() {
+	env, err := jbs.NewEnvironment(jbs.Options{
+		TemplateFS: fstest.MapFS{
+			"pages/orders.html": {
+				Data: []byte(`{% extends "jinja_bootstrap_spa/base.html" %}
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{% block title %}Orders{% endblock %}
+{% block content %}
+  <main class="container py-4">
+    {{ ui.button("Refresh", jbs_action="refresh", jbs_component_ref="orders-table") }}
+  </main>
+{% endblock %}`),
+			},
+		},
+		URLFor: jbs.StaticURLFor("/static"),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tmpl, err := env.GetTemplate("pages/orders.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	html, err := tmpl.Render(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(html)
+}
+```
+
+The Go layer is intentionally small:
+
+- Python remains the canonical macro source.
+- Go extracts `BOOTSTRAP_MACROS` directly from
+  `src/jinja_bootstrap_spa/macros/bootstrap.py` so the packaged macro surface stays aligned.
+- `url_for(...)` is opt-in through `Options.URLFor`; `StaticURLFor(...)` covers the common
+  `url_for("static", filename=...)` case.
+- Flask globals beyond `url_for` are not emulated by default. Add them through
+  `Options.Globals` or your own MiniJinja environment setup when specific templates need them.
 
 Render a row action menu inside a table cell:
 

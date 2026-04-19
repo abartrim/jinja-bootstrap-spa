@@ -9,9 +9,13 @@ template called ``jinja_bootstrap_spa/bootstrap_macros.html`` through a
 
 from __future__ import annotations
 
+from importlib import resources
+from typing import Any
+
 from jinja2 import BaseLoader, ChoiceLoader, DictLoader, Environment
 
 MACRO_TEMPLATE_NAME = "jinja_bootstrap_spa/bootstrap_macros.html"
+BASE_TEMPLATE_NAME = "jinja_bootstrap_spa/base.html"
 
 BOOTSTRAP_MACROS = """
 {%- macro button(label, href=None, variant="primary", size=None, button_type="button",
@@ -23,7 +27,7 @@ BOOTSTRAP_MACROS = """
   {%- set tag = "a" if href else "button" -%}
   {%- set btn_variant = (
         "outline-" ~ variant
-        if outline and not variant.startswith("outline-")
+        if outline and variant[:8] != "outline-"
         else variant
       ) -%}
   {%- set classes = "btn btn-" ~ btn_variant -%}
@@ -716,7 +720,7 @@ BOOTSTRAP_MACROS = """
 
 {%- macro split_panel(direction="horizontal", ratio="1/1",
                       collapse_on_mobile=True, class_name="", attrs="") -%}
-  {%- set ratio_parts = ratio.split("/") if "/" in ratio else ["1", "1"] -%}
+  {%- set ratio_parts = ratio|split("/") if "/" in ratio else ["1", "1"] -%}
   {%- set primary_size = ratio_parts[0]|trim if ratio_parts|length > 0 else "1" -%}
   {%- set secondary_size = ratio_parts[1]|trim if ratio_parts|length > 1 else "1" -%}
   {%- set wrapper_classes = "jbs-split-panel" -%}
@@ -1126,9 +1130,11 @@ BOOTSTRAP_MACROS = """
       {%- endfor %}
     </div>
     <div data-jbs-ms-hidden>
-      {%- for value in selected_values %}
-        <input type="hidden" name="{{ input_name }}" value="{{ value }}">
-      {%- endfor %}
+      {%- if count > 0 %}
+        {%- for value in selected_values %}
+          <input type="hidden" name="{{ input_name }}" value="{{ value }}">
+        {%- endfor %}
+      {%- endif %}
     </div>
   </div>
 {%- endmacro -%}
@@ -2582,7 +2588,7 @@ BOOTSTRAP_MACROS = """
   {%- if class_name -%}
     {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
   {%- endif -%}
-  {%- set lines = code.split('\n') -%}
+  {%- set lines = code|split('\n') -%}
   <section class="{{ wrapper_classes }}"
            {%- if block_id %} id="{{ block_id }}"{% endif -%}
            {%- if attrs %} {{ attrs|safe }}{% endif -%}>
@@ -3529,9 +3535,28 @@ BOOTSTRAP_MACROS = """
 
 
 def bootstrap_loader(template_name: str = MACRO_TEMPLATE_NAME) -> DictLoader:
-    """Return a loader that exposes the packaged Bootstrap macros as a template."""
+    """Return a loader that exposes the packaged templates via virtual paths."""
 
-    return DictLoader({template_name: BOOTSTRAP_MACROS})
+    base_template = (
+        resources.files("jinja_bootstrap_spa") / "templates" / "base.html"
+    ).read_text(encoding="utf-8")
+    return DictLoader(
+        {
+            template_name: BOOTSTRAP_MACROS,
+            BASE_TEMPLATE_NAME: base_template,
+        }
+    )
+
+
+def _split_filter(
+    value: Any, delimiter: str = " ", maxsplit: int | None = None
+) -> list[str]:
+    """Provide a Jinja ``split`` filter so macros stay portable across runtimes."""
+
+    text = str(value)
+    if maxsplit is None:
+        return text.split(delimiter)
+    return text.split(delimiter, maxsplit)
 
 
 def register_bootstrap_macros(
@@ -3556,7 +3581,8 @@ def register_bootstrap_macros(
     loader: BaseLoader = bootstrap_loader(template_name)
     if environment.loader is None:
         environment.loader = loader
-        return environment
+    else:
+        environment.loader = ChoiceLoader([environment.loader, loader])
 
-    environment.loader = ChoiceLoader([environment.loader, loader])
+    environment.filters.setdefault("split", _split_filter)
     return environment

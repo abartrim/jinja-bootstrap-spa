@@ -43,6 +43,11 @@ pnpm-debug.log*
 public/build/
 static/build/
 
+# Go build artifacts
+bin/
+coverage.out
+*.test
+
 # Local runtime files
 .python-version
 .env

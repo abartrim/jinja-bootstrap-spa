@@ -1,6 +1,7 @@
 """Bootstrap macro registration helpers."""
 
 from .bootstrap import (
+    BASE_TEMPLATE_NAME,
     BOOTSTRAP_MACROS,
     MACRO_TEMPLATE_NAME,
     bootstrap_loader,
@@ -8,6 +9,7 @@ from .bootstrap import (
 )
 
 __all__ = [
+    "BASE_TEMPLATE_NAME",
     "BOOTSTRAP_MACROS",
     "MACRO_TEMPLATE_NAME",
     "bootstrap_loader",
