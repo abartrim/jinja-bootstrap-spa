@@ -681,6 +681,88 @@ def test_facet_bar_master_detail_and_result_panel_render_generic_workflow_shells
     assert "<pre>output</pre>" in rendered
 
 
+def test_foundation_inspector_primitives_render() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.command_bar(
+            "ops-command-bar",
+            title="Actions",
+            subtitle="Quick actions",
+            badges=[{"label": "Toolbar", "variant": "primary"}],
+            leading_html="<button type='button'>Run</button>",
+            trailing_html="<button type='button'>Export</button>"
+          )
+        }}
+        {{
+          ui.metric_grid(
+            "ops-metric-grid",
+            [
+              {
+                "title": "Queued",
+                "value": "12",
+                "subtitle": "Awaiting review",
+                "tone": "warning"
+              }
+            ],
+            title="Metrics"
+          )
+        }}
+        {{
+          ui.activity_feed(
+            "ops-activity-feed",
+            [
+              {
+                "title": "Refresh complete",
+                "body": "Table swap applied.",
+                "meta": "now",
+                "tone": "success"
+              }
+            ],
+            title="Activity"
+          )
+        }}
+        {{
+          ui.property_editor(
+            "ops-editor",
+            title="Editor",
+            body="<form><input name='name'></form>",
+            aside_html="<div>Aside</div>",
+            footer_html="<button type='button'>Save</button>"
+          )
+        }}
+        {{
+          ui.diff_view(
+            "ops-diff",
+            left_code="status = 'queued'",
+            right_code="status = 'open'",
+            title="Diff",
+            language="ini"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="ops-command-bar"' in rendered
+    assert "jbs-command-bar" in rendered
+    assert 'id="ops-metric-grid"' in rendered
+    assert "jbs-metric-grid" in rendered
+    assert "Awaiting review" in rendered
+    assert 'id="ops-activity-feed"' in rendered
+    assert "jbs-activity-feed" in rendered
+    assert "Refresh complete" in rendered
+    assert 'id="ops-editor"' in rendered
+    assert "jbs-property-editor" in rendered
+    assert 'id="ops-diff"' in rendered
+    assert "jbs-diff-view" in rendered
+    assert 'id="ops-diff-before"' in rendered
+    assert 'id="ops-diff-after"' in rendered
+
+
 def test_toast_macro_renders_dismissible_status_notice() -> None:
     environment = build_environment()
     template = environment.from_string(

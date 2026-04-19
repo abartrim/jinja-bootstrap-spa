@@ -2513,6 +2513,376 @@ BOOTSTRAP_MACROS = """
   </section>
 {%- endmacro -%}
 
+{%- macro command_bar(bar_id=None, title=None, subtitle=None,
+                      badges=None, leading_html=None, trailing_html=None,
+                      compact=False, class_name="", attrs="") -%}
+  {%- set badges = badges or [] -%}
+  {%- set wrapper_classes = "card shadow-sm jbs-command-bar" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section class="{{ wrapper_classes }}"
+           {%- if bar_id %} id="{{ bar_id }}"{% endif -%}
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    <div class="card-body{% if compact %} py-2{% endif %}">
+      <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+        <div class="d-flex flex-column gap-2">
+          {%- if title or subtitle %}
+            <div>
+              {%- if title %}
+                <h2 class="h6 mb-1">{{ title }}</h2>
+              {%- endif %}
+              {%- if subtitle %}
+                <p class="text-body-secondary mb-0">{{ subtitle }}</p>
+              {%- endif %}
+            </div>
+          {%- endif %}
+          {%- if badges %}
+            <div class="d-flex flex-wrap gap-2">
+              {%- for badge in badges %}
+                {%- set badge_label = (
+                      badge.label if badge.label is defined
+                      else (
+                        badge["label"]
+                        if badge is mapping and "label" in badge
+                        else badge
+                      )
+                    ) -%}
+                {%- set badge_variant = (
+                      badge.variant if badge.variant is defined
+                      else (
+                        badge["variant"]
+                        if badge is mapping and "variant" in badge
+                        else "secondary"
+                      )
+                    ) -%}
+                <span class="badge text-bg-{{ badge_variant }}">{{ badge_label }}</span>
+              {%- endfor %}
+            </div>
+          {%- endif %}
+          {%- if leading_html %}
+            <div class="d-flex flex-wrap gap-2">{{ leading_html|safe }}</div>
+          {%- endif %}
+        </div>
+        {%- if trailing_html %}
+          <div class="ms-auto d-flex flex-wrap justify-content-end gap-2">
+            {{ trailing_html|safe }}
+          </div>
+        {%- endif %}
+      </div>
+    </div>
+  </section>
+{%- endmacro -%}
+
+{%- macro metric_grid(grid_id, items, title=None, subtitle=None,
+                      col_class="col-12 col-md-6 col-xl-3",
+                      class_name="", attrs="") -%}
+  {%- set items = items or [] -%}
+  {%- set wrapper_classes = "jbs-metric-grid" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section id="{{ grid_id }}"
+           class="{{ wrapper_classes }}"
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    {%- if title or subtitle %}
+      <div class="mb-3">
+        {%- if title %}
+          <h2 class="h6 mb-1">{{ title }}</h2>
+        {%- endif %}
+        {%- if subtitle %}
+          <p class="text-body-secondary mb-0">{{ subtitle }}</p>
+        {%- endif %}
+      </div>
+    {%- endif %}
+    <div class="row g-3">
+      {%- for item in items %}
+        {%- set item_title = (
+              item.title if item.title is defined
+              else (
+                item["title"]
+                if item is mapping and "title" in item
+                else ""
+              )
+            ) -%}
+        {%- set item_value = (
+              item.value if item.value is defined
+              else (
+                item["value"]
+                if item is mapping and "value" in item
+                else ""
+              )
+            ) -%}
+        {%- set item_subtitle = (
+              item.subtitle if item.subtitle is defined
+              else (
+                item["subtitle"]
+                if item is mapping and "subtitle" in item
+                else none
+              )
+            ) -%}
+        {%- set item_icon = (
+              item.icon if item.icon is defined
+              else (
+                item["icon"]
+                if item is mapping and "icon" in item
+                else none
+              )
+            ) -%}
+        {%- set item_tone = (
+              item.tone if item.tone is defined
+              else (
+                item["tone"]
+                if item is mapping and "tone" in item
+                else "primary"
+              )
+            ) -%}
+        {%- set item_trend = (
+              item.trend if item.trend is defined
+              else (
+                item["trend"]
+                if item is mapping and "trend" in item
+                else none
+              )
+            ) -%}
+        <div class="{{ col_class }}">
+          {{ stat_card(
+            item_title,
+            item_value,
+            subtitle=item_subtitle,
+            icon=item_icon,
+            tone=item_tone,
+            trend=item_trend,
+            class_name="h-100"
+          ) }}
+        </div>
+      {%- endfor %}
+    </div>
+  </section>
+{%- endmacro -%}
+
+{%- macro activity_feed(feed_id, items, title=None, subtitle=None,
+                        class_name="", attrs="") -%}
+  {%- set items = items or [] -%}
+  {%- set wrapper_classes = "card shadow-sm jbs-activity-feed" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section id="{{ feed_id }}"
+           class="{{ wrapper_classes }}"
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    {%- if title or subtitle %}
+      <div class="card-header bg-body">
+        {%- if title %}
+          <h2 class="h6 mb-1">{{ title }}</h2>
+        {%- endif %}
+        {%- if subtitle %}
+          <p class="text-body-secondary mb-0">{{ subtitle }}</p>
+        {%- endif %}
+      </div>
+    {%- endif %}
+    <div class="list-group list-group-flush">
+      {%- for item in items %}
+        {%- set item_title = (
+              item.title if item.title is defined
+              else (
+                item["title"]
+                if item is mapping and "title" in item
+                else ""
+              )
+            ) -%}
+        {%- set item_body = (
+              item.body if item.body is defined
+              else (
+                item["body"]
+                if item is mapping and "body" in item
+                else none
+              )
+            ) -%}
+        {%- set item_meta = (
+              item.meta if item.meta is defined
+              else (
+                item["meta"]
+                if item is mapping and "meta" in item
+                else none
+              )
+            ) -%}
+        {%- set item_icon = (
+              item.icon if item.icon is defined
+              else (
+                item["icon"]
+                if item is mapping and "icon" in item
+                else "bi bi-activity"
+              )
+            ) -%}
+        {%- set item_tone = (
+              item.tone if item.tone is defined
+              else (
+                item["tone"]
+                if item is mapping and "tone" in item
+                else "secondary"
+              )
+            ) -%}
+        {%- set item_badges = (
+              item.badges if item.badges is defined
+              else (
+                item["badges"]
+                if item is mapping and "badges" in item
+                else []
+              )
+            ) -%}
+        <article class="list-group-item px-3 py-3">
+          <div class="d-flex align-items-start gap-3">
+            <span class="flex-shrink-0 d-inline-flex align-items-center
+                         justify-content-center rounded-circle
+                         bg-{{ item_tone }}-subtle text-{{ item_tone }}"
+                  style="width: 2rem; height: 2rem;">
+              <i class="{{ item_icon }}" aria-hidden="true"></i>
+            </span>
+            <div class="flex-grow-1 min-w-0">
+              <div class="d-flex flex-wrap align-items-center
+                          justify-content-between gap-2">
+                <span class="fw-semibold">{{ item_title }}</span>
+                {%- if item_meta %}
+                  <span class="small text-body-secondary">{{ item_meta }}</span>
+                {%- endif %}
+              </div>
+              {%- if item_body %}
+                <p class="small text-body-secondary mb-0 mt-1">{{ item_body }}</p>
+              {%- endif %}
+              {%- if item_badges %}
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                  {%- for badge in item_badges %}
+                    {%- set badge_label = (
+                          badge.label if badge.label is defined
+                          else (
+                            badge["label"]
+                            if badge is mapping and "label" in badge
+                            else badge
+                          )
+                        ) -%}
+                    {%- set badge_variant = (
+                          badge.variant if badge.variant is defined
+                          else (
+                            badge["variant"]
+                            if badge is mapping and "variant" in badge
+                            else "light"
+                          )
+                        ) -%}
+                    <span class="badge text-bg-{{ badge_variant }}">
+                      {{ badge_label }}
+                    </span>
+                  {%- endfor %}
+                </div>
+              {%- endif %}
+            </div>
+          </div>
+        </article>
+      {%- endfor %}
+    </div>
+  </section>
+{%- endmacro -%}
+
+{%- macro property_editor(editor_id, title=None, subtitle=None, body="",
+                          aside_html=None, footer_html=None, actions_html=None,
+                          class_name="", attrs="") -%}
+  {%- set wrapper_classes = "card shadow-sm jbs-property-editor" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section id="{{ editor_id }}"
+           class="{{ wrapper_classes }}"
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    {%- if title or subtitle or actions_html %}
+      <div class="card-header bg-body d-flex flex-wrap align-items-start
+                  justify-content-between gap-3">
+        <div>
+          {%- if title %}
+            <h2 class="h6 mb-1">{{ title }}</h2>
+          {%- endif %}
+          {%- if subtitle %}
+            <p class="text-body-secondary mb-0">{{ subtitle }}</p>
+          {%- endif %}
+        </div>
+        {%- if actions_html %}
+          <div class="ms-auto">{{ actions_html|safe }}</div>
+        {%- endif %}
+      </div>
+    {%- endif %}
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12 {% if aside_html %}col-xl-8{% endif %}">
+          {%- if caller is defined %}
+            {{ caller() }}
+          {%- else %}
+            {{ body|safe }}
+          {%- endif %}
+        </div>
+        {%- if aside_html %}
+          <aside class="col-12 col-xl-4">
+            <div class="border rounded-3 bg-body-tertiary p-3 h-100">
+              {{ aside_html|safe }}
+            </div>
+          </aside>
+        {%- endif %}
+      </div>
+    </div>
+    {%- if footer_html %}
+      <div class="card-footer bg-body">{{ footer_html|safe }}</div>
+    {%- endif %}
+  </section>
+{%- endmacro -%}
+
+{%- macro diff_view(view_id, left_code="", right_code="", left_title="Before",
+                    right_title="After", title=None, subtitle=None,
+                    language=None, class_name="", attrs="") -%}
+  {%- set wrapper_classes = "card shadow-sm jbs-diff-view" -%}
+  {%- if class_name -%}
+    {%- set wrapper_classes = wrapper_classes ~ " " ~ class_name -%}
+  {%- endif -%}
+  <section id="{{ view_id }}"
+           class="{{ wrapper_classes }}"
+           {%- if attrs %} {{ attrs|safe }}{% endif -%}>
+    {%- if title or subtitle or language %}
+      <div class="card-header bg-body">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          {%- if title %}
+            <h2 class="h6 mb-0">{{ title }}</h2>
+          {%- endif %}
+          {%- if language %}
+            <span class="badge text-bg-secondary">{{ language }}</span>
+          {%- endif %}
+        </div>
+        {%- if subtitle %}
+          <p class="text-body-secondary mb-0 mt-1">{{ subtitle }}</p>
+        {%- endif %}
+      </div>
+    {%- endif %}
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12 col-xl-6">
+          {{ code_block(
+            view_id ~ "-before",
+            left_code,
+            language=language,
+            title=left_title,
+            class_name="h-100 shadow-none border"
+          ) }}
+        </div>
+        <div class="col-12 col-xl-6">
+          {{ code_block(
+            view_id ~ "-after",
+            right_code,
+            language=language,
+            title=right_title,
+            class_name="h-100 shadow-none border"
+          ) }}
+        </div>
+      </div>
+    </div>
+  </section>
+{%- endmacro -%}
+
 {%- macro table(component_id, endpoint, columns, rows, state=None,
                  total_rows=None, title=None, subtitle=None, toolbar=None,
                  empty_message="No rows found.", persist="memory",

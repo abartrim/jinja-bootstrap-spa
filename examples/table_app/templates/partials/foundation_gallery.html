@@ -38,6 +38,10 @@
   {
     "label": "Workflow",
     "href": "#foundation-master-detail"
+  },
+  {
+    "label": "Inspect",
+    "href": "#foundation-property-editor"
   }
 ] %}
 {% set stream_controls %}
@@ -355,6 +359,157 @@
     }}
   </div>
 {% endset %}
+{% set command_bar_leading %}
+  {{ ui.button("Save View", size="sm") }}
+  {{ ui.button("Run Query", variant="outline-primary", size="sm") }}
+{% endset %}
+{% set command_bar_trailing %}
+  {{ ui.button("Export", variant="outline-secondary", size="sm") }}
+  {{ ui.action_menu("foundation-command-actions",
+    label="More",
+    items=[
+    {"label": "Duplicate"},
+    {"label": "Archive"},
+    {"label": "Share"},
+    ],
+    size="sm") 
+  }}
+{% endset %}
+{% set metric_grid_items = [
+  {
+    "title": "Queued Orders",
+    "value": "128",
+    "subtitle": "Needs review within SLA window.",
+    "icon": "bi bi-inboxes",
+    "tone": "warning",
+    "trend": {
+      "label": "+8 since last hour",
+      "tone": "warning"
+    }
+  },
+  {
+    "title": "Live Streams",
+    "value": "4",
+    "subtitle": "Replace, append, prepend, and hidden-buffer flows.",
+    "icon": "bi bi-broadcast-pin",
+    "tone": "success",
+    "trend": {
+      "label": "healthy",
+      "tone": "success"
+    }
+  },
+  {
+    "title": "Cached Pages",
+    "value": "11",
+    "subtitle": "Reusable page snapshots for quick back/forward navigation.",
+    "icon": "bi bi-lightning-charge",
+    "tone": "primary",
+    "trend": {
+      "label": "cache warm",
+      "tone": "primary"
+    }
+  },
+  {
+    "title": "Pending Changes",
+    "value": "3",
+    "subtitle": "Diff and property editor shells support review workflows.",
+    "icon": "bi bi-sliders",
+    "tone": "info",
+    "trend": {
+      "label": "inspectable",
+      "tone": "info"
+    }
+  }
+] %}
+{% set activity_items = [
+  {
+    "title": "Runtime refresh completed",
+    "body": "orders-table re-rendered after a targeted refresh request.",
+    "meta": "moments ago",
+    "icon": "bi bi-arrow-repeat",
+    "tone": "primary",
+    "badges": [
+      {
+        "label": "swap",
+        "variant": "primary"
+      }
+    ]
+  },
+  {
+    "title": "Stream delta buffered",
+    "body": "The stream paused while hidden and queued rows for a safe replay.",
+    "meta": "1 minute ago",
+    "icon": "bi bi-cloud-arrow-down",
+    "tone": "warning",
+    "badges": [
+      {
+        "label": "buffered",
+        "variant": "warning"
+      }
+    ]
+  },
+  {
+    "title": "Session state restored",
+    "body": "The session-persisted table reapplied page size and current page after reload.",
+    "meta": "3 minutes ago",
+    "icon": "bi bi-device-hdd",
+    "tone": "success",
+    "badges": [
+      {
+        "label": "session",
+        "variant": "success"
+      }
+    ]
+  }
+] %}
+{% set property_editor_body %}
+  <form class="vstack gap-0">
+    {{ ui.form_input("editor-name",
+        label="View Name",
+        value="Queued Orders Review",
+        help_text="Use the property editor shell for inspector and builder-style forms.") 
+    }}
+    {{ ui.form_select("editor-tone",
+        [
+        {"value": "primary", "label": "Primary"},
+        {"value": "success", "label": "Success"},
+        {"value": "warning", "label": "Warning"},
+        ],
+        label="Accent Tone",
+        value="primary") 
+    }}
+    {{ ui.textarea("editor-description",
+        label="Description",
+        value="A generic inspector-style editor for saved views, schema settings, or dashboard properties.",
+        rows=5) 
+    }}
+  </form>
+{% endset %}
+{% set property_editor_aside %}
+  {{ ui.key_value_panel([
+    {"label": "Scope", "value": "Framework primitive"},
+    {"label": "Best Fit", "value": "Inspectors, settings, builders"},
+    {"label": "State Model", "value": "Server rendered + optional runtime replacement"},
+    ], compact=true) }}
+{% endset %}
+{% set property_editor_footer %}
+  <div class="d-flex flex-wrap justify-content-end gap-2">
+    {{ ui.button("Cancel", variant="outline-secondary", size="sm") }}
+    {{ ui.button("Apply Changes", variant="primary", size="sm") }}
+  </div>
+{% endset %}
+{% set diff_before = [
+  "status = 'queued'",
+  "page_size = 10",
+  "persist = 'memory'",
+  "stream_mode = 'replace'",
+] | join("\n") %}
+{% set diff_after = [
+  "status = 'open'",
+  "page_size = 20",
+  "persist = 'session'",
+  "stream_mode = 'replace'",
+] | join("\n") %}
 <section id="foundation-gallery" class="mt-5">
   {{ ui.page_header(title="Foundation Component Gallery",
     subtitle="These are the generic shells consuming apps can layer into product-specific macros and templates.",
@@ -402,6 +557,16 @@
       }}
     </div>
   </div>
+  {{ ui.command_bar("foundation-command-bar",
+    title="Command Bar Primitive",
+    subtitle="A reusable action strip for search, quick actions, mode toggles, and overflow commands.",
+    badges=[
+    {"label": "Toolbar", "variant": "primary"},
+    {"label": "Bootstrap first", "variant": "secondary"},
+    ],
+    leading_html=command_bar_leading,
+    trailing_html=command_bar_trailing,
+    class_name="mb-4") }}
   <div class="row g-3 mb-4">
     <div class="col-12">
       {{ ui.stream_status("foundation-stream-status",
@@ -511,6 +676,11 @@
       }}
     </div>
   </div>
+  {{ ui.metric_grid("foundation-metric-grid",
+    metric_grid_items,
+    title="Metric Grid Primitive",
+    subtitle="Use this when a page needs a standardized summary band rather than hand-built stat rows.",
+    class_name="mb-4") }}
   {% call ui.split_panel(direction="horizontal", ratio="3/2", class_name="mb-4") %}
     <section data-jbs-pane="primary" class="vstack gap-3">
       {% include "partials/foundation_grid.html" %}
@@ -549,6 +719,22 @@
       }}
     </div>
   </div>
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-xl-6">
+      {{ ui.activity_feed("foundation-activity-feed",
+            activity_items,
+            title="Activity Feed Primitive",
+            subtitle="A denser event list than a timeline for queues, audits, comments, and system activity.") }}
+    </div>
+    <div class="col-12 col-xl-6">
+      {{ ui.property_editor("foundation-property-editor",
+            title="Property Editor Primitive",
+            subtitle="A generic inspector-style editor shell for settings, saved views, and builder metadata.",
+            body=property_editor_body,
+            aside_html=property_editor_aside,
+            footer_html=property_editor_footer) }}
+    </div>
+  </div>
   {% call ui.master_detail_shell(
     "foundation-master-detail",
     master_html=master_list_html,
@@ -577,6 +763,13 @@
       }}
     </div>
   {% endcall %}
+  {{ ui.diff_view("foundation-diff-view",
+    left_code=diff_before,
+    right_code=diff_after,
+    title="Diff View Primitive",
+    subtitle="Use this for config reviews, saved-query changes, and before/after inspector comparisons.",
+    language="ini",
+    class_name="mb-4") }}
   {% call ui.workspace_modal(
     "foundation-workspace-modal",
     title="Workspace Modal Primitive",

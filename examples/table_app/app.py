@@ -483,6 +483,31 @@ def build_foundation_grid_context() -> dict[str, Any]:
                 "purpose": "Consistent output surface for generated results, previews, and validation summaries.",
                 "status": '<span class="badge text-bg-success">New</span>',
             },
+            {
+                "primitive": "command_bar",
+                "purpose": "Reusable action strip for search, quick actions, and overflow commands.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "metric_grid",
+                "purpose": "Structured summary band for grouped stat cards and KPI rows.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "activity_feed",
+                "purpose": "Dense event stream surface for audits, comments, and runtime activity.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "property_editor",
+                "purpose": "Inspector-style form shell for settings, metadata, and builder properties.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "diff_view",
+                "purpose": "Before/after comparison shell for config reviews and change inspection.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
         ],
         "foundation_grid_state": {
             "page": 1,

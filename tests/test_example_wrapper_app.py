@@ -95,6 +95,11 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.wait_for_selector("#foundation-facet-bar")
             page.wait_for_selector("#foundation-master-detail")
             page.wait_for_selector("#foundation-result-panel")
+            page.wait_for_selector("#foundation-command-bar")
+            page.wait_for_selector("#foundation-metric-grid")
+            page.wait_for_selector("#foundation-activity-feed")
+            page.wait_for_selector("#foundation-property-editor")
+            page.wait_for_selector("#foundation-diff-view")
             page.wait_for_selector("nav.navbar")
 
             page.get_by_role("button", name="About Runtime").click()
@@ -280,6 +285,10 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
                 "?.textContent?.includes('Queued')"
             )
             page.wait_for_function(
+                "() => document.querySelector('#foundation-command-bar')"
+                "?.textContent?.includes('quick actions')"
+            )
+            page.wait_for_function(
                 "() => document.querySelector("
                 "'#foundation-tree-nav details'"
                 ")?.hasAttribute('open')"
@@ -293,6 +302,10 @@ def test_wrapper_app_smoke_flow(example_live_server: str) -> None:
             page.wait_for_function(
                 "() => document.querySelector('#foundation-result-panel')"
                 "?.textContent?.includes('Query Result')"
+            )
+            page.wait_for_function(
+                "() => document.querySelector('#foundation-diff-view-after')"
+                "?.textContent?.includes(\"status = 'open'\")"
             )
             foundation_search = page.locator(
                 "#foundation-searchable-list [data-jbs-searchable-list-input]"

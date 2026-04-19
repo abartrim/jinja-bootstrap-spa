@@ -501,6 +501,11 @@ above the runtime contract without becoming app-specific workflows:
 - `facet_bar(...)`: active-filter chip row
 - `master_detail_shell(...)`: inspector and explorer layout shell
 - `result_panel(...)`: generic output and validation surface
+- `command_bar(...)`: quick-action and overflow command strip
+- `metric_grid(...)`: grouped KPI/stat summary band
+- `activity_feed(...)`: dense audit and system event surface
+- `property_editor(...)`: inspector-style settings shell
+- `diff_view(...)`: before/after comparison surface
 
 These primitives are demonstrated in the wrapper app foundation gallery and
 covered by macro/example tests.

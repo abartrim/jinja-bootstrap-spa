@@ -113,6 +113,7 @@ The current macro surface now includes:
 - form primitives including autocomplete, multi-select, regex/sql assist, and date-range inputs
 - presentation primitives such as `stat_card(...)`, `detail_list(...)`, `callout(...)`, `chart_shell(...)`, `timeline(...)`, `stacked_list(...)`, `tree_nav(...)`, and `code_block(...)`
 - workflow/presentation shells such as `facet_bar(...)`, `master_detail_shell(...)`, and `result_panel(...)`
+- inspector/review primitives such as `command_bar(...)`, `metric_grid(...)`, `activity_feed(...)`, `property_editor(...)`, and `diff_view(...)`
 
 For manual visual inspection snapshots:
 
