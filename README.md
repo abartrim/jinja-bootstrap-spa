@@ -85,7 +85,7 @@ Two Playwright suites are included:
 ## Wrapper Dev App
 
 A standalone Flask wrapper app lives in
-[examples/table_app](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/examples/table_app).
+[examples/table_app](examples/table_app).
 Use it to iterate on runtime behavior manually while developing new components.
 
 Run it with:
@@ -97,7 +97,7 @@ npm run example:python
 Then open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
 A matching Go wrapper app lives in
-[examples/go_table_app](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/examples/go_table_app).
+[examples/go_table_app](examples/go_table_app).
 It renders the same example templates without modification through MiniJinja-Go.
 
 Run it with:
@@ -109,8 +109,8 @@ npm run example:go
 Then open [http://127.0.0.1:5001](http://127.0.0.1:5001).
 
 AI authoring guidance for Codex, Copilot, and Claude lives in
-[AGENTS.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/AGENTS.md) and
-[docs/llm_authoring_guide.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/llm_authoring_guide.md).
+[AGENTS.md](AGENTS.md) and
+[docs/llm_authoring_guide.md](docs/llm_authoring_guide.md).
 
 The dev app includes:
 
@@ -127,10 +127,10 @@ Use `Simulate SSE Update`, `Push Prepend Row`, and `Push Append Row` to exercise
 all stream modes.
 
 The feature-to-example coverage map lives in
-[docs/feature_coverage.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/feature_coverage.md).
+[docs/feature_coverage.md](docs/feature_coverage.md).
 
 The generic framework implementation backlog lives in
-[docs/framework_backlog.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/framework_backlog.md).
+[docs/framework_backlog.md](docs/framework_backlog.md).
 
 The current macro surface now includes:
 
@@ -653,13 +653,13 @@ The initial runtime supports:
 
 ## Current Surface Area
 
-- [src/jinja_bootstrap_spa/macros/bootstrap.py](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/src/jinja_bootstrap_spa/macros/bootstrap.py)
+- [src/jinja_bootstrap_spa/macros/bootstrap.py](src/jinja_bootstrap_spa/macros/bootstrap.py)
   Bootstrap macros, including the first opinionated `table()` component.
-- [src/jinja_bootstrap_spa/runtime/components.py](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/src/jinja_bootstrap_spa/runtime/components.py)
+- [src/jinja_bootstrap_spa/runtime/components.py](src/jinja_bootstrap_spa/runtime/components.py)
   Python helpers for `data-jbs-*` attributes.
-- [frontend/src/jinja-bootstrap-spa.ts](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/frontend/src/jinja-bootstrap-spa.ts)
+- [frontend/src/jinja-bootstrap-spa.ts](frontend/src/jinja-bootstrap-spa.ts)
   The TypeScript browser runtime source.
-- [src/jinja_bootstrap_spa/templates/base.html](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/src/jinja_bootstrap_spa/templates/base.html)
+- [src/jinja_bootstrap_spa/templates/base.html](src/jinja_bootstrap_spa/templates/base.html)
   Bootstrap base template with a dedicated runtime block.
 
 ## What Comes Next

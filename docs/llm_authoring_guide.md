@@ -139,6 +139,10 @@ If you are editing a consuming app:
 4. Keep server endpoints fragment-oriented and deterministic.
 5. Preserve `ETag`, persistence, loading, and stream behavior when changing interactive components.
 
+For an issue-ready migration brief that can be assigned to Copilot or another
+agent in a consuming repository, see
+[docs/copilot_migration_issue_prompt.md](copilot_migration_issue_prompt.md).
+
 ## Good Patterns
 
 ### A stateful page shell

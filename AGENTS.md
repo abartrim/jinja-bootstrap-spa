@@ -2,7 +2,9 @@
 
 Start here when using `jinja-bootstrap-spa` from Codex or another repository-aware agent.
 
-Read the full guide in [docs/llm_authoring_guide.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/llm_authoring_guide.md).
+Read the full guide in [docs/llm_authoring_guide.md](docs/llm_authoring_guide.md).
+For migration work in existing Jinja/Bootstrap apps, start from
+[docs/copilot_migration_issue_prompt.md](docs/copilot_migration_issue_prompt.md).
 
 ## Non-negotiables
 

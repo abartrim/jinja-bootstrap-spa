@@ -2,7 +2,7 @@
 
 This repository is an opinionated server-rendered UI framework.
 
-Before generating code, follow [AGENTS.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/AGENTS.md) and the detailed authoring guide in [docs/llm_authoring_guide.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/llm_authoring_guide.md).
+Before generating code, follow [AGENTS.md](../AGENTS.md) and the detailed authoring guide in [docs/llm_authoring_guide.md](../docs/llm_authoring_guide.md).
 
 ## Required approach
 
