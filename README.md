@@ -91,8 +91,7 @@ Use it to iterate on runtime behavior manually while developing new components.
 Run it with:
 
 ```bash
-npm run build:js
-.venv/bin/python examples/table_app/app.py
+npm run example:python
 ```
 
 Then open [http://127.0.0.1:5000](http://127.0.0.1:5000).
@@ -104,11 +103,14 @@ It renders the same example templates without modification through MiniJinja-Go.
 Run it with:
 
 ```bash
-npm run build:js
-GOCACHE=/tmp/jbs-go-build go run ./examples/go_table_app
+npm run example:go
 ```
 
 Then open [http://127.0.0.1:5001](http://127.0.0.1:5001).
+
+AI authoring guidance for Codex, Copilot, and Claude lives in
+[AGENTS.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/AGENTS.md) and
+[docs/llm_authoring_guide.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/llm_authoring_guide.md).
 
 The dev app includes:
 

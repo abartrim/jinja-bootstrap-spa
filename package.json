@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "build:js": "tsc -p tsconfig.json",
-    "typecheck:js": "tsc -p tsconfig.json --noEmit"
+    "typecheck:js": "tsc -p tsconfig.json --noEmit",
+    "example:python": "npm run build:js && .venv/bin/python examples/table_app/app.py",
+    "example:go": "npm run build:js && GOCACHE=/tmp/jbs-go-build go run ./examples/go_table_app"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
