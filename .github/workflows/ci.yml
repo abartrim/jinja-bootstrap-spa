@@ -98,5 +98,13 @@ jobs:
       - name: Run pytest
         run: pytest
 
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: coverage.xml
+          if-no-files-found: ignore
+
       - name: Build Python package
         run: python -m build
