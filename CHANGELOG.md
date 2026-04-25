@@ -15,3 +15,4 @@ explicitly.
 - SSE support for replacement and row-level append/prepend updates.
 - Flask and Go example applications sharing the same Jinja templates.
 - Agent-facing authoring and migration guidance.
+- Semantic versioning policy and generated macro API reference.

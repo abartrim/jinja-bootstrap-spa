@@ -37,6 +37,8 @@ visual screenshot run: April 12, 2026 (`scripts/capture_example_visuals.py`).
 | Filterable card lists | `foundation-filterable-card-list` | `tests/test_example_wrapper_app.py` | Browser regression covered |
 | Inline edit shell | `foundation-inline-edit-shell` | `tests/test_bootstrap_macros.py`, `tests/test_example_wrapper_app.py` | Browser regression covered |
 | Table row selection + pinned columns | `foundation-work-queue` | `tests/test_bootstrap_macros.py`, `tests/test_example_wrapper_app.py` | Browser regression covered |
+| Automated accessibility scan | hydrated wrapper app | `tests/test_example_wrapper_app.py`, `tests/test_go_example_app.py` via shared smoke flow | `axe-core` serious/critical violations fail tests |
+| Browser runtime helper unit tests | TypeScript runtime exports | `frontend/test/runtime.test.ts` | Node test runner |
 
 ## Decisions
 

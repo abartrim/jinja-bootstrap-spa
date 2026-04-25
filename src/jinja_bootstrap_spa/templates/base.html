@@ -158,6 +158,50 @@
             border-width: 1px;
         }
 
+        .btn-outline-secondary {
+            --bs-btn-color: var(--bs-emphasis-color);
+            --bs-btn-border-color: var(--bs-secondary-color);
+        }
+
+        .btn-outline-primary {
+            --bs-btn-color: var(--bs-primary-text-emphasis);
+            --bs-btn-border-color: var(--bs-primary-text-emphasis);
+        }
+
+        .btn.disabled,
+        .btn:disabled {
+            --bs-btn-disabled-color: var(--bs-emphasis-color);
+            --bs-btn-disabled-border-color: var(--bs-secondary-color);
+            opacity: 1;
+        }
+
+        .text-bg-primary,
+        .list-group-item.active {
+            --bs-primary-rgb: 8, 66, 152;
+            --bs-list-group-active-bg: #084298;
+            --bs-list-group-active-border-color: #084298;
+            background-color: #084298 !important;
+            border-color: #084298 !important;
+        }
+
+        .text-bg-primary .opacity-75,
+        .text-bg-primary .text-white-50,
+        .list-group-item.active .text-white-50,
+        .text-white .text-white-50,
+        .text-white p {
+            color: rgba(255, 255, 255, 0.94) !important;
+            opacity: 1 !important;
+        }
+
+        .badge .opacity-75,
+        .rounded-pill .opacity-75 {
+            opacity: 1 !important;
+        }
+
+        .text-primary {
+            color: var(--bs-primary-text-emphasis) !important;
+        }
+
         .jbs-detail-list dt {
             letter-spacing: 0.02em;
         }

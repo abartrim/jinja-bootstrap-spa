@@ -28,7 +28,8 @@ easy to generate and hard to misuse.
 ### 2. Prefer the framework macros first
 
 Before writing custom markup, look for a suitable macro in
-`jinja_bootstrap_spa/bootstrap_macros.html`.
+`jinja_bootstrap_spa/bootstrap_macros.html`. The generated macro reference lives
+in [docs/api_reference.md](api_reference.md).
 
 Common starting points:
 

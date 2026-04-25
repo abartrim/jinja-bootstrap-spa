@@ -564,7 +564,7 @@ BOOTSTRAP_MACROS = """
             )
           ) -%}
       <div class="{{ item_column_class }}">
-        <div class="border rounded-3 h-100
+        <dl class="border rounded-3 h-100 mb-0
                     {% if compact %} p-2{% else %} p-3{% endif %}
                     {% if striped and
                           loop.index0 % 2 == 1 %} bg-body-tertiary{% endif %}
@@ -579,7 +579,7 @@ BOOTSTRAP_MACROS = """
               <span class="fw-semibold">{{ item_value }}</span>
             {% endif -%}
           </dd>
-        </div>
+        </dl>
       </div>
     {%- endfor %}
   </div>
@@ -1266,6 +1266,7 @@ BOOTSTRAP_MACROS = """
            class="form-control form-control-sm font-monospace"
            placeholder="{{ placeholder }}"
            autocomplete="off"
+           role="combobox"
            data-jbs-assist-input
            aria-autocomplete="list"
            aria-expanded="false"
@@ -1308,6 +1309,7 @@ BOOTSTRAP_MACROS = """
            class="form-control form-control-sm font-monospace"
            placeholder="{{ placeholder }}"
            autocomplete="off"
+           role="combobox"
            data-jbs-assist-input
            aria-autocomplete="list"
            aria-expanded="false"

@@ -9,6 +9,7 @@ consumer project to depend on the library.
 - Update `__version__` in `src/jinja_bootstrap_spa/__init__.py`.
 - Move the current `CHANGELOG.md` entry from `Unreleased` to the release date.
 - Confirm the package classifier still reflects stability.
+- Review `docs/versioning_policy.md` for any compatibility or deprecation notes.
 
 ## Validation
 
@@ -24,8 +25,16 @@ npm run build:js
 test -z "$(gofmt -l assets.go environment.go environment_test.go examples/go_table_app/main.go examples/go_table_app/data.go examples/go_table_app/app.go examples/go_table_app/app_test.go)"
 GOSUMDB=off go test ./...
 npm run typecheck:js
+npm run test:js
 .venv/bin/pytest -q
 .venv/bin/python -m build
+```
+
+Regenerate the macro API reference and verify it is committed:
+
+```bash
+.venv/bin/python scripts/generate_macro_reference.py
+git diff --exit-code -- docs/api_reference.md
 ```
 
 ## Package Inspection

@@ -41,7 +41,7 @@ export interface JBSRequestFinishedDetail {
   source: HTMLElement | HTMLFormElement | null;
 }
 
-interface JBSStreamOperation {
+export interface JBSStreamOperation {
   op?: "upsert" | "create" | "read" | "update" | "delete" | "move";
   id?: string;
   html?: string;
@@ -50,14 +50,14 @@ interface JBSStreamOperation {
   after_id?: string;
 }
 
-interface JBSFragmentOperation {
+export interface JBSFragmentOperation {
   op?: "replace" | "append" | "prepend" | "remove";
   target?: string;
   id?: string;
   html?: string;
 }
 
-interface JBSStreamMeta {
+export interface JBSStreamMeta {
   total_rows?: number;
   page?: number;
   page_count?: number;
@@ -65,7 +65,7 @@ interface JBSStreamMeta {
   subtitle?: string;
 }
 
-interface JBSStreamStats {
+export interface JBSStreamStats {
   received: number;
   applied: number;
   deduped: number;
@@ -75,7 +75,7 @@ interface JBSStreamStats {
   seqGap: number;
 }
 
-interface JBSStreamPayload {
+export interface JBSStreamPayload {
   v?: number;
   seq?: number;
   snapshot?: string;
@@ -183,7 +183,7 @@ function cloneState(state: JBSState): JBSState {
   return structuredClone(state);
 }
 
-function parseState(value: string | null): JBSState {
+export function parseJBSState(value: string | null): JBSState {
   if (!value) {
     return {};
   }
@@ -196,7 +196,7 @@ function parseState(value: string | null): JBSState {
   }
 }
 
-function parseStreamPayload(data: string): JBSStreamPayload {
+export function parseJBSStreamPayload(data: string): JBSStreamPayload {
   if (!data) {
     return {};
   }
@@ -685,7 +685,7 @@ export class JBSRuntime {
       return cloneState(current);
     }
 
-    const state = parseState(component.dataset.jbsState ?? null);
+    const state = parseJBSState(component.dataset.jbsState ?? null);
     this.stateStore.set(key, state);
     return cloneState(state);
   }
@@ -942,7 +942,7 @@ export class JBSRuntime {
     if (existingEtag) {
       this.componentEtags.set(key, existingEtag);
     }
-    const serverState = stripTransientState(parseState(component.dataset.jbsState ?? null));
+    const serverState = stripTransientState(parseJBSState(component.dataset.jbsState ?? null));
     const state = this.hydratedState(component, key);
     component.dataset.jbsState = JSON.stringify(state);
     component.dataset.jbsHydrated = "true";
@@ -1004,7 +1004,7 @@ export class JBSRuntime {
   }
 
   private hydratedState(component: HTMLElement, key: string): JBSState {
-    const baseState = parseState(component.dataset.jbsState ?? null);
+    const baseState = parseJBSState(component.dataset.jbsState ?? null);
     const persist = this.persistStrategy(component);
 
     if (persist === JBS_PERSISTENCE.querystring) {
@@ -1013,7 +1013,7 @@ export class JBSRuntime {
 
     if (persist === JBS_PERSISTENCE.session && typeof sessionStorage !== "undefined") {
       const saved = sessionStorage.getItem(sessionStorageKey(component, key));
-      return stripTransientState(applyStatePatch(baseState, parseState(saved)));
+      return stripTransientState(applyStatePatch(baseState, parseJBSState(saved)));
     }
 
     return stripTransientState(baseState);
@@ -1855,7 +1855,7 @@ export class JBSRuntime {
         return;
       }
 
-      const payload = parseStreamPayload(event.data);
+      const payload = parseJBSStreamPayload(event.data);
       const target = payload.target;
       if (target && target !== current.id && target !== key) {
         return;
@@ -2799,7 +2799,7 @@ export class JBSRuntime {
   }
 
   private buildPatchFromTrigger(component: HTMLElement, trigger: HTMLElement, action: string): JBSState {
-    let patch = parseState(trigger.dataset.jbsPatch ?? null);
+    let patch = parseJBSState(trigger.dataset.jbsPatch ?? null);
     let current = stripTransientState(this.getState(component));
     const selectionKey = component.dataset.jbsSelectionKey ?? null;
     const formIds = new Set<string>();
@@ -3429,7 +3429,7 @@ export class JBSRuntime {
         continue;
       }
       const state = stripTransientState(
-        applyStatePatch(parseState(component.dataset.jbsState ?? null), readQueryState(component)),
+        applyStatePatch(parseJBSState(component.dataset.jbsState ?? null), readQueryState(component)),
       );
       this.runTask(
         this.requestComponent(component, JBS_ACTIONS.refresh, state, null, {

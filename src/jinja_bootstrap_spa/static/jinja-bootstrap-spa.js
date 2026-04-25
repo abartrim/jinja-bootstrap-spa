@@ -63,7 +63,7 @@ export const JBS_PHASES = {
 function cloneState(state) {
     return structuredClone(state);
 }
-function parseState(value) {
+export function parseJBSState(value) {
     if (!value) {
         return {};
     }
@@ -75,7 +75,7 @@ function parseState(value) {
         return {};
     }
 }
-function parseStreamPayload(data) {
+export function parseJBSStreamPayload(data) {
     if (!data) {
         return {};
     }
@@ -625,7 +625,7 @@ export class JBSRuntime {
                 if (component.dataset.jbsHydrated !== "true") {
                     continue;
                 }
-                const state = stripTransientState(applyStatePatch(parseState(component.dataset.jbsState ?? null), readQueryState(component)));
+                const state = stripTransientState(applyStatePatch(parseJBSState(component.dataset.jbsState ?? null), readQueryState(component)));
                 this.runTask(this.requestComponent(component, JBS_ACTIONS.refresh, state, null, {
                     persist: false,
                 }), "popstate refresh", component);
@@ -880,7 +880,7 @@ export class JBSRuntime {
         if (current) {
             return cloneState(current);
         }
-        const state = parseState(component.dataset.jbsState ?? null);
+        const state = parseJBSState(component.dataset.jbsState ?? null);
         this.stateStore.set(key, state);
         return cloneState(state);
     }
@@ -1073,7 +1073,7 @@ export class JBSRuntime {
         if (existingEtag) {
             this.componentEtags.set(key, existingEtag);
         }
-        const serverState = stripTransientState(parseState(component.dataset.jbsState ?? null));
+        const serverState = stripTransientState(parseJBSState(component.dataset.jbsState ?? null));
         const state = this.hydratedState(component, key);
         component.dataset.jbsState = JSON.stringify(state);
         component.dataset.jbsHydrated = "true";
@@ -1108,14 +1108,14 @@ export class JBSRuntime {
         this.runTask(this.requestComponent(component, JBS_ACTIONS.refresh, this.getState(component), null, { persist: false }), "lazy component refresh", component);
     }
     hydratedState(component, key) {
-        const baseState = parseState(component.dataset.jbsState ?? null);
+        const baseState = parseJBSState(component.dataset.jbsState ?? null);
         const persist = this.persistStrategy(component);
         if (persist === JBS_PERSISTENCE.querystring) {
             return stripTransientState(applyStatePatch(baseState, readQueryState(component)));
         }
         if (persist === JBS_PERSISTENCE.session && typeof sessionStorage !== "undefined") {
             const saved = sessionStorage.getItem(sessionStorageKey(component, key));
-            return stripTransientState(applyStatePatch(baseState, parseState(saved)));
+            return stripTransientState(applyStatePatch(baseState, parseJBSState(saved)));
         }
         return stripTransientState(baseState);
     }
@@ -1817,7 +1817,7 @@ export class JBSRuntime {
             if (!current) {
                 return;
             }
-            const payload = parseStreamPayload(event.data);
+            const payload = parseJBSStreamPayload(event.data);
             const target = payload.target;
             if (target && target !== current.id && target !== key) {
                 return;
@@ -2617,7 +2617,7 @@ export class JBSRuntime {
         }
     }
     buildPatchFromTrigger(component, trigger, action) {
-        let patch = parseState(trigger.dataset.jbsPatch ?? null);
+        let patch = parseJBSState(trigger.dataset.jbsPatch ?? null);
         let current = stripTransientState(this.getState(component));
         const selectionKey = component.dataset.jbsSelectionKey ?? null;
         const formIds = new Set();

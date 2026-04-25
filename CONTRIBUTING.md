@@ -33,6 +33,7 @@ npm run build:js
 test -z "$(gofmt -l assets.go environment.go environment_test.go examples/go_table_app/main.go examples/go_table_app/data.go examples/go_table_app/app.go examples/go_table_app/app_test.go)"
 GOSUMDB=off go test ./...
 npm run typecheck:js
+npm run test:js
 .venv/bin/pytest -q
 .venv/bin/python -m build
 ```
@@ -47,6 +48,10 @@ npm run typecheck:js
 - Add macro rendering tests for new macros or significant parameters.
 - Add Playwright coverage for runtime behavior, especially replacement,
   persistence, SSE, loading, and browser-console failures.
+- Add TypeScript unit tests for exported browser-runtime helpers when changing
+  parsing, constants, state, or stream payload behavior.
+- Keep serious and critical `axe-core` accessibility violations out of the
+  example app.
 - Keep generated artifacts out of git unless they are packaged public assets,
   such as the compiled browser runtime in `src/jinja_bootstrap_spa/static`.
 
@@ -58,3 +63,10 @@ When adding behavior, update the closest relevant docs:
 - `docs/feature_coverage.md` for example/test coverage
 - `docs/llm_authoring_guide.md` for agent-facing authoring rules
 - `docs/framework_backlog.md` when a backlog item changes status
+- `docs/api_reference.md` when macro signatures change
+
+Regenerate the macro API reference after adding or changing macros:
+
+```bash
+.venv/bin/python scripts/generate_macro_reference.py
+```

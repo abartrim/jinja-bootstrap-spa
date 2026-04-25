@@ -6,6 +6,7 @@ import pytest
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
+from tests.accessibility_assertions import assert_no_critical_accessibility_violations
 from tests.browser_assertions import assert_no_browser_errors, capture_browser_errors
 
 
@@ -50,6 +51,7 @@ def assert_example_smoke_flow(base_url: str) -> None:
             page.wait_for_selector("#foundation-filterable-card-list")
             page.wait_for_selector("#foundation-inline-edit-shell")
             page.wait_for_selector("nav.navbar")
+            assert_no_critical_accessibility_violations(page)
 
             page.get_by_role("button", name="About Runtime").click()
             page.wait_for_function(

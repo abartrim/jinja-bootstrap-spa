@@ -63,6 +63,11 @@ jobs:
           npm run build:js
           git diff --exit-code -- src/jinja_bootstrap_spa/static
 
+      - name: Check generated macro reference
+        run: |
+          python scripts/generate_macro_reference.py
+          git diff --exit-code -- docs/api_reference.md
+
       - name: Run flake8
         run: flake8 src tests
 
@@ -86,6 +91,9 @@ jobs:
 
       - name: Type-check browser runtime
         run: npm run typecheck:js
+
+      - name: Run browser runtime unit tests
+        run: npm run test:js
 
       - name: Run pytest
         run: pytest

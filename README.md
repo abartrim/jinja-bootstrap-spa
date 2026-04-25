@@ -63,6 +63,7 @@ test -z "$(gofmt -l assets.go environment.go environment_test.go)"
 GOSUMDB=off go test ./...
 npm run build:js
 npm run typecheck:js
+npm run test:js
 pytest
 python -m build
 ```
@@ -88,6 +89,9 @@ Three Playwright suites are included:
 - `tests/test_browser_runtime.py`: runtime contract tests against an in-test Flask app.
 - `tests/test_example_wrapper_app.py`: smoke/regression tests against the real wrapper app.
 - `tests/test_go_example_app.py`: the same wrapper smoke flow against the Go MiniJinja example app.
+
+The browser smoke flow also runs `axe-core` against the hydrated wrapper app and
+fails on serious or critical accessibility violations.
 
 ## Wrapper Dev App
 
@@ -140,7 +144,11 @@ The generic framework implementation backlog lives in
 [docs/framework_backlog.md](docs/framework_backlog.md).
 
 Contribution and release guidance lives in [CONTRIBUTING.md](CONTRIBUTING.md)
-and [docs/release_checklist.md](docs/release_checklist.md).
+and [docs/release_checklist.md](docs/release_checklist.md). Versioning policy
+lives in [docs/versioning_policy.md](docs/versioning_policy.md).
+
+The generated macro API reference lives in
+[docs/api_reference.md](docs/api_reference.md).
 
 The current macro surface now includes:
 
