@@ -17,6 +17,16 @@ easy to generate and hard to misuse.
 
 ## Core Rules
 
+### 0. Stop if the framework is unavailable
+
+When working in a consuming repository, first verify that this framework can be
+read, installed, or referenced from source.
+
+If `jinja-bootstrap-spa` cannot be accessed, do not create a local replacement
+runtime, copied macro file, or compatibility shim. Report the blocker and stop
+the migration. A failed dependency lookup is not permission to invent a
+parallel `data-jbs-*` protocol.
+
 ### 1. Keep the server as the source of truth
 
 - Render canonical HTML on the server.
@@ -85,6 +95,11 @@ Controls should trigger actions through:
 - `data-jbs-action="sort"`
 - `data-jbs-action="row"`
 
+Do not substitute undocumented names such as `data-jbs-src` or
+`data-jbs-target-component`. If a needed attribute is not documented here or in
+the API reference, treat that as a framework design question, not an app-local
+extension point.
+
 ### 5. Treat state persistence as part of the component contract
 
 For pageable/filterable components:
@@ -103,6 +118,10 @@ with an `ETag` instead of sending the same HTML again.
 
 This is a first-class part of the intended runtime model, not an optional
 optimization.
+
+The safest `ETag` input is the rendered fragment body. If hashing structured
+data instead, include every value that can affect the fragment output: rows,
+counts, pagination, filters, sorting, labels, empty states, and permissions.
 
 ### 7. Use SSE for live refresh or row-level patching
 
@@ -139,6 +158,7 @@ If you are editing a consuming app:
 3. Use the smallest existing macro that fits, then compose up.
 4. Keep server endpoints fragment-oriented and deterministic.
 5. Preserve `ETag`, persistence, loading, and stream behavior when changing interactive components.
+6. Cite the framework doc or source file before claiming a primitive is missing.
 
 For an issue-ready migration brief that can be assigned to Copilot or another
 agent in a consuming repository, see
@@ -196,6 +216,8 @@ Go:
 - Do not bypass the macros with bespoke HTML for common controls.
 - Do not lose disclosure, paging, selection, or filter state during refresh.
 - Do not introduce unrelated front-end frameworks for routine interactions.
+- Do not add a local runtime shim when the framework package is unavailable.
+- Do not invent undocumented `data-jbs-*` attributes.
 - Do not fork the example templates when a shared macro or helper would solve the problem.
 
 ## Example Commands

@@ -31,6 +31,7 @@ shared framework macros, then implement the first migration slice end to end.
 
 This project should use `jinja-bootstrap-spa` as the generic UI/runtime layer:
 
+- Framework repository: `https://github.com/abartrim/jinja-bootstrap-spa`
 - Jinja remains the canonical HTML renderer.
 - Bootstrap remains the styling system.
 - `jinja-bootstrap-spa` macros should replace repeated raw Bootstrap markup.
@@ -40,17 +41,79 @@ This project should use `jinja-bootstrap-spa` as the generic UI/runtime layer:
 Do not introduce a heavy client framework. Do not convert views into JSON APIs
 unless required by an existing backend contract.
 
+## Access / Installation Gate
+
+Before auditing or editing application code, verify that the framework can be
+accessed and inspected.
+
+Required checks:
+
+- Open/read `https://github.com/abartrim/jinja-bootstrap-spa`.
+- Read the framework docs listed below.
+- Inspect the current macro/runtime surface from the framework source or an
+  installed package.
+- Install or reference the framework using the consuming repo's dependency
+  pattern. If no package release exists yet, use a Git URL, submodule,
+  local editable checkout, or other explicit dependency path approved by the
+  repository.
+
+If the framework repository, docs, source, or package cannot be accessed, stop
+and report the blocker. Do not implement the migration.
+
+Do not create:
+
+- a local `jbs-runtime.js` shim
+- copied framework JavaScript
+- copied framework macros
+- compatibility wrappers that invent a parallel `data-jbs-*` protocol
+- placeholder primitives that pretend to be framework features
+
 ## Required Reading
 
 Before changing code, read these files from the framework repository:
 
 - `AGENTS.md`
 - `docs/llm_authoring_guide.md`
+- `docs/api_reference.md`
 - `docs/feature_coverage.md`
 - `docs/framework_backlog.md`
 
-If this repository vendors or references the framework locally, inspect the
-current macro surface before inventing custom markup.
+If this repository vendors or references the framework locally, inspect that
+local framework copy before inventing custom markup.
+
+## Canonical Framework Contract
+
+Use the framework macros and runtime contract exactly as documented. Do not
+invent alternate attribute names.
+
+Expected component attributes include:
+
+- `data-jbs-component`
+- `data-jbs-endpoint`
+- `data-jbs-target`
+- `data-jbs-state`
+- `data-jbs-key`
+- `data-jbs-persist`
+- `data-jbs-sse`
+- `data-jbs-stream-mode`
+
+Expected action attributes include:
+
+- `data-jbs-action="refresh"`
+- `data-jbs-action="filter"`
+- `data-jbs-action="page"`
+- `data-jbs-action="sort"`
+- `data-jbs-action="row"`
+
+Do not use non-framework substitutes such as `data-jbs-src` or
+`data-jbs-target-component` unless the framework documentation explicitly shows
+that exact attribute.
+
+When adding a fragment endpoint in Python, prefer the framework helper such as
+`conditional_fragment_response(rendered_html, request.headers)` where available.
+If implementing equivalent behavior manually, compute the `ETag` from the full
+rendered fragment or from all state that affects the rendered fragment, not only
+from the visible row list.
 
 ## Your Tasks
 
@@ -110,6 +173,8 @@ Look for:
   server-owned rather than moving into client state
 
 Call out likely future framework component needs if the project depends on them.
+Every claimed missing framework primitive must cite the framework file or doc
+that was checked and explain why the existing primitive is insufficient.
 
 ### 4. Implement the first migration slice
 
@@ -127,6 +192,8 @@ Prefer this order:
 For the first slice:
 
 - replace repeated markup with framework macros
+- import/use the packaged framework macros and static runtime; do not recreate
+  them inside the consuming app
 - preserve or improve the current Bootstrap appearance
 - introduce `data-jbs-*` component refresh behavior where useful
 - preserve state across swaps and reloads
@@ -146,6 +213,7 @@ Add or update:
 
 The browser tests should confirm:
 
+- the page is using the framework runtime and not a local shim
 - component refresh works
 - visual state is preserved across swaps
 - loading indicators appear and clear
@@ -169,7 +237,10 @@ Add developer-facing documentation that explains:
 - Prefer framework macros before raw Bootstrap markup.
 - Keep the framework generic; app-specific semantics belong in app templates or
   app-level macros.
-- Do not fork framework internals unless absolutely necessary.
+- Do not fork framework internals.
+- Do not add local framework shims. If a missing generic primitive is required,
+  document it as framework backlog and keep the consuming-app workaround narrow
+  and explicitly app-specific.
 - Preserve accessibility and keyboard behavior.
 - Preserve visual state across partial updates.
 - Prefer incremental migration over page rewrites.
