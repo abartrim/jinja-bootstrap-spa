@@ -79,7 +79,7 @@ jobs:
         run: djlint src/jinja_bootstrap_spa/templates --check
 
       - name: Check gofmt
-        run: test -z "$(gofmt -l assets.go environment.go environment_test.go)"
+        run: test -z "$(gofmt -l assets.go environment.go environment_test.go examples/go_table_app/main.go examples/go_table_app/data.go examples/go_table_app/app.go examples/go_table_app/app_test.go)"
 
       - name: Run go test
         run: GOSUMDB=off go test ./...
@@ -89,3 +89,6 @@ jobs:
 
       - name: Run pytest
         run: pytest
+
+      - name: Build Python package
+        run: python -m build

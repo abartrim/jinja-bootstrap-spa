@@ -38,7 +38,7 @@ This project should use `jinja-bootstrap-spa` as the generic UI/runtime layer:
   loading behavior, and SSE where appropriate.
 
 Do not introduce a heavy client framework. Do not convert views into JSON APIs
- unless required by an existing backend contract.
+unless required by an existing backend contract.
 
 ## Required Reading
 

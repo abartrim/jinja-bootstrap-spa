@@ -45,6 +45,12 @@ python -m playwright install chromium
 npm ci
 ```
 
+For Flask-based applications, install the optional Flask extra:
+
+```bash
+pip install "jinja-bootstrap-spa[flask]"
+```
+
 Run the full validation suite with:
 
 ```bash
@@ -58,6 +64,7 @@ GOSUMDB=off go test ./...
 npm run build:js
 npm run typecheck:js
 pytest
+python -m build
 ```
 
 To enforce linting automatically before each commit, enable pre-commit hooks:
@@ -76,7 +83,7 @@ pre-commit run --all-files
 The browser-level tests use Playwright's Python bindings and expect Chromium to
 be installed through `python -m playwright install chromium`.
 
-Two Playwright suites are included:
+Three Playwright suites are included:
 
 - `tests/test_browser_runtime.py`: runtime contract tests against an in-test Flask app.
 - `tests/test_example_wrapper_app.py`: smoke/regression tests against the real wrapper app.
@@ -131,6 +138,9 @@ The feature-to-example coverage map lives in
 
 The generic framework implementation backlog lives in
 [docs/framework_backlog.md](docs/framework_backlog.md).
+
+Contribution and release guidance lives in [CONTRIBUTING.md](CONTRIBUTING.md)
+and [docs/release_checklist.md](docs/release_checklist.md).
 
 The current macro surface now includes:
 
