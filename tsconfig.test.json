@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "rootDir": ".",
+    "outDir": "tmp/js-tests",
+    "strict": true,
+    "declaration": false,
+    "sourceMap": false,
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": ["frontend/src/**/*.ts", "frontend/test/**/*.ts"]
+}

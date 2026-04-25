@@ -6,10 +6,11 @@ This matrix tracks whether each baseline runtime feature is:
 - covered by Playwright regression tests
 - visually sanity-checked in the wrapper app
 
-Last visual check run: April 12, 2026 (desktop + mobile screenshots via
-`scripts/capture_example_visuals.py`).
+Last automated browser regression run: April 25, 2026 (`pytest`, including
+Playwright coverage for the Flask and Go example apps). Last desktop/mobile
+visual screenshot run: April 12, 2026 (`scripts/capture_example_visuals.py`).
 
-| Feature | Wrapper App Example | Playwright Coverage | Visual Check |
+| Feature | Wrapper App Example | Playwright Coverage | Visual / Browser Check |
 | --- | --- | --- | --- |
 | Table contract (sort, page, filter form) | `orders-table` | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
 | Header persistence | `orders-table` (`persist="header"`) | `tests/test_browser_runtime.py` | Yes |
@@ -33,6 +34,11 @@ Last visual check run: April 12, 2026 (desktop + mobile screenshots via
 | Regex assist validation | orders filters | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
 | Autocomplete input | customer filter | `tests/test_browser_runtime.py` | Yes |
 | Request cancellation (stale response protection) | `cancel-demo` | `tests/test_browser_runtime.py`, `tests/test_example_wrapper_app.py` | Yes |
+| Filterable card lists | `foundation-filterable-card-list` | `tests/test_example_wrapper_app.py` | Browser regression covered |
+| Inline edit shell | `foundation-inline-edit-shell` | `tests/test_bootstrap_macros.py`, `tests/test_example_wrapper_app.py` | Browser regression covered |
+| Table row selection + pinned columns | `foundation-work-queue` | `tests/test_bootstrap_macros.py`, `tests/test_example_wrapper_app.py` | Browser regression covered |
+| Automated accessibility scan | hydrated wrapper app | `tests/test_example_wrapper_app.py`, `tests/test_go_example_app.py` via shared smoke flow | `axe-core` serious/critical violations fail tests |
+| Browser runtime helper unit tests | TypeScript runtime exports | `frontend/test/runtime.test.ts` | Node test runner |
 
 ## Decisions
 

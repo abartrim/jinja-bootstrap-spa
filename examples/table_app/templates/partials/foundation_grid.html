@@ -1,0 +1,15 @@
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{{ ui.data_grid("foundation-grid",
+"/components/foundation-grid",
+columns=[
+{"key": "primitive", "label": "Primitive", "sortable": false},
+{"key": "purpose", "label": "Purpose", "sortable": false},
+{"key": "status", "label": "Status", "sortable": false, "html": true},
+],
+rows=foundation_grid_rows,
+state=foundation_grid_state,
+caption="Foundation Data Grid",
+subtitle="A richer shell around the table contract for admin and operator views.",
+count_label="3 reusable building blocks",
+class_name="h-100") 
+}}

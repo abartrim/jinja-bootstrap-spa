@@ -2,6 +2,9 @@
 
 `jinja-bootstrap-spa` is a Python-first UI framework for building server-rendered
 applications with consistent Bootstrap styling and a lightweight SPA-like runtime.
+It also includes an experimental Go companion built on
+[`minijinja-go`](https://github.com/mitsuhiko/minijinja/tree/main/minijinja-go)
+for teams that want to reuse the same packaged Jinja templates outside Python.
 
 The framework is opinionated on purpose:
 
@@ -28,12 +31,24 @@ paging, refresh, and state preservation across fragment swaps.
 pip install jinja-bootstrap-spa
 ```
 
+For the Go companion:
+
+```bash
+go get github.com/abartrim/jinja-bootstrap-spa
+```
+
 For framework development:
 
 ```bash
 pip install -e ".[dev]"
 python -m playwright install chromium
 npm ci
+```
+
+For Flask-based applications, install the optional Flask extra:
+
+```bash
+pip install "jinja-bootstrap-spa[flask]"
 ```
 
 Run the full validation suite with:
@@ -44,9 +59,13 @@ black --check src tests
 isort --check-only src tests
 mypy src
 djlint src/jinja_bootstrap_spa/templates --check
+test -z "$(gofmt -l assets.go environment.go environment_test.go)"
+GOSUMDB=off go test ./...
 npm run build:js
 npm run typecheck:js
+npm run test:js
 pytest
+python -m build
 ```
 
 To enforce linting automatically before each commit, enable pre-commit hooks:
@@ -65,25 +84,44 @@ pre-commit run --all-files
 The browser-level tests use Playwright's Python bindings and expect Chromium to
 be installed through `python -m playwright install chromium`.
 
-Two Playwright suites are included:
+Three Playwright suites are included:
 
 - `tests/test_browser_runtime.py`: runtime contract tests against an in-test Flask app.
 - `tests/test_example_wrapper_app.py`: smoke/regression tests against the real wrapper app.
+- `tests/test_go_example_app.py`: the same wrapper smoke flow against the Go MiniJinja example app.
+
+The browser smoke flow also runs `axe-core` against the hydrated wrapper app and
+fails on serious or critical accessibility violations.
 
 ## Wrapper Dev App
 
 A standalone Flask wrapper app lives in
-[examples/table_app](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/examples/table_app).
+[examples/table_app](examples/table_app).
 Use it to iterate on runtime behavior manually while developing new components.
 
 Run it with:
 
 ```bash
-npm run build:js
-.venv/bin/python examples/table_app/app.py
+npm run example:python
 ```
 
 Then open [http://127.0.0.1:5000](http://127.0.0.1:5000).
+
+A matching Go wrapper app lives in
+[examples/go_table_app](examples/go_table_app).
+It renders the same example templates without modification through MiniJinja-Go.
+
+Run it with:
+
+```bash
+npm run example:go
+```
+
+Then open [http://127.0.0.1:5001](http://127.0.0.1:5001).
+
+AI authoring guidance for Codex, Copilot, and Claude lives in
+[AGENTS.md](AGENTS.md) and
+[docs/llm_authoring_guide.md](docs/llm_authoring_guide.md).
 
 The dev app includes:
 
@@ -93,12 +131,36 @@ The dev app includes:
 - a session-persisted table (`sessionStorage`)
 - a stale-request cancellation demo
 - a lazy-hydrated component loaded on first viewport entry
+- a foundation gallery covering generic shells such as data grids, timelines,
+  stacked lists, tree navigation, code blocks, workspace modals, and explorer surfaces
 
 Use `Simulate SSE Update`, `Push Prepend Row`, and `Push Append Row` to exercise
 all stream modes.
 
 The feature-to-example coverage map lives in
-[docs/feature_coverage.md](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/docs/feature_coverage.md).
+[docs/feature_coverage.md](docs/feature_coverage.md).
+
+The generic framework implementation backlog lives in
+[docs/framework_backlog.md](docs/framework_backlog.md).
+
+Contribution and release guidance lives in [CONTRIBUTING.md](CONTRIBUTING.md)
+and [docs/release_checklist.md](docs/release_checklist.md). Versioning policy
+lives in [docs/versioning_policy.md](docs/versioning_policy.md).
+
+The generated macro API reference lives in
+[docs/api_reference.md](docs/api_reference.md).
+
+The current macro surface now includes:
+
+- stateful table and richer `data_grid(...)` shells
+- page framing via `page_header(...)` and `toolbar(...)`
+- overlays via `modal(...)`, `drawer(...)`, and `workspace_modal(...)`
+- form primitives including autocomplete, multi-select, regex/sql assist, and date-range inputs
+- presentation primitives such as `stat_card(...)`, `detail_list(...)`, `callout(...)`, `chart_shell(...)`, `timeline(...)`, `stacked_list(...)`, `tree_nav(...)`, and `code_block(...)`
+- workflow/presentation shells such as `facet_bar(...)`, `master_detail_shell(...)`, and `result_panel(...)`
+- inspector/review primitives such as `command_bar(...)`, `metric_grid(...)`, `activity_feed(...)`, `property_editor(...)`, and `diff_view(...)`
+- collection/edit primitives such as `filterable_card_list(...)` and `inline_edit_shell(...)`
+- dense-grid enhancements including row selection and pinned columns in `table(...)` and `data_grid(...)`
 
 For manual visual inspection snapshots:
 
@@ -432,6 +494,68 @@ Render a server-driven table component:
 {% endblock %}
 ```
 
+### Go MiniJinja Quickstart
+
+The Go companion exposes the same packaged template names:
+
+- `jinja_bootstrap_spa/bootstrap_macros.html`
+- `jinja_bootstrap_spa/base.html`
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"testing/fstest"
+
+	jbs "github.com/abartrim/jinja-bootstrap-spa"
+)
+
+func main() {
+	env, err := jbs.NewEnvironment(jbs.Options{
+		TemplateFS: fstest.MapFS{
+			"pages/orders.html": {
+				Data: []byte(`{% extends "jinja_bootstrap_spa/base.html" %}
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{% block title %}Orders{% endblock %}
+{% block content %}
+  <main class="container py-4">
+    {{ ui.button("Refresh", jbs_action="refresh", jbs_component_ref="orders-table") }}
+  </main>
+{% endblock %}`),
+			},
+		},
+		URLFor: jbs.StaticURLFor("/static"),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tmpl, err := env.GetTemplate("pages/orders.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	html, err := tmpl.Render(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(html)
+}
+```
+
+The Go layer is intentionally small:
+
+- Python remains the canonical macro source.
+- Go extracts `BOOTSTRAP_MACROS` directly from
+  `src/jinja_bootstrap_spa/macros/bootstrap.py` so the packaged macro surface stays aligned.
+- `url_for(...)` is opt-in through `Options.URLFor`; `StaticURLFor(...)` covers the common
+  `url_for("static", filename=...)` case.
+- Flask globals beyond `url_for` are not emulated by default. Add them through
+  `Options.Globals` or your own MiniJinja environment setup when specific templates need them.
+
 Render a row action menu inside a table cell:
 
 ```jinja
@@ -547,25 +671,25 @@ The initial runtime supports:
 
 ## Current Surface Area
 
-- [src/jinja_bootstrap_spa/macros/bootstrap.py](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/src/jinja_bootstrap_spa/macros/bootstrap.py)
+- [src/jinja_bootstrap_spa/macros/bootstrap.py](src/jinja_bootstrap_spa/macros/bootstrap.py)
   Bootstrap macros, including the first opinionated `table()` component.
-- [src/jinja_bootstrap_spa/runtime/components.py](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/src/jinja_bootstrap_spa/runtime/components.py)
+- [src/jinja_bootstrap_spa/runtime/components.py](src/jinja_bootstrap_spa/runtime/components.py)
   Python helpers for `data-jbs-*` attributes.
-- [frontend/src/jinja-bootstrap-spa.ts](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/frontend/src/jinja-bootstrap-spa.ts)
+- [frontend/src/jinja-bootstrap-spa.ts](frontend/src/jinja-bootstrap-spa.ts)
   The TypeScript browser runtime source.
-- [src/jinja_bootstrap_spa/templates/base.html](/Users/abartrim/Documents/dev/jinja-bootstrap-spa/src/jinja_bootstrap_spa/templates/base.html)
+- [src/jinja_bootstrap_spa/templates/base.html](src/jinja_bootstrap_spa/templates/base.html)
   Bootstrap base template with a dedicated runtime block.
 
 ## What Comes Next
 
-The table component is the forcing function, not the final scope. Later components
-should build on the same runtime contract:
+The table component is the forcing function, not the final scope. The next
+generic work should continue building on the same runtime contract without
+becoming app-specific:
 
-- menus and command surfaces
-- filterable card lists
-- detail panels and inline edit flows
-- modal and drawer components
-- richer table features such as row actions, selection, and pinned columns
+- chart/dashboard composition helpers that stay data-library agnostic
+- upload and file-management surfaces for server-driven workflows
+- more opinionated batch-review shells built on the current selection contract
+- additional explorer patterns once a second consumer proves the need
 
 ## Contribution Guidance
 

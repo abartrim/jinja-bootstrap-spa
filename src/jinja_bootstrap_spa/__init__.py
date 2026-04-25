@@ -10,6 +10,7 @@ large framework surface area.
 """
 
 from .macros.bootstrap import (
+    BASE_TEMPLATE_NAME,
     BOOTSTRAP_MACROS,
     MACRO_TEMPLATE_NAME,
     register_bootstrap_macros,
@@ -42,6 +43,7 @@ from .runtime.contract import (
 )
 
 __all__ = [
+    "BASE_TEMPLATE_NAME",
     "BOOTSTRAP_MACROS",
     "MACRO_TEMPLATE_NAME",
     "JBS_ACTION_FILTER",

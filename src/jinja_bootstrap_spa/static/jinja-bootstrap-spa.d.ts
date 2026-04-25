@@ -35,6 +35,53 @@ export interface JBSRequestFinishedDetail {
     state: JBSState;
     source: HTMLElement | HTMLFormElement | null;
 }
+export interface JBSStreamOperation {
+    op?: "upsert" | "create" | "read" | "update" | "delete" | "move";
+    id?: string;
+    html?: string;
+    position?: "append" | "prepend";
+    before_id?: string;
+    after_id?: string;
+}
+export interface JBSFragmentOperation {
+    op?: "replace" | "append" | "prepend" | "remove";
+    target?: string;
+    id?: string;
+    html?: string;
+}
+export interface JBSStreamMeta {
+    total_rows?: number;
+    page?: number;
+    page_count?: number;
+    showing_rows?: number;
+    subtitle?: string;
+}
+export interface JBSStreamStats {
+    received: number;
+    applied: number;
+    deduped: number;
+    buffered: number;
+    fallbackRefresh: number;
+    resync: number;
+    seqGap: number;
+}
+export interface JBSStreamPayload {
+    v?: number;
+    seq?: number;
+    snapshot?: string;
+    cache_scope?: string;
+    resync?: boolean;
+    action?: string;
+    patch?: JBSState;
+    meta?: JBSStreamMeta;
+    target?: string;
+    mode?: JBSStreamMode;
+    row?: string;
+    rows?: string[];
+    ops?: JBSStreamOperation[];
+    fragment_ops?: JBSFragmentOperation[];
+    max_rows?: number;
+}
 export declare const JBS_HEADERS: {
     readonly accept: "text/html";
     readonly marker: "X-JBS-Request";
@@ -78,6 +125,8 @@ export declare const JBS_PHASES: {
     readonly unchanged: "unchanged";
     readonly error: "error";
 };
+export declare function parseJBSState(value: string | null): JBSState;
+export declare function parseJBSStreamPayload(data: string): JBSStreamPayload;
 export declare class JBSRuntime {
     private readonly fetchImpl;
     private readonly stateStore;
@@ -195,6 +244,13 @@ export declare class JBSRuntime {
     private disclosureElements;
     private hydrateDisclosures;
     private toggleDisclosure;
+    private searchableListElements;
+    private hydrateSearchableLists;
+    private filterSearchableList;
+    private tableSelectionInputs;
+    private hydrateTableSelections;
+    private syncTableSelection;
+    private formStateById;
     private dateRangeElements;
     private hydrateDateRangePickers;
     private openDateRangePicker;

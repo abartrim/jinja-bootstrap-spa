@@ -1,11 +1,18 @@
 {
   "name": "jinja-bootstrap-spa",
   "private": true,
+  "type": "module",
   "scripts": {
     "build:js": "tsc -p tsconfig.json",
-    "typecheck:js": "tsc -p tsconfig.json --noEmit"
+    "typecheck:js": "tsc -p tsconfig.json --noEmit",
+    "build:test:js": "tsc -p tsconfig.test.json",
+    "test:js": "npm run build:test:js && node --test tmp/js-tests/frontend/test/*.test.js",
+    "example:python": "npm run build:js && .venv/bin/python examples/table_app/app.py",
+    "example:go": "npm run build:js && GOCACHE=/tmp/jbs-go-build go run ./examples/go_table_app"
   },
   "devDependencies": {
+    "@types/node": "^20.19.39",
+    "axe-core": "^4.11.3",
     "typescript": "^5.8.3"
   }
 }

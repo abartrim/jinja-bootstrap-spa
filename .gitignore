@@ -43,10 +43,16 @@ pnpm-debug.log*
 public/build/
 static/build/
 
+# Go build artifacts
+bin/
+coverage.out
+*.test
+
 # Local runtime files
 .python-version
 .env
 .env.*
 tmp/
+tmp_visuals/
 test-results/
 playwright-report/

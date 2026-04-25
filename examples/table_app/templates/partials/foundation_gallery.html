@@ -1,0 +1,918 @@
+{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+{% set foundation_actions %}
+  {{ ui.button("Open Workspace Modal",
+    variant="primary",
+    size="sm",
+    attrs='data-jbs-overlay-open="foundation-workspace-modal"') 
+  }}
+  {{ ui.action_menu("foundation-toolbar-actions",
+    label="Resources",
+    items=[
+    {"label": "README", "href": "https://github.com/abartrim/jinja-bootstrap-spa#readme"},
+    {"label": "Backlog", "href": "https://github.com/abartrim/jinja-bootstrap-spa/blob/main/docs/framework_backlog.md"},
+    ]) 
+  }}
+{% endset %}
+{% set foundation_tabs = [
+  {
+    "label": "Foundations",
+    "href": "#foundation-gallery",
+    "active": true
+  },
+  {
+    "label": "Data Grid",
+    "href": "#foundation-grid"
+  },
+  {
+    "label": "Explorer",
+    "href": "#foundation-searchable-list"
+  },
+  {
+    "label": "Collections",
+    "href": "#foundation-filterable-card-list"
+  },
+  {
+    "label": "Flows",
+    "href": "#foundation-timeline"
+  },
+  {
+    "label": "Tree",
+    "href": "#foundation-tree-nav"
+  },
+  {
+    "label": "Workflow",
+    "href": "#foundation-master-detail"
+  },
+  {
+    "label": "Inspect",
+    "href": "#foundation-property-editor"
+  }
+] %}
+{% set stream_controls %}
+  {{ ui.button("Reconnect", variant="outline-secondary", size="sm") }}
+  {{ ui.button("Pause", variant="outline-secondary", size="sm") }}
+{% endset %}
+{% set chart_footer %}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span class="small text-body-secondary">Chart libraries stay app-level; this shell standardizes the card chrome.</span>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge text-bg-secondary">Footer Slot</span>
+      <span class="badge text-bg-primary">Actions Slot</span>
+    </div>
+  </div>
+{% endset %}
+{% set foundation_form %}
+  <form class="vstack gap-0">
+    {{ ui.form_select("macro-tone",
+        [
+        {"value": "primary", "label": "Primary"},
+        {"value": "success", "label": "Success"},
+        {"value": "warning", "label": "Warning"},
+        ],
+        label="Preferred Tone",
+        value="primary",
+        help_text="Ship generic shells here, then let consuming apps add domain semantics.") 
+    }}
+    {{ ui.textarea("macro-notes",
+        label="Author Notes",
+        value="Keep the framework generic, opinionated, and composable. Build app-specific macros on top.",
+        rows=5,
+        help_text="Textarea and select are visible here so the wrapper exercises every shipped form primitive.") 
+    }}
+    <div class="d-flex flex-wrap gap-2">
+      {{ ui.button("Save Draft", size="sm") }}
+      {{ ui.button("Preview", variant="outline-secondary", size="sm") }}
+    </div>
+  </form>
+{% endset %}
+{% set explorer_items = [
+  {
+    "label": "Data Presentation",
+    "summary": "Tables, grids, empty states, stream status, and stat cards.",
+    "search_text": "grid table stream status stat card list",
+    "tags": [
+      "grid",
+      "status",
+      "metrics"
+    ],
+    "body": "Compose data-rich pages without inventing new view chrome for every app.",
+    "open": true
+  },
+  {
+    "label": "Detail & Guidance",
+    "summary": "Callouts, key-value panels, and chart shells.",
+    "search_text": "callout detail list key value chart shell",
+    "tags": [
+      "details",
+      "chart",
+      "callout"
+    ],
+    "body": "Use these when the app needs metadata, guidance, or a consistent analytics shell."
+  },
+  {
+    "label": "Workspace Layout",
+    "summary": "Split panels, workspace modals, and editor scaffolding.",
+    "search_text": "split panel workspace modal editor inspector drawer",
+    "tags": [
+      "layout",
+      "modal",
+      "editor"
+    ],
+    "body": "These primitives keep builder-style pages consistent while leaving business logic in the consuming app."
+  }
+] %}
+{% set workspace_footer %}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <span class="small text-body-secondary">Workspace overlays are for inspectors, editors, and side-by-side task flows.</span>
+    <div class="d-flex flex-wrap gap-2">
+      {{ ui.button("Cancel",
+            variant="outline-secondary",
+            size="sm",
+            attrs='data-jbs-overlay-close') 
+      }}
+      {{ ui.button("Apply Layout",
+            variant="primary",
+            size="sm",
+            attrs='data-jbs-overlay-close') 
+      }}
+    </div>
+  </div>
+{% endset %}
+{% set timeline_items = [
+  {
+    "title": "Fragment request accepted",
+    "time": "09:14 UTC",
+    "meta": "orders-table · refresh",
+    "body": "The runtime sent a scoped refresh request with persisted header state.",
+    "icon": "bi bi-arrow-repeat",
+    "tone": "primary"
+  },
+  {
+    "title": "Cache reuse on page return",
+    "time": "09:15 UTC",
+    "meta": "orders-table · page 1",
+    "body": "Returning to a known page reused the cached snapshot instead of issuing a second page request.",
+    "icon": "bi bi-lightning-charge",
+    "tone": "info"
+  },
+  {
+    "title": "SSE delta applied",
+    "time": "09:16 UTC",
+    "meta": "live-table · prepend",
+    "body": "A row-level stream event patched the visible surface while preserving surrounding page state.",
+    "icon": "bi bi-broadcast-pin",
+    "tone": "success"
+  }
+] %}
+{% set stacked_list_items = [
+  {
+    "title": "Orders workbench draft",
+    "subtitle": "Use stacked rows for review queues, inspector summaries, or compact activity lists.",
+    "meta": "Updated 2m ago",
+    "badges": [
+      {
+        "label": "Draft",
+        "variant": "warning"
+      }
+    ],
+    "body_html": "<p class=\"small text-body-secondary mb-0\">The server controls row content while consuming apps decide the domain language and actions.</p>"
+  },
+  {
+    "title": "Foundation migration checklist",
+    "subtitle": "Tree nav, code blocks, and timelines unblock explorer-style pages without adding app-specific JS.",
+    "meta": "Owner: framework",
+    "badges": [
+      {
+        "label": "Ready",
+        "variant": "success"
+      }
+    ],
+    "body_html": "<p class=\"small text-body-secondary mb-0\">This pattern works for saved views, work queues, release notes, and compact review surfaces.</p>",
+    "active": true
+  },
+  {
+    "title": "Wrapper app walkthrough refresh",
+    "subtitle": "Examples should demonstrate every shipped primitive in one coherent gallery.",
+    "meta": "Pending video polish",
+    "badges": [
+      {
+        "label": "Docs",
+        "variant": "primary"
+      }
+    ],
+    "body_html": "<p class=\"small text-body-secondary mb-0\">Use actions_html only when the consuming app needs inline buttons or overflow menus.</p>"
+  }
+] %}
+{% set tree_items = [
+  {
+    "label": "Platform",
+    "icon": "bi bi-diagram-3",
+    "open": true,
+    "children": [
+      {
+        "label": "Runtime",
+        "icon": "bi bi-cpu",
+        "open": true,
+        "children": [
+          {
+            "label": "components.py",
+            "href": "#foundation-code-block",
+            "badge": "Python"
+          },
+          {
+            "label": "jinja-bootstrap-spa.js",
+            "href": "#foundation-code-block",
+            "badge": "JS"
+          }
+        ]
+      },
+      {
+        "label": "Macros",
+        "icon": "bi bi-braces",
+        "open": true,
+        "children": [
+          {
+            "label": "data_grid",
+            "badge": "stable"
+          },
+          {
+            "label": "timeline",
+            "badge": "new",
+            "active": true
+          },
+          {
+            "label": "tree_nav",
+            "badge": "new"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "label": "Examples",
+    "icon": "bi bi-window-stack",
+    "children": [
+      {
+        "label": "Wrapper app",
+        "href": "#foundation-gallery"
+      },
+      {
+        "label": "Walkthrough video",
+        "href": "#foundation-code-block"
+      }
+    ]
+  }
+] %}
+{% set runtime_code = [
+  "from flask import render_template, request",
+  "from jinja_bootstrap_spa.runtime.contract import parse_table_state",
+  "",
+  "def orders_component() -> str:",
+  "    state = parse_table_state(",
+  "        request.args,",
+  "        request_headers=request.headers,",
+  "        default_sort_by=\"number\",",
+  "    )",
+  "    return render_template(\"partials/orders_table.html\", table_state=state)",
+] | join("\n") %}
+{% set facet_items = [
+  {
+    "label": "Status",
+    "value": "Queued",
+    "tone": "primary",
+    "remove_html": '<button class="btn btn-sm btn-link p-0 text-reset text-decoration-none"
+        type="button">×</button>'
+  },
+  {
+    "label": "Owner",
+    "value": "Ops",
+    "tone": "success",
+    "remove_html": '<button class="btn btn-sm btn-link p-0 text-reset text-decoration-none"
+        type="button">×</button>'
+  },
+  {
+    "label": "Page Size",
+    "value": "20",
+    "tone": "secondary"
+  }
+] %}
+{% set master_items = [
+  {
+    "title": "Order #1009",
+    "subtitle": "Queued · awaiting ops review",
+    "meta": "2m ago",
+    "badges": [
+      {
+        "label": "Queued",
+        "variant": "warning"
+      }
+    ],
+    "active": true
+  },
+  {
+    "title": "Order #1010",
+    "subtitle": "Open · assigned to runtime",
+    "meta": "5m ago",
+    "badges": [
+      {
+        "label": "Open",
+        "variant": "primary"
+      }
+    ]
+  },
+  {
+    "title": "Order #1011",
+    "subtitle": "Archived · ready for export",
+    "meta": "19m ago",
+    "badges": [
+      {
+        "label": "Archived",
+        "variant": "secondary"
+      }
+    ]
+  }
+] %}
+{% set master_list_html %}
+  {{ ui.stacked_list("foundation-master-list",
+    master_items,
+    title="Master List",
+    subtitle="Use any generic list shell in the master pane.",
+    class_name="border-0 shadow-none") 
+  }}
+{% endset %}
+{% set result_panel_footer %}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span class="small text-body-secondary">Result panels can host code, tables, charts, or validation summaries.</span>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge text-bg-success">Success</span>
+      <span class="badge text-bg-secondary">Server rendered</span>
+    </div>
+  </div>
+{% endset %}
+{% set result_panel_body %}
+  <div class="vstack gap-3">
+    {{ ui.callout(title="Query Result",
+        message="Use this shell when the app needs a consistent output surface for previews, generated content, or operator results.",
+        tone="success",
+        icon="bi bi-check2-circle") 
+    }}
+    {{ ui.code_block("foundation-result-snippet",
+        "SELECT number, customer, status FROM orders WHERE status = 'queued';",
+        language="sql",
+        class_name="shadow-none border") 
+    }}
+  </div>
+{% endset %}
+{% set command_bar_leading %}
+  {{ ui.button("Save View", size="sm") }}
+  {{ ui.button("Run Query", variant="outline-primary", size="sm") }}
+{% endset %}
+{% set command_bar_trailing %}
+  {{ ui.button("Export", variant="outline-secondary", size="sm") }}
+  {{ ui.action_menu("foundation-command-actions",
+    label="More",
+    items=[
+    {"label": "Duplicate"},
+    {"label": "Archive"},
+    {"label": "Share"},
+    ],
+    size="sm") 
+  }}
+{% endset %}
+{% set metric_grid_items = [
+  {
+    "title": "Queued Orders",
+    "value": "128",
+    "subtitle": "Needs review within SLA window.",
+    "icon": "bi bi-inboxes",
+    "tone": "warning",
+    "trend": {
+      "label": "+8 since last hour",
+      "tone": "warning"
+    }
+  },
+  {
+    "title": "Live Streams",
+    "value": "4",
+    "subtitle": "Replace, append, prepend, and hidden-buffer flows.",
+    "icon": "bi bi-broadcast-pin",
+    "tone": "success",
+    "trend": {
+      "label": "healthy",
+      "tone": "success"
+    }
+  },
+  {
+    "title": "Cached Pages",
+    "value": "11",
+    "subtitle": "Reusable page snapshots for quick back/forward navigation.",
+    "icon": "bi bi-lightning-charge",
+    "tone": "primary",
+    "trend": {
+      "label": "cache warm",
+      "tone": "primary"
+    }
+  },
+  {
+    "title": "Pending Changes",
+    "value": "3",
+    "subtitle": "Diff and property editor shells support review workflows.",
+    "icon": "bi bi-sliders",
+    "tone": "info",
+    "trend": {
+      "label": "inspectable",
+      "tone": "info"
+    }
+  }
+] %}
+{% set activity_items = [
+  {
+    "title": "Runtime refresh completed",
+    "body": "orders-table re-rendered after a targeted refresh request.",
+    "meta": "moments ago",
+    "icon": "bi bi-arrow-repeat",
+    "tone": "primary",
+    "badges": [
+      {
+        "label": "swap",
+        "variant": "primary"
+      }
+    ]
+  },
+  {
+    "title": "Stream delta buffered",
+    "body": "The stream paused while hidden and queued rows for a safe replay.",
+    "meta": "1 minute ago",
+    "icon": "bi bi-cloud-arrow-down",
+    "tone": "warning",
+    "badges": [
+      {
+        "label": "buffered",
+        "variant": "warning"
+      }
+    ]
+  },
+  {
+    "title": "Session state restored",
+    "body": "The session-persisted table reapplied page size and current page after reload.",
+    "meta": "3 minutes ago",
+    "icon": "bi bi-device-hdd",
+    "tone": "success",
+    "badges": [
+      {
+        "label": "session",
+        "variant": "success"
+      }
+    ]
+  }
+] %}
+{% set property_editor_body %}
+  <form class="vstack gap-0">
+    {{ ui.form_input("editor-name",
+        label="View Name",
+        value="Queued Orders Review",
+        help_text="Use the property editor shell for inspector and builder-style forms.") 
+    }}
+    {{ ui.form_select("editor-tone",
+        [
+        {"value": "primary", "label": "Primary"},
+        {"value": "success", "label": "Success"},
+        {"value": "warning", "label": "Warning"},
+        ],
+        label="Accent Tone",
+        value="primary") 
+    }}
+    {{ ui.textarea("editor-description",
+        label="Description",
+        value="A generic inspector-style editor for saved views, schema settings, or dashboard properties.",
+        rows=5) 
+    }}
+  </form>
+{% endset %}
+{% set property_editor_aside %}
+  {{ ui.key_value_panel([
+    {"label": "Scope", "value": "Framework primitive"},
+    {"label": "Best Fit", "value": "Inspectors, settings, builders"},
+    {"label": "State Model", "value": "Server rendered + optional runtime replacement"},
+    ], compact=true) }}
+{% endset %}
+{% set property_editor_footer %}
+  <div class="d-flex flex-wrap justify-content-end gap-2">
+    {{ ui.button("Cancel", variant="outline-secondary", size="sm") }}
+    {{ ui.button("Apply Changes", variant="primary", size="sm") }}
+  </div>
+{% endset %}
+{% set diff_before = [
+  "status = 'queued'",
+  "page_size = 10",
+  "persist = 'memory'",
+  "stream_mode = 'replace'",
+] | join("\n") %}
+{% set diff_after = [
+  "status = 'open'",
+  "page_size = 20",
+  "persist = 'session'",
+  "stream_mode = 'replace'",
+] | join("\n") %}
+{% set filterable_card_items = [
+  {
+    "title": "Migration Dashboard",
+    "subtitle": "Track migration surfaces by capability area.",
+    "meta": "Ready",
+    "search_text": "dashboard cards filters metrics review",
+    "badges": [
+      {
+        "label": "Dashboard",
+        "variant": "primary"
+      },
+      {
+        "label": "Metrics",
+        "variant": "secondary"
+      }
+    ],
+    "body_html": "<p class=\"small text-body-secondary mb-0\">Filterable card grids cover summary-heavy pages that do not want table chrome.</p>",
+    "footer_html": "<span class=\"small text-body-secondary\">Best for launch pads and explorer summaries.</span>"
+  },
+  {
+    "title": "Review Queue",
+    "subtitle": "Compact cards with badges, ownership, and quick actions.",
+    "meta": "Queued",
+    "search_text": "review queue cards approvals workbench",
+    "badges": [
+      {
+        "label": "Queue",
+        "variant": "warning"
+      },
+      {
+        "label": "Review",
+        "variant": "secondary"
+      }
+    ],
+    "body_html": "<p class=\"small text-body-secondary mb-0\">Use cards when work items need richer body copy and grouped metadata.</p>",
+    "footer_html": "<span class=\"small text-body-secondary\">Pairs well with action menus and property editors.</span>"
+  },
+  {
+    "title": "Explorer Collection",
+    "subtitle": "Searchable cards for schema, templates, or saved views.",
+    "meta": "Library",
+    "search_text": "explorer collection search schema saved views",
+    "badges": [
+      {
+        "label": "Explorer",
+        "variant": "success"
+      },
+      {
+        "label": "Search",
+        "variant": "secondary"
+      }
+    ],
+    "body_html": "<p class=\"small text-body-secondary mb-0\">This stays local and fast by reusing the runtime searchable-list filtering contract.</p>",
+    "footer_html": "<span class=\"small text-body-secondary\">Useful when a dense explorer should feel lighter than a tree.</span>"
+  }
+] %}
+{% set inline_edit_display %}
+  {{ ui.detail_list([
+    {"label": "Owner", "value": "Platform"},
+    {"label": "Surface", "value": "Migration Work Queue"},
+    {"label": "Mode", "value_html": "<span class=\"badge text-bg-warning\">Draft</span>"},
+    {"label": "Updated", "value": "moments ago"},
+    ], columns=2, striped=true) }}
+{% endset %}
+{% set inline_edit_editor %}
+  <form class="vstack gap-0">
+    {{ ui.form_input("inline-edit-name",
+        label="Configuration Name",
+        value="Queue Review Defaults") }}
+    {{ ui.textarea("inline-edit-notes",
+        label="Notes",
+        value="This shell is for side-by-side review and edit flows where the current state must stay visible.",
+        rows=5) }}
+  </form>
+{% endset %}
+{% set inline_edit_summary %}
+  {{ ui.callout(title="Why this exists",
+    message="Consuming apps often need current-state context next to an editor without opening a separate overlay.",
+    tone="info",
+    icon="bi bi-pencil-square") }}
+{% endset %}
+{% set inline_edit_footer %}
+  <div class="d-flex flex-wrap justify-content-end gap-2">
+    {{ ui.button("Discard", variant="outline-secondary", size="sm") }}
+    {{ ui.button("Save Draft", size="sm") }}
+  </div>
+{% endset %}
+<section id="foundation-gallery" class="mt-5">
+  {{ ui.page_header(title="Foundation Component Gallery",
+    subtitle="These are the generic shells consuming apps can layer into product-specific macros and templates.",
+    icon="bi bi-grid-1x2",
+    eyebrow="Framework Surface",
+    meta_html='<span class="badge text-bg-success">Backlog tranche</span><span class="badge text-bg-secondary">Generic primitives</span>',
+    actions_html=foundation_actions,
+    class_name="mb-4") 
+  }}
+  <div class="mb-4">
+    {{ ui.tabs("foundation-gallery-tabs", foundation_tabs, active="Foundations", variant="tabs") }}
+  </div>
+  {{ ui.callout(title="Opinionated by Design",
+    message="The framework owns structural primitives and the replacement/runtime contract. Consuming apps own product language, workflows, and domain composition.",
+    tone="primary",
+    icon="bi bi-lightbulb",
+    class_name="mb-4") 
+  }}
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+      {{ ui.stat_card("Published Macros",
+            "25+",
+            subtitle="Buttons, forms, shells, overlays, and SPA-like data surfaces.",
+            icon="bi bi-boxes",
+            tone="primary",
+            trend={"label": "Growing backlog", "tone": "primary"}) 
+      }}
+    </div>
+    <div class="col-12 col-md-4">
+      {{ ui.stat_card("Runtime Contract",
+            "Stable",
+            subtitle="Header/query/session persistence with swap, cache, and SSE semantics.",
+            icon="bi bi-arrow-repeat",
+            tone="success",
+            trend={"label": "SSE ready", "tone": "success"}) 
+      }}
+    </div>
+    <div class="col-12 col-md-4">
+      {{ ui.stat_card("App Strategy",
+            "Compose",
+            subtitle="Build local macros on top of these primitives instead of forking the runtime.",
+            icon="bi bi-layers",
+            tone="warning",
+            trend={"label": "Generic first", "tone": "warning"}) 
+      }}
+    </div>
+  </div>
+  {{ ui.command_bar("foundation-command-bar",
+    title="Command Bar Primitive",
+    subtitle="A reusable action strip for search, quick actions, mode toggles, and overflow commands.",
+    badges=[
+    {"label": "Toolbar", "variant": "primary"},
+    {"label": "Bootstrap first", "variant": "secondary"},
+    ],
+    leading_html=command_bar_leading,
+    trailing_html=command_bar_trailing,
+    class_name="mb-4") }}
+  <div class="row g-3 mb-4">
+    <div class="col-12">
+      {{ ui.stream_status("foundation-stream-status",
+            state="buffered",
+            label="Live stream paused while tab is hidden",
+            buffered_count=4,
+            updated_at="just now",
+            controls_html=stream_controls) 
+      }}
+    </div>
+    <div class="col-12 col-lg-7">
+      {{ ui.status_region("foundation-status-region",
+            title="Status Region",
+            message="Use this for inline, dismissible page status messages that should remain in flow.",
+            variant="info",
+            dismissible=false) 
+      }}
+    </div>
+    <div class="col-12 col-lg-5">
+      {{ ui.toast("foundation-toast",
+            title="Toast Primitive",
+            message="Use this for compact notices when the page needs a lighter-weight status surface.",
+            variant="warning",
+            dismissible=false) 
+      }}
+    </div>
+  </div>
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-6">
+      {{ ui.card(title="Detail List",
+            body=ui.detail_list(
+            [
+            {"label": "Primary Goal", "value": "Reusable generic shells"},
+            {"label": "Transport", "value_html": "<span class=\"badge text-bg-secondary\">HTML fragments + headers</span>"},
+            {"label": "Progressive UX", "value": "Replacement, SSE, cache, and lazy hydration"},
+            {"label": "Authoring Style", "value": "Jinja macros + Bootstrap classes"},
+            ],
+            columns=2,
+            striped=true) ,
+      class_name="h-100 shadow-sm")
+      }}
+    </div>
+    <div class="col-12 col-lg-6">
+      {{ ui.card(title="Form Controls",
+            body=foundation_form,
+            class_name="h-100 shadow-sm") 
+      }}
+    </div>
+  </div>
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-7">
+      {% call ui.chart_shell(
+        "foundation-chart-shell",
+        title="Chart Shell",
+        subtitle="The shell is standardized here; the actual chart implementation can vary by app.",
+        badges=[{"label": "Shell", "variant": "primary"}, {"label": "Bring your own chart", "variant": "secondary"}],
+        actions_html=ui.button("Refresh", variant="outline-secondary", size="sm"),
+        footer_html=chart_footer
+        ) %}
+        <div class="ratio ratio-16x9 border rounded-3 bg-body-tertiary">
+          <div class="d-flex flex-column justify-content-center px-4">
+            <div class="progress mb-3" role="presentation">
+              <div class="progress-bar bg-primary" style="width: 76%;">Requests</div>
+            </div>
+            <div class="progress mb-3" role="presentation">
+              <div class="progress-bar bg-success" style="width: 58%;">Latency</div>
+            </div>
+            <div class="progress" role="presentation">
+              <div class="progress-bar bg-warning text-dark" style="width: 31%;">Errors</div>
+            </div>
+          </div>
+        </div>
+      {% endcall %}
+    </div>
+    <div class="col-12 col-lg-5">
+      {{ ui.empty_state("No custom macros yet",
+            "This is the generic baseline. Consuming apps should compose domain-specific macros on top of it.",
+            icon="bi bi-braces-asterisk",
+            action_html=ui.button("Read Contribution Guide", href="https://github.com/abartrim/jinja-bootstrap-spa#contributing", variant="outline-primary", size="sm") ,
+      class_name="h-100")
+      }}
+    </div>
+  </div>
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-xl-6">
+      {{ ui.timeline("foundation-timeline",
+            timeline_items,
+            title="Timeline Primitive",
+            subtitle="Use this for audit history, release trails, queue progress, or SSE event summaries.") 
+      }}
+    </div>
+    <div class="col-12 col-xl-6">
+      {{ ui.stacked_list("foundation-stacked-list",
+            stacked_list_items,
+            title="Stacked List Primitive",
+            subtitle="Compact rows for queues, result lists, review panes, and workbench summaries.") 
+      }}
+    </div>
+  </div>
+  <div class="row g-3 mb-4">
+    <div class="col-12">
+      {{ ui.facet_bar("foundation-facet-bar",
+            facet_items,
+            title="Facet Bar Primitive",
+            clear_action_html=ui.button("Clear all", variant="outline-secondary", size="sm") ,
+      compact=true)
+      }}
+    </div>
+  </div>
+  {{ ui.metric_grid("foundation-metric-grid",
+    metric_grid_items,
+    title="Metric Grid Primitive",
+    subtitle="Use this when a page needs a standardized summary band rather than hand-built stat rows.",
+    class_name="mb-4") }}
+  {% include "partials/foundation_work_queue.html" %}
+  {{ ui.filterable_card_list("foundation-filterable-card-list",
+    filterable_card_items,
+    title="Filterable Card List Primitive",
+    subtitle="Use this for dashboards, launch pads, saved views, and search-first collections that want cards instead of rows.",
+    class_name="mb-4") }}
+  {% call ui.split_panel(direction="horizontal", ratio="3/2", class_name="mb-4") %}
+    <section data-jbs-pane="primary" class="vstack gap-3">
+      {% include "partials/foundation_grid.html" %}
+    </section>
+    <section data-jbs-pane="secondary" class="vstack gap-3">
+      {% call(item) ui.searchable_expandable_list(
+        "foundation-searchable-list",
+        explorer_items,
+        search_placeholder="Filter foundation primitives..."
+        ) %}
+        <p class="small text-body-secondary mb-2">{{ item.body }}</p>
+        <div class="d-flex flex-wrap gap-2">
+          {% for tag in item.tags %}
+            <span class="badge text-bg-light border">{{ tag }}</span>
+          {% endfor %}
+        </div>
+      {% endcall %}
+    </section>
+  {% endcall %}
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-5">
+      {{ ui.tree_nav("foundation-tree-nav",
+            tree_items,
+            title="Tree Navigation Primitive",
+            subtitle="Explorer-style hierarchy without adding custom client-side tree logic.") 
+      }}
+    </div>
+    <div class="col-12 col-lg-7">
+      {{ ui.code_block("foundation-code-block",
+            runtime_code,
+            language="python",
+            title="Code Block Primitive",
+            caption="Use this for snippets, query output, migration hints, or operator-facing config samples.",
+            line_numbers=true,
+            max_height="22rem") 
+      }}
+    </div>
+  </div>
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-xl-6">
+      {{ ui.activity_feed("foundation-activity-feed",
+            activity_items,
+            title="Activity Feed Primitive",
+            subtitle="A denser event list than a timeline for queues, audits, comments, and system activity.") }}
+    </div>
+    <div class="col-12 col-xl-6">
+      {{ ui.property_editor("foundation-property-editor",
+            title="Property Editor Primitive",
+            subtitle="A generic inspector-style editor shell for settings, saved views, and builder metadata.",
+            body=property_editor_body,
+            aside_html=property_editor_aside,
+            footer_html=property_editor_footer) }}
+    </div>
+  </div>
+  {% call ui.master_detail_shell(
+    "foundation-master-detail",
+    master_html=master_list_html,
+    title="Master Detail Shell",
+    subtitle="Use this for inspector and explorer pages where a selected record drives the right-hand detail pane.",
+    header_actions_html=ui.button("Open Detail", variant="outline-secondary", size="sm")
+    ) %}
+    <div class="vstack gap-3">
+      {{ ui.detail_list([
+            {"label": "Order", "value": "#1009"},
+            {"label": "Owner", "value": "Ops"},
+            {"label": "Status", "value_html": "<span class=\"badge text-bg-warning\">Queued</span>"},
+            {"label": "Updated", "value": "2 minutes ago"},
+            ],
+            columns=2,
+            striped=true) 
+      }}
+      {{ ui.result_panel("foundation-result-panel",
+            title="Result Panel Primitive",
+            subtitle="A generic surface for query results, previews, generated output, or validation summaries.",
+            status_badge='<span class="badge text-bg-success">Ready</span>',
+            actions_html=ui.button("Copy Output", variant="outline-secondary", size="sm") ,
+      body=result_panel_body,
+      footer=result_panel_footer,
+      class_name="shadow-none border")
+      }}
+    </div>
+  {% endcall %}
+  {{ ui.diff_view("foundation-diff-view",
+    left_code=diff_before,
+    right_code=diff_after,
+    title="Diff View Primitive",
+    subtitle="Use this for config reviews, saved-query changes, and before/after inspector comparisons.",
+    language="ini",
+    class_name="mb-4") }}
+  {{ ui.inline_edit_shell("foundation-inline-edit-shell",
+    title="Inline Edit Shell",
+    subtitle="Use this when a review surface needs the current state visible beside an editor.",
+    status_badge='<span class="badge text-bg-warning">Draft</span>',
+    actions_html=ui.button("Preview Changes", variant="outline-secondary", size="sm") ,
+  display_html=inline_edit_display,
+  editor_html=inline_edit_editor,
+  summary_html=inline_edit_summary,
+  footer_html=inline_edit_footer,
+  class_name="mb-4") }}
+  {% call ui.workspace_modal(
+    "foundation-workspace-modal",
+    title="Workspace Modal Primitive",
+    footer_html=workspace_footer,
+    size="xl"
+    ) %}
+    {% call ui.split_panel(direction="horizontal", ratio="2/1", collapse_on_mobile=true) %}
+      <section data-jbs-pane="primary" class="vstack gap-3">
+        {{ ui.callout(title="Editor Workspace",
+                message="Use this overlay when the user needs a focused editing or inspection surface without leaving the current page.",
+                tone="info",
+                icon="bi bi-window-fullscreen") 
+        }}
+        {{ ui.card(title="Workspace Notes",
+                body=ui.textarea(
+                "workspace-notes",
+                label="Implementation Direction",
+                value="Keep workflows app-specific. Reuse foundation shells for structure, not business logic.",
+                rows=8) )
+        }}
+      </section>
+      <section data-jbs-pane="secondary" class="vstack gap-3">
+        {{ ui.key_value_panel([
+                {"label": "Overlay Type", "value": "Modal"},
+                {"label": "Sticky Header", "value": "Supported"},
+                {"label": "Sticky Footer", "value": "Supported"},
+                {"label": "Best Fit", "value": "Editors, inspectors, builders"},
+                ],
+                compact=true) 
+        }}
+        {{ ui.empty_state("Secondary Preview",
+                "Use the secondary pane for contextual help, previews, or validation summaries.",
+                icon="bi bi-layout-text-window-reverse",
+                compact=true) 
+        }}
+      </section>
+    {% endcall %}
+  {% endcall %}
+</section>

@@ -63,7 +63,7 @@ export const JBS_PHASES = {
 function cloneState(state) {
     return structuredClone(state);
 }
-function parseState(value) {
+export function parseJBSState(value) {
     if (!value) {
         return {};
     }
@@ -75,7 +75,7 @@ function parseState(value) {
         return {};
     }
 }
-function parseStreamPayload(data) {
+export function parseJBSStreamPayload(data) {
     if (!data) {
         return {};
     }
@@ -380,6 +380,26 @@ export class JBSRuntime {
                     }
                     return;
                 }
+                const selectAll = target?.closest("[data-jbs-table-select-all]");
+                if (selectAll) {
+                    const component = this.findComponent(selectAll);
+                    if (component) {
+                        const { rows } = this.tableSelectionInputs(component);
+                        for (const input of rows) {
+                            input.checked = selectAll.checked;
+                        }
+                        this.syncTableSelection(component);
+                    }
+                    return;
+                }
+                const selectRow = target?.closest("[data-jbs-table-select-row]");
+                if (selectRow) {
+                    const component = this.findComponent(selectRow);
+                    if (component) {
+                        this.syncTableSelection(component);
+                    }
+                    return;
+                }
                 const assistOption = target?.closest("[data-jbs-assist-option]");
                 if (assistOption) {
                     const wrapper = assistOption.closest("[data-jbs-assist]");
@@ -457,6 +477,14 @@ export class JBSRuntime {
         this.handleInput = (event) => {
             const input = event.target instanceof HTMLInputElement ? event.target : null;
             if (!input) {
+                return;
+            }
+            if (input.hasAttribute("data-jbs-searchable-list-input")) {
+                const wrapper = input.closest("[data-jbs-searchable-list]");
+                if (!wrapper) {
+                    return;
+                }
+                this.filterSearchableList(wrapper);
                 return;
             }
             if (input.hasAttribute("data-jbs-autocomplete-input")) {
@@ -597,7 +625,7 @@ export class JBSRuntime {
                 if (component.dataset.jbsHydrated !== "true") {
                     continue;
                 }
-                const state = stripTransientState(applyStatePatch(parseState(component.dataset.jbsState ?? null), readQueryState(component)));
+                const state = stripTransientState(applyStatePatch(parseJBSState(component.dataset.jbsState ?? null), readQueryState(component)));
                 this.runTask(this.requestComponent(component, JBS_ACTIONS.refresh, state, null, {
                     persist: false,
                 }), "popstate refresh", component);
@@ -839,6 +867,8 @@ export class JBSRuntime {
         this.hydrateDisclosures(root);
         this.hydrateMultiSelects(root);
         this.hydrateDateRangePickers(root);
+        this.hydrateSearchableLists(root);
+        this.hydrateTableSelections(root);
         const components = root.querySelectorAll("[data-jbs-component][data-jbs-endpoint]");
         for (const component of components) {
             this.hydrateComponent(component, true);
@@ -850,7 +880,7 @@ export class JBSRuntime {
         if (current) {
             return cloneState(current);
         }
-        const state = parseState(component.dataset.jbsState ?? null);
+        const state = parseJBSState(component.dataset.jbsState ?? null);
         this.stateStore.set(key, state);
         return cloneState(state);
     }
@@ -1043,7 +1073,7 @@ export class JBSRuntime {
         if (existingEtag) {
             this.componentEtags.set(key, existingEtag);
         }
-        const serverState = stripTransientState(parseState(component.dataset.jbsState ?? null));
+        const serverState = stripTransientState(parseJBSState(component.dataset.jbsState ?? null));
         const state = this.hydratedState(component, key);
         component.dataset.jbsState = JSON.stringify(state);
         component.dataset.jbsHydrated = "true";
@@ -1078,14 +1108,14 @@ export class JBSRuntime {
         this.runTask(this.requestComponent(component, JBS_ACTIONS.refresh, this.getState(component), null, { persist: false }), "lazy component refresh", component);
     }
     hydratedState(component, key) {
-        const baseState = parseState(component.dataset.jbsState ?? null);
+        const baseState = parseJBSState(component.dataset.jbsState ?? null);
         const persist = this.persistStrategy(component);
         if (persist === JBS_PERSISTENCE.querystring) {
             return stripTransientState(applyStatePatch(baseState, readQueryState(component)));
         }
         if (persist === JBS_PERSISTENCE.session && typeof sessionStorage !== "undefined") {
             const saved = sessionStorage.getItem(sessionStorageKey(component, key));
-            return stripTransientState(applyStatePatch(baseState, parseState(saved)));
+            return stripTransientState(applyStatePatch(baseState, parseJBSState(saved)));
         }
         return stripTransientState(baseState);
     }
@@ -1787,7 +1817,7 @@ export class JBSRuntime {
             if (!current) {
                 return;
             }
-            const payload = parseStreamPayload(event.data);
+            const payload = parseJBSStreamPayload(event.data);
             const target = payload.target;
             if (target && target !== current.id && target !== key) {
                 return;
@@ -2117,6 +2147,132 @@ export class JBSRuntime {
         if (component) {
             this.captureDisclosureState(component);
         }
+    }
+    searchableListElements(wrapper) {
+        return {
+            input: wrapper.querySelector("[data-jbs-searchable-list-input]"),
+            empty: wrapper.querySelector("[data-jbs-searchable-list-empty]"),
+            items: Array.from(wrapper.querySelectorAll("[data-jbs-searchable-item]")),
+        };
+    }
+    hydrateSearchableLists(root) {
+        const wrappers = root.querySelectorAll("[data-jbs-searchable-list]");
+        for (const wrapper of wrappers) {
+            this.filterSearchableList(wrapper);
+        }
+    }
+    filterSearchableList(wrapper) {
+        const { input, empty, items } = this.searchableListElements(wrapper);
+        const query = (input?.value ?? "").trim().toLowerCase();
+        let visibleCount = 0;
+        for (const item of items) {
+            const haystack = (item.dataset.jbsSearchableText ||
+                item.textContent ||
+                "").toLowerCase();
+            const matches = query.length === 0 || haystack.includes(query);
+            item.hidden = !matches;
+            if (matches) {
+                visibleCount += 1;
+            }
+        }
+        if (empty) {
+            empty.hidden = visibleCount > 0;
+        }
+    }
+    tableSelectionInputs(component) {
+        return {
+            header: component.querySelector("[data-jbs-table-select-all]"),
+            rows: Array.from(component.querySelectorAll("[data-jbs-table-select-row]")),
+        };
+    }
+    hydrateTableSelections(root) {
+        const components = root.querySelectorAll("[data-jbs-selection-form]");
+        for (const component of components) {
+            this.syncTableSelection(component);
+        }
+    }
+    syncTableSelection(component) {
+        const { header, rows } = this.tableSelectionInputs(component);
+        const selectionFormId = component.dataset.jbsSelectionForm ?? null;
+        const selectionKey = component.dataset.jbsSelectionKey ?? "selected_ids";
+        const selectionForm = selectionFormId
+            ? document.getElementById(selectionFormId)
+            : null;
+        const currentState = stripTransientState(this.getState(component));
+        const mergedSelection = new Set(stringListFromUnknown(currentState[selectionKey]));
+        for (const input of rows) {
+            if (input.checked) {
+                mergedSelection.add(input.value);
+            }
+            else {
+                mergedSelection.delete(input.value);
+            }
+        }
+        if (selectionForm instanceof HTMLFormElement) {
+            selectionForm.innerHTML = "";
+            const visibleChecked = new Set(rows.filter((input) => input.checked).map((input) => input.value));
+            for (const id of mergedSelection) {
+                if (visibleChecked.has(id)) {
+                    continue;
+                }
+                const hidden = document.createElement("input");
+                hidden.type = "hidden";
+                hidden.name = selectionKey;
+                hidden.value = id;
+                hidden.dataset.jbsSelectionHidden = "true";
+                selectionForm.append(hidden);
+            }
+        }
+        const checkedRows = rows.filter((input) => input.checked);
+        const checkedCount = checkedRows.length;
+        const selectedCount = mergedSelection.size;
+        if (selectedCount > 0) {
+            currentState[selectionKey] = Array.from(mergedSelection);
+        }
+        else {
+            delete currentState[selectionKey];
+        }
+        this.stateStore.set(this.componentKey(component), currentState);
+        component.dataset.jbsState = JSON.stringify(currentState);
+        if (header) {
+            header.checked = rows.length > 0 && checkedCount === rows.length;
+            header.indeterminate = checkedCount > 0 && checkedCount < rows.length;
+        }
+        for (const input of rows) {
+            const row = input.closest("tr");
+            if (!(row instanceof HTMLTableRowElement)) {
+                continue;
+            }
+            row.dataset.jbsRowSelected = input.checked ? "true" : "false";
+            row.classList.toggle("table-active", input.checked);
+        }
+        const countLabel = `${selectedCount} selected`;
+        const counts = component.querySelectorAll("[data-jbs-selection-count]");
+        for (const count of counts) {
+            count.textContent = countLabel;
+        }
+        const guarded = component.querySelectorAll("[data-jbs-selection-requires]");
+        for (const element of guarded) {
+            const disabled = selectedCount === 0;
+            element.toggleAttribute("disabled", disabled);
+            element.setAttribute("aria-disabled", disabled ? "true" : "false");
+            if (element instanceof HTMLButtonElement ||
+                element instanceof HTMLInputElement ||
+                element instanceof HTMLSelectElement ||
+                element instanceof HTMLTextAreaElement) {
+                element.disabled = disabled;
+            }
+        }
+    }
+    formStateById(formId) {
+        if (!formId) {
+            return {};
+        }
+        const form = document.getElementById(formId);
+        if (!(form instanceof HTMLFormElement)) {
+            return {};
+        }
+        return normalizeFormData(form);
     }
     dateRangeElements(wrapper) {
         return {
@@ -2461,8 +2617,24 @@ export class JBSRuntime {
         }
     }
     buildPatchFromTrigger(component, trigger, action) {
-        let patch = parseState(trigger.dataset.jbsPatch ?? null);
-        const current = stripTransientState(this.getState(component));
+        let patch = parseJBSState(trigger.dataset.jbsPatch ?? null);
+        let current = stripTransientState(this.getState(component));
+        const selectionKey = component.dataset.jbsSelectionKey ?? null;
+        const formIds = new Set();
+        if (selectionKey) {
+            delete current[selectionKey];
+        }
+        const selectionFormId = component.dataset.jbsSelectionForm ?? null;
+        if (selectionFormId) {
+            formIds.add(selectionFormId);
+        }
+        const actionFormId = trigger.dataset.jbsActionForm ?? null;
+        if (actionFormId) {
+            formIds.add(actionFormId);
+        }
+        for (const formId of formIds) {
+            current = applyStatePatch(current, this.formStateById(formId));
+        }
         if (trigger.dataset.jbsRowId) {
             patch = { ...patch, row_id: trigger.dataset.jbsRowId };
         }

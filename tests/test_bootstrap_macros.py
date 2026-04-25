@@ -41,6 +41,27 @@ def test_button_macro_renders_bootstrap_button_markup() -> None:
     assert ">Save</button>" in rendered
 
 
+def test_register_bootstrap_macros_also_registers_packaged_base_template() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% extends "jinja_bootstrap_spa/base.html" %}
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {% block title %}Orders{% endblock %}
+        {% block content %}
+          <main class="container py-4">{{ ui.button("Save") }}</main>
+        {% endblock %}
+        """
+    )
+
+    rendered = template.render()
+
+    assert "<!DOCTYPE html>" in rendered
+    assert "<title>" in rendered
+    assert "Orders" in rendered
+    assert 'class="btn btn-primary"' in rendered
+
+
 def test_button_macro_supports_runtime_action_attributes() -> None:
     environment = build_environment()
     template = environment.from_string(
@@ -235,6 +256,614 @@ def test_segmented_control_macro_renders_pill_tabs_contract() -> None:
     assert "jbs-segmented-control" in rendered
     assert "nav-pills" in rendered
     assert 'role="tablist"' in rendered
+
+
+def test_page_header_macro_renders_breadcrumbs_meta_and_actions() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {% set meta_html %}<span class="badge text-bg-success">Live</span>{% endset %}
+        {% set actions_html %}
+          <button class="btn btn-sm btn-primary">Refresh</button>
+        {% endset %}
+        {{
+          ui.page_header(
+            title="Orders",
+            subtitle="Monitor the latest order activity.",
+            icon="bi bi-box-seam",
+            eyebrow="Operations",
+            meta_html=meta_html,
+            actions_html=actions_html,
+            breadcrumbs=[
+              {"label": "Home", "href": "/"},
+              {"label": "Orders", "active": true},
+            ],
+            class_name="mb-4"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert "jbs-page-header" in rendered
+    assert "breadcrumb" in rendered
+    assert 'aria-label="Breadcrumb"' in rendered
+    assert 'href="/"' in rendered
+    assert "Operations" in rendered
+    assert "Monitor the latest order activity." in rendered
+    assert 'class="bi bi-box-seam"' in rendered
+    assert "badge text-bg-success" in rendered
+    assert "btn btn-sm btn-primary" in rendered
+
+
+def test_toolbar_macro_supports_badges_call_blocks_and_disclosure() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {% set actions_html %}
+          <button class="btn btn-sm btn-outline-primary">Refresh</button>
+        {% endset %}
+        {% call ui.toolbar(
+          toolbar_id="orders-toolbar",
+          title="Filters",
+          subtitle="Refine the current result set.",
+          badges=[
+            {"label": "Header persistence", "variant": "primary"},
+            "SSE ready"
+          ],
+          actions_html=actions_html,
+          collapsible=true,
+          expanded=false,
+          class_name="mb-3"
+        ) %}
+          <form data-jbs-form><input name="query" value="open"></form>
+        {% endcall %}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="orders-toolbar"' in rendered
+    assert "jbs-toolbar" in rendered
+    assert "data-jbs-disclosure" in rendered
+    assert "data-jbs-disclosure-trigger" in rendered
+    assert "data-jbs-disclosure-panel" in rendered
+    assert 'aria-expanded="false"' in rendered
+    assert "Header persistence" in rendered
+    assert "SSE ready" in rendered
+    assert "btn btn-sm btn-outline-primary" in rendered
+    assert '<form data-jbs-form><input name="query" value="open"></form>' in rendered
+
+
+def test_foundation_status_and_metric_macros_render_generic_shells() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.stat_card(
+            "Active Streams",
+            "4",
+            subtitle="Connected tabs",
+            icon="bi bi-broadcast",
+            tone="success",
+            trend={"label": "Healthy", "tone": "success"}
+          )
+        }}
+        {{
+          ui.stream_status(
+            "orders-stream",
+            state="buffered",
+            label="Live paused",
+            buffered_count=3,
+            updated_at="just now"
+          )
+        }}
+        {{
+          ui.callout(
+            title="Migration Note",
+            message="Keep domain language in the consuming app.",
+            tone="primary",
+            icon="bi bi-lightbulb"
+          )
+        }}
+        {{
+          ui.empty_state(
+            "No dashboards yet",
+            "Add a chart to get started.",
+            icon="bi bi-bar-chart"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert "jbs-stat-card" in rendered
+    assert "Active Streams" in rendered
+    assert "Healthy" in rendered
+    assert "data-jbs-stream-status" in rendered
+    assert 'data-jbs-stream-state="buffered"' in rendered
+    assert "3 buffered" in rendered
+    assert "jbs-callout" in rendered
+    assert "Migration Note" in rendered
+    assert "jbs-empty-state" in rendered
+    assert "No dashboards yet" in rendered
+
+
+def test_detail_list_and_key_value_panel_render_structured_metadata() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.detail_list(
+            [
+              {"label": "Service", "value": "api"},
+              {
+                "label": "Status",
+                "value_html": "<span class='badge text-bg-success'>OK</span>"
+              },
+            ],
+            columns=2,
+            striped=true
+          )
+        }}
+        {{
+          ui.key_value_panel(
+            [{"label": "Owner", "value": "platform"}],
+            compact=true
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert "jbs-detail-list" in rendered
+    assert "Service" in rendered
+    assert "badge text-bg-success" in rendered
+    assert "Owner" in rendered
+    assert "platform" in rendered
+
+
+def test_chart_shell_split_panel_and_workspace_modal_render_shell_contract() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {% call ui.chart_shell(
+          "requests-chart",
+          title="Request Volume",
+          subtitle="Shared chart chrome",
+          footer_html="<span>Footer</span>"
+        ) %}
+          <div id="chart-target">chart body</div>
+        {% endcall %}
+        {% call ui.split_panel(direction="horizontal", ratio="2/1") %}
+          <section data-jbs-pane="primary">left</section>
+          <section data-jbs-pane="secondary">right</section>
+        {% endcall %}
+        {% call ui.workspace_modal(
+          "chart-editor",
+          title="Edit Chart",
+          footer_html="<button>Save</button>"
+        ) %}
+          <div class="editor-body">editor</div>
+        {% endcall %}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="requests-chart"' in rendered
+    assert "jbs-chart-shell" in rendered
+    assert "chart body" in rendered
+    assert "data-jbs-split-panel" in rendered
+    assert 'data-jbs-direction="horizontal"' in rendered
+    assert 'data-jbs-pane="primary"' in rendered
+    assert 'id="chart-editor"' in rendered
+    assert "jbs-workspace-modal" in rendered
+    assert "editor-body" in rendered
+
+
+def test_data_grid_macro_renders_table_shell_and_slot_templates() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.data_grid(
+            "orders-grid",
+            "/components/orders-grid",
+            columns=[
+              {"key": "number", "label": "Order", "sortable": true},
+              {"key": "status", "label": "Status", "sortable": false},
+            ],
+            rows=[
+              {"id": "row-1", "number": "#1001", "status": "Queued"},
+              {"id": "row-2", "number": "#1002", "status": "Open"},
+            ],
+            state={"page": 1, "page_size": 10, "sort_by": "number", "sort_dir": "asc"},
+            caption="Orders Grid",
+            subtitle="Richer table shell",
+            count_label="2 seeded rows",
+            toolbar_html="<button>Refresh</button>",
+            empty_html="<div>Nothing here</div>"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="orders-grid"' in rendered
+    assert 'data-jbs-component="table"' in rendered
+    assert "jbs-data-grid" in rendered
+    assert "Orders Grid" in rendered
+    assert "Richer table shell" in rendered
+    assert '<div class="d-none" data-jbs-loading-template>' in rendered
+    assert '<div class="d-none" data-jbs-error-template>' in rendered
+    assert '<div class="d-none" data-jbs-empty-template>' in rendered
+    assert "2 seeded rows" in rendered
+    assert 'data-jbs-sort-key="number"' in rendered
+
+
+def test_searchable_expandable_list_renders_search_and_disclosure_contract() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {% call(item) ui.searchable_expandable_list(
+          "schema-list",
+          items=[
+            {
+              "label": "Orders",
+              "summary": "Stateful grid",
+              "search_text": "orders grid table",
+              "tags": ["grid"],
+              "open": true
+            },
+            {
+              "label": "Customers",
+              "summary": "Autocomplete and forms",
+              "search_text": "customers autocomplete forms"
+            },
+          ]
+        ) %}
+          <div class="item-body">{{ item.summary }}</div>
+        {% endcall %}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="schema-list"' in rendered
+    assert "data-jbs-searchable-list" in rendered
+    assert "data-jbs-searchable-list-input" in rendered
+    assert "data-jbs-searchable-item" in rendered
+    assert 'data-jbs-searchable-text="orders grid table"' in rendered
+    assert "data-jbs-disclosure" in rendered
+    assert "data-jbs-searchable-list-empty" in rendered
+    assert "item-body" in rendered
+
+
+def test_timeline_stacked_list_tree_nav_and_code_block_render_generic_surfaces() -> (
+    None
+):
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.timeline(
+            "deploy-timeline",
+            [
+              {
+                "title": "Build started",
+                "time": "09:14 UTC",
+                "body": "Runtime refresh request issued.",
+                "tone": "primary",
+                "icon": "bi bi-arrow-repeat"
+              },
+              {
+                "title": "SSE update applied",
+                "time": "09:15 UTC",
+                "body": "Row patch landed without a full page reload.",
+                "tone": "success"
+              }
+            ],
+            title="Timeline",
+            subtitle="Ordered change history."
+          )
+        }}
+        {{
+          ui.stacked_list(
+            "review-list",
+            [
+              {
+                "title": "Orders review",
+                "subtitle": "Compact queue row",
+                "meta": "2m ago",
+                "badges": [{"label": "New", "variant": "success"}],
+                "body_html": "<p>Body</p>",
+                "active": true
+              }
+            ],
+            title="Review List"
+          )
+        }}
+        {{
+          ui.tree_nav(
+            "schema-tree",
+            [
+              {
+                "label": "Platform",
+                "open": true,
+                "children": [
+                  {"label": "Runtime", "badge": "stable", "active": true}
+                ]
+              }
+            ],
+            title="Tree"
+          )
+        }}
+        {{
+          ui.code_block(
+            "snippet",
+            "SELECT *\\nFROM orders;",
+            language="sql",
+            title="Snippet",
+            line_numbers=true,
+            caption="Example query"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="deploy-timeline"' in rendered
+    assert "jbs-timeline" in rendered
+    assert "Build started" in rendered
+    assert 'id="review-list"' in rendered
+    assert "jbs-stacked-list" in rendered
+    assert "list-group-item" in rendered
+    assert 'id="schema-tree"' in rendered
+    assert "jbs-tree-nav" in rendered
+    assert "<details" in rendered
+    assert 'id="snippet"' in rendered
+    assert "jbs-code-block" in rendered
+    assert "<ol" in rendered
+    assert "SELECT *" in rendered
+
+
+def test_facet_bar_master_detail_and_result_panel_render_generic_workflow_shells() -> (
+    None
+):
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.facet_bar(
+            "active-facets",
+            [
+              {
+                "label": "Status",
+                "value": "Queued",
+                "tone": "primary",
+                "remove_html": "<button type='button'>x</button>"
+              }
+            ],
+            title="Active Filters",
+            clear_action_html="<button type='button'>Clear</button>"
+          )
+        }}
+        {{
+          ui.master_detail_shell(
+            "review-shell",
+            master_html="<div>Master list</div>",
+            detail_html="<div>Detail pane</div>",
+            title="Review Shell",
+            subtitle="Generic master/detail layout.",
+            header_actions_html="<button type='button'>Open</button>"
+          )
+        }}
+        {{
+          ui.result_panel(
+            "query-result",
+            title="Result",
+            subtitle="Generated output.",
+            status_badge="<span class='badge text-bg-success'>Ready</span>",
+            actions_html="<button type='button'>Copy</button>",
+            body="<pre>output</pre>",
+            footer="<small>Footer</small>"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="active-facets"' in rendered
+    assert "jbs-facet-bar" in rendered
+    assert "Queued" in rendered
+    assert 'id="review-shell"' in rendered
+    assert "jbs-master-detail-shell" in rendered
+    assert 'data-jbs-pane="master"' in rendered
+    assert 'data-jbs-pane="detail"' in rendered
+    assert 'id="query-result"' in rendered
+    assert "jbs-result-panel" in rendered
+    assert "Generated output." in rendered
+    assert "<pre>output</pre>" in rendered
+
+
+def test_foundation_inspector_primitives_render() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.command_bar(
+            "ops-command-bar",
+            title="Actions",
+            subtitle="Quick actions",
+            badges=[{"label": "Toolbar", "variant": "primary"}],
+            leading_html="<button type='button'>Run</button>",
+            trailing_html="<button type='button'>Export</button>"
+          )
+        }}
+        {{
+          ui.metric_grid(
+            "ops-metric-grid",
+            [
+              {
+                "title": "Queued",
+                "value": "12",
+                "subtitle": "Awaiting review",
+                "tone": "warning"
+              }
+            ],
+            title="Metrics"
+          )
+        }}
+        {{
+          ui.activity_feed(
+            "ops-activity-feed",
+            [
+              {
+                "title": "Refresh complete",
+                "body": "Table swap applied.",
+                "meta": "now",
+                "tone": "success"
+              }
+            ],
+            title="Activity"
+          )
+        }}
+        {{
+          ui.property_editor(
+            "ops-editor",
+            title="Editor",
+            body="<form><input name='name'></form>",
+            aside_html="<div>Aside</div>",
+            footer_html="<button type='button'>Save</button>"
+          )
+        }}
+        {{
+          ui.diff_view(
+            "ops-diff",
+            left_code="status = 'queued'",
+            right_code="status = 'open'",
+            title="Diff",
+            language="ini"
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="ops-command-bar"' in rendered
+    assert "jbs-command-bar" in rendered
+    assert 'id="ops-metric-grid"' in rendered
+    assert "jbs-metric-grid" in rendered
+    assert "Awaiting review" in rendered
+    assert 'id="ops-activity-feed"' in rendered
+    assert "jbs-activity-feed" in rendered
+    assert "Refresh complete" in rendered
+    assert 'id="ops-editor"' in rendered
+    assert "jbs-property-editor" in rendered
+    assert 'id="ops-diff"' in rendered
+    assert "jbs-diff-view" in rendered
+    assert 'id="ops-diff-before"' in rendered
+    assert 'id="ops-diff-after"' in rendered
+
+
+def test_collection_inline_edit_and_selectable_table_render() -> None:
+    environment = build_environment()
+    template = environment.from_string(
+        """
+        {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
+        {{
+          ui.filterable_card_list(
+            "ops-cards",
+            [
+              {
+                "title": "Review Queue",
+                "subtitle": "Searchable cards",
+                "search_text": "review queue cards"
+              }
+            ],
+            title="Cards"
+          )
+        }}
+        {{
+          ui.inline_edit_shell(
+            "ops-inline-edit",
+            title="Inline Edit",
+            display_html="<p>Current value</p>",
+            editor_html="<form><input name='title'></form>",
+            summary_html="<div>Summary</div>",
+            footer_html="<button type='button'>Save</button>"
+          )
+        }}
+        {{
+          ui.table(
+            "ops-table",
+            "/components/ops-table",
+            columns=[
+              {
+                "key": "service",
+                "label": "Service",
+                "sortable": true,
+                "pinned": "start",
+                "pin_offset": "2.75rem"
+              },
+              {
+                "key": "status",
+                "label": "Status",
+                "sortable": false,
+                "pinned": "end",
+                "pin_offset": "0px"
+              }
+            ],
+            rows=[
+              {"id": "row-1", "service": "orders-api", "status": "Queued"}
+            ],
+            state={"page": 1, "page_size": 10, "selected_ids": ["row-1"]},
+            selectable=true,
+            selection_actions_html=(
+              "<button data-jbs-selection-requires type='button'>Review</button>"
+            ),
+            persist="header",
+            state_keys=["page", "page_size", "sort_by", "sort_dir", "selected_ids"]
+          )
+        }}
+        """
+    )
+
+    rendered = template.render()
+
+    assert 'id="ops-cards"' in rendered
+    assert "jbs-filterable-card-list" in rendered
+    assert "data-jbs-searchable-list-input" in rendered
+    assert 'id="ops-inline-edit"' in rendered
+    assert "jbs-inline-edit-shell" in rendered
+    assert 'data-jbs-pane="display"' in rendered
+    assert 'data-jbs-pane="editor"' in rendered
+    assert 'id="ops-table"' in rendered
+    assert 'data-jbs-selection-form="ops-table-selection-form"' in rendered
+    assert 'data-jbs-selection-key="selected_ids"' in rendered
+    assert "data-jbs-table-select-all" in rendered
+    assert "data-jbs-table-select-row" in rendered
+    assert "data-jbs-selection-count" in rendered
+    assert "data-jbs-selection-requires" in rendered
+    assert "position: sticky;" in rendered
 
 
 def test_toast_macro_renders_dismissible_status_notice() -> None:
@@ -576,6 +1205,22 @@ def test_parse_table_state_prefers_header_state_over_query_params() -> None:
         "sort_dir": "desc",
         "status": "open",
     }
+
+
+def test_parse_table_state_preserves_list_filter_values_from_header_state() -> None:
+    state = parse_table_state(
+        {},
+        request_headers={
+            JBS_STATE_HEADER: (
+                '{"page":1,"page_size":10,"sort_by":"service","sort_dir":"asc",'
+                '"selected_ids":["row-1","row-2"]}'
+            )
+        },
+        default_sort_by="service",
+        filter_keys=("selected_ids",),
+    )
+
+    assert state["selected_ids"] == ["row-1", "row-2"]
 
 
 def test_fragment_etag_is_stable_for_identical_content() -> None:

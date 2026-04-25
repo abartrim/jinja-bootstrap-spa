@@ -29,6 +29,12 @@ jobs:
           node-version: "20"
           cache: "npm"
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v4
@@ -57,6 +63,11 @@ jobs:
           npm run build:js
           git diff --exit-code -- src/jinja_bootstrap_spa/static
 
+      - name: Check generated macro reference
+        run: |
+          python scripts/generate_macro_reference.py
+          git diff --exit-code -- docs/api_reference.md
+
       - name: Run flake8
         run: flake8 src tests
 
@@ -72,8 +83,20 @@ jobs:
       - name: Run djLint
         run: djlint src/jinja_bootstrap_spa/templates --check
 
+      - name: Check gofmt
+        run: test -z "$(gofmt -l assets.go environment.go environment_test.go examples/go_table_app/main.go examples/go_table_app/data.go examples/go_table_app/app.go examples/go_table_app/app_test.go)"
+
+      - name: Run go test
+        run: GOSUMDB=off go test ./...
+
       - name: Type-check browser runtime
         run: npm run typecheck:js
 
+      - name: Run browser runtime unit tests
+        run: npm run test:js
+
       - name: Run pytest
         run: pytest
+
+      - name: Build Python package
+        run: python -m build

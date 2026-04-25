@@ -62,6 +62,62 @@ SESSION_ROWS = [
     {"name": "Web Traffic", "owner": "Growth"},
     {"name": "AI Calls", "owner": "Infra"},
 ]
+FOUNDATION_WORK_QUEUE = [
+    {
+        "id": "queue-101",
+        "service": "orders-api",
+        "owner": "Platform",
+        "priority": "P1",
+        "status": "Queued",
+        "window": "2026-04-19 08:00",
+        "summary": "Roll out fragment cache headers and state-aware refresh handling.",
+    },
+    {
+        "id": "queue-102",
+        "service": "reporting-ui",
+        "owner": "Analytics",
+        "priority": "P2",
+        "status": "Review",
+        "window": "2026-04-19 09:15",
+        "summary": "Backfill generic chart shell usage before dashboard migration.",
+    },
+    {
+        "id": "queue-103",
+        "service": "audit-stream",
+        "owner": "Operations",
+        "priority": "P1",
+        "status": "Ready",
+        "window": "2026-04-19 10:00",
+        "summary": "Promote SSE delta protocol and verify hidden-tab buffering behavior.",
+    },
+    {
+        "id": "queue-104",
+        "service": "table-explorer",
+        "owner": "Data",
+        "priority": "P3",
+        "status": "Queued",
+        "window": "2026-04-19 11:30",
+        "summary": "Adopt tree navigation, inline review panes, and card collections.",
+    },
+    {
+        "id": "queue-105",
+        "service": "operator-console",
+        "owner": "SRE",
+        "priority": "P2",
+        "status": "Review",
+        "window": "2026-04-19 13:00",
+        "summary": "Replace bespoke drawers with property editors and workspace modals.",
+    },
+    {
+        "id": "queue-106",
+        "service": "schema-tools",
+        "owner": "Infra",
+        "priority": "P1",
+        "status": "Ready",
+        "window": "2026-04-19 14:20",
+        "summary": "Ship pinned columns and selectable review flows for dense admin grids.",
+    },
+]
 
 
 def _seed_orders() -> list[dict[str, Any]]:
@@ -390,6 +446,48 @@ def build_session_context() -> dict[str, Any]:
     }
 
 
+def build_foundation_work_queue_context() -> dict[str, Any]:
+    state = parse_table_state(
+        request.args,
+        request_headers=request.headers,
+        default_sort_by="service",
+        default_page_size=3,
+        allowed_page_sizes=(3, 6),
+        filter_keys=("selected_ids",),
+    )
+    selected_ids = state.get("selected_ids", [])
+    if isinstance(selected_ids, str):
+        selected_ids = [selected_ids]
+
+    sort_by = str(state.get("sort_by", "service") or "service")
+    sort_dir = str(state.get("sort_dir", "asc") or "asc")
+    reverse = sort_dir == "desc"
+    rows_sorted = sorted(
+        FOUNDATION_WORK_QUEUE,
+        key=lambda row: str(row.get(sort_by, "")).lower(),
+        reverse=reverse,
+    )
+    page = int(state["page"])
+    page_size = int(state["page_size"])
+    start = (page - 1) * page_size
+    end = start + page_size
+    selected_label = (
+        f"{len(selected_ids)} selected across refreshes and page changes."
+        if selected_ids
+        else "Selectable rows keep state through page and sort actions."
+    )
+    return {
+        "foundation_work_queue_rows": rows_sorted[start:end],
+        "foundation_work_queue_total_rows": len(rows_sorted),
+        "foundation_work_queue_state": state,
+        "foundation_work_queue_selected_ids": selected_ids,
+        "foundation_work_queue_subtitle": (
+            "Pinned start/end columns plus header-based selection state. "
+            f"{selected_label}"
+        ),
+    }
+
+
 def build_live_table_context() -> dict[str, Any]:
     state = parse_table_state(
         request.args,
@@ -430,12 +528,117 @@ def build_live_append_context() -> dict[str, Any]:
     }
 
 
+def build_foundation_grid_context() -> dict[str, Any]:
+    return {
+        "foundation_grid_rows": [
+            {
+                "primitive": "data_grid",
+                "purpose": "Reusable CRUD and operator shell for table-driven pages.",
+                "status": '<span class="badge text-bg-success">Implemented</span>',
+            },
+            {
+                "primitive": "searchable_expandable_list",
+                "purpose": "Explorer shell for drill-down lists and schema browsers.",
+                "status": '<span class="badge text-bg-success">Implemented</span>',
+            },
+            {
+                "primitive": "workspace_modal",
+                "purpose": "Large overlay for editors, inspectors, and multi-pane flows.",
+                "status": '<span class="badge text-bg-primary">Ready to compose</span>',
+            },
+            {
+                "primitive": "timeline",
+                "purpose": "Ordered event/history surface for audit trails and stream summaries.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "stacked_list",
+                "purpose": "Compact stacked rows for queues, review surfaces, and result summaries.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "tree_nav",
+                "purpose": "Hierarchical explorer navigation without a separate JS tree widget.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "code_block",
+                "purpose": "Structured snippet/config surface for docs, query output, and operator hints.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "facet_bar",
+                "purpose": "Active-filter chip row with clear/remove affordances for tables and explorers.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "master_detail_shell",
+                "purpose": "Generic master/detail layout for inspector, review, and explorer pages.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "result_panel",
+                "purpose": "Consistent output surface for generated results, previews, and validation summaries.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "command_bar",
+                "purpose": "Reusable action strip for search, quick actions, and overflow commands.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "metric_grid",
+                "purpose": "Structured summary band for grouped stat cards and KPI rows.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "activity_feed",
+                "purpose": "Dense event stream surface for audits, comments, and runtime activity.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "property_editor",
+                "purpose": "Inspector-style form shell for settings, metadata, and builder properties.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "diff_view",
+                "purpose": "Before/after comparison shell for config reviews and change inspection.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "filterable_card_list",
+                "purpose": "Filterable card-grid shell for dashboards, explorers, and work queues.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "inline_edit_shell",
+                "purpose": "Detail-and-editor shell for inline review and editing workflows.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+            {
+                "primitive": "table selection + pinned columns",
+                "purpose": "Generic dense-grid enhancements for bulk actions and operator views.",
+                "status": '<span class="badge text-bg-success">New</span>',
+            },
+        ],
+        "foundation_grid_state": {
+            "page": 1,
+            "page_size": 10,
+            "sort_by": "",
+            "sort_dir": "asc",
+        },
+    }
+
+
 @app.get("/")
 def index() -> str:
     context = build_orders_context()
     context.update(build_session_context())
+    context.update(build_foundation_work_queue_context())
     context.update(build_live_table_context())
     context.update(build_live_append_context())
+    context.update(build_foundation_grid_context())
     return render_template("index.html", **context)
 
 
@@ -464,6 +667,24 @@ def session_table_component() -> tuple[str, int, dict[str, str]]:
     context = build_orders_context()
     context.update(build_session_context())
     html = render_template("partials/session_table.html", **context)
+    return _fragment_response(html)
+
+
+@app.get("/components/foundation-grid")
+def foundation_grid_component() -> tuple[str, int, dict[str, str]]:
+    html = render_template(
+        "partials/foundation_grid.html",
+        **build_foundation_grid_context(),
+    )
+    return _fragment_response(html)
+
+
+@app.get("/components/foundation-work-queue")
+def foundation_work_queue_component() -> tuple[str, int, dict[str, str]]:
+    html = render_template(
+        "partials/foundation_work_queue.html",
+        **build_foundation_work_queue_context(),
+    )
     return _fragment_response(html)
 
 
