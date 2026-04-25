@@ -1,16 +1,16 @@
 {% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}
 {% set selection_actions %}
   {{ ui.button("Refresh Selected",
-        variant="outline-secondary",
-        size="sm",
-        jbs_action="refresh",
-        attrs='data-jbs-selection-requires') 
+    variant="outline-secondary",
+    size="sm",
+    jbs_action="refresh",
+    attrs='data-jbs-selection-requires') 
   }}
   {{ ui.button("Review Batch",
-        variant="primary",
-        size="sm",
-        jbs_action="refresh",
-        attrs='data-jbs-selection-requires') 
+    variant="primary",
+    size="sm",
+    jbs_action="refresh",
+    attrs='data-jbs-selection-requires') 
   }}
 {% endset %}
 {{ ui.data_grid("foundation-work-queue",
