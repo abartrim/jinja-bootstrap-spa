@@ -1,11 +1,12 @@
 """Tests for the packaged Bootstrap Jinja macros."""
 
-from jinja2 import Environment
+from jinja2 import DictLoader, Environment
 
 from jinja_bootstrap_spa.macros.bootstrap import register_bootstrap_macros
 from jinja_bootstrap_spa.runtime.components import (
     action_attrs,
     attrs_to_html,
+    component_attrs,
     table_attrs,
 )
 from jinja_bootstrap_spa.runtime.contract import (
@@ -1252,3 +1253,155 @@ def test_conditional_fragment_response_returns_304_on_match() -> None:
     assert second_status == 304
     assert second_body == ""
     assert second_headers["ETag"] == etag
+
+
+def test_etag_matches_accepts_wildcard() -> None:
+    etag = fragment_etag("<section>B</section>")
+    assert etag_matches("*", etag)
+    assert etag_matches('"other", *, W/"more"', etag)
+
+
+def test_etag_matches_returns_false_for_none_or_empty_header() -> None:
+    etag = fragment_etag("<section>C</section>")
+    assert not etag_matches(None, etag)
+    assert not etag_matches("", etag)
+
+
+def test_parse_table_state_handles_unparseable_page_and_page_size() -> None:
+    state = parse_table_state({"page": "abc", "page_size": None})
+
+    assert state["page"] == 1
+    assert state["page_size"] == 10
+
+
+def test_parse_table_state_ignores_empty_header_state_value() -> None:
+    state = parse_table_state(
+        {"page": "3"},
+        request_headers={JBS_STATE_HEADER: ""},
+    )
+
+    assert state["page"] == 3
+
+
+def test_parse_table_state_ignores_non_dict_json_in_header() -> None:
+    state = parse_table_state(
+        {"page": "3"},
+        request_headers={JBS_STATE_HEADER: "[1, 2, 3]"},
+    )
+
+    assert state["page"] == 3
+
+
+def test_parse_table_state_ignores_invalid_json_in_header() -> None:
+    state = parse_table_state(
+        {"page": "3"},
+        request_headers={JBS_STATE_HEADER: "{not-json}"},
+    )
+
+    assert state["page"] == 3
+
+
+def test_parse_table_state_skips_list_filter_when_all_values_empty() -> None:
+    state = parse_table_state(
+        {"page": "1"},
+        request_headers={
+            JBS_STATE_HEADER: (
+                '{"page":1,"page_size":10,"sort_by":"","sort_dir":"asc",'
+                '"tags":["", null]}'
+            )
+        },
+        filter_keys=("tags",),
+    )
+
+    assert "tags" not in state
+
+
+def test_parse_table_state_skips_filter_key_with_none_or_empty_value() -> None:
+    state = parse_table_state(
+        {"page": "1", "status": "", "priority": None},
+        filter_keys=("status", "priority"),
+    )
+
+    assert "status" not in state
+    assert "priority" not in state
+
+
+def test_component_attrs_minimal_returns_required_attrs_only() -> None:
+    attrs = component_attrs(component="custom", endpoint="/fragments/custom")
+
+    assert attrs["data-jbs-component"] == "custom"
+    assert attrs["data-jbs-endpoint"] == "/fragments/custom"
+    assert "data-jbs-target" not in attrs
+    assert "data-jbs-key" not in attrs
+    assert "data-jbs-trigger" not in attrs
+    assert "data-jbs-lazy" not in attrs
+    assert "data-jbs-state" not in attrs
+    assert "data-jbs-state-keys" not in attrs
+    assert "data-jbs-sse" not in attrs
+    assert "data-jbs-stream-max-rows" not in attrs
+
+
+def test_component_attrs_trigger_and_swap_are_set_when_provided() -> None:
+    attrs = component_attrs(
+        component="widget",
+        endpoint="/fragments/widget",
+        trigger="change",
+        swap="innerHTML",
+    )
+
+    assert attrs["data-jbs-trigger"] == "change"
+    assert attrs["data-jbs-swap"] == "innerHTML"
+
+
+def test_action_attrs_minimal_returns_action_only() -> None:
+    attrs = action_attrs(action="refresh")
+
+    assert attrs["data-jbs-action"] == "refresh"
+    assert "data-jbs-component-ref" not in attrs
+    assert "data-jbs-page" not in attrs
+    assert "data-jbs-sort-key" not in attrs
+    assert "data-jbs-sort-direction" not in attrs
+    assert "data-jbs-row-id" not in attrs
+    assert "data-jbs-intent" not in attrs
+    assert "data-jbs-patch" not in attrs
+
+
+def test_action_attrs_sort_fields_are_included_when_provided() -> None:
+    attrs = action_attrs(
+        action="sort",
+        sort_key="created_at",
+        sort_direction="desc",
+    )
+
+    assert attrs["data-jbs-sort-key"] == "created_at"
+    assert attrs["data-jbs-sort-direction"] == "desc"
+
+
+def test_action_attrs_page_field_is_included_when_provided() -> None:
+    attrs = action_attrs(action="page", page=3)
+
+    assert attrs["data-jbs-page"] == "3"
+
+
+def test_split_filter_with_maxsplit_limits_output_parts() -> None:
+    environment = build_environment()
+    template = environment.from_string('{{ "a b c d" | split(" ", 2) | join("|") }}')
+
+    rendered = template.render()
+
+    assert rendered == "a|b|c d"
+
+
+def test_register_bootstrap_macros_merges_with_existing_loader() -> None:
+    existing_loader = DictLoader({"my_app/base.html": "<html>{{ content }}</html>"})
+    environment = Environment(autoescape=True, loader=existing_loader)
+    register_bootstrap_macros(environment)
+
+    template = environment.from_string(
+        '{% import "jinja_bootstrap_spa/bootstrap_macros.html" as ui %}'
+        '{{ ui.button("Go") }}'
+    )
+    rendered = template.render()
+
+    assert 'class="btn btn-primary"' in rendered
+    assert environment.get_template("my_app/base.html") is not None
